@@ -1758,6 +1758,11 @@
     els.machineForm.addEventListener("submit", saveMachine);
     els.jobForm.addEventListener("submit", saveJob);
 
+    await fetchData(); // Tải lại dữ liệu mới từ Firebase
+    renderJobs();      // Vẽ lại bảng Job
+    els.jobDialog.close();
+    showToast("Thêm Job bảo trì thành công!");
+});
     els.itemImageInput.addEventListener("change", function(e) {
       const file = e.target.files[0]; if (!file) return;
       const reader = new FileReader();
