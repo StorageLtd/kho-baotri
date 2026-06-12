@@ -3,91 +3,1882 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>LTD VIET NAM - Cloud</title>
+  <title>LTD VIET NAM - Fanuc CNC Monitor</title>
   <style>
-    :root { color-scheme: light; --bg: #f6f7f4; --panel: #ffffff; --ink: #18201d; --muted: #637069; --line: #d9e0dc; --brand: #16664d; --danger: #b93232; font-family: sans-serif; }
-    body { margin: 0; background: var(--bg); color: var(--ink); min-height: 100vh; }
-    .app { display: grid; grid-template-columns: 248px minmax(0, 1fr); }
-    .content { padding: 24px; }
-    .table-wrap { overflow-x: auto; }
-    table { width: 100%; border-collapse: collapse; table-layout: fixed; }
-    th, td { padding: 12px; border-bottom: 1px solid var(--line); overflow-wrap: break-word; }
-    .btn { padding: 8px 16px; border-radius: 4px; border: none; cursor: pointer; background: var(--brand); color: #fff; }
-    .input { width: 100%; padding: 8px; border: 1px solid var(--line); border-radius: 4px; }
-    dialog { padding: 20px; border: none; border-radius: 8px; width: 500px; }
-    .hidden { display: none; }
+    :root {
+      color-scheme: light;
+      --bg: #f6f7f4;
+      --panel: #ffffff;
+      --panel-soft: #edf3ef;
+      --ink: #18201d;
+      --muted: #637069;
+      --line: #d9e0dc;
+      --brand: #16664d;
+      --brand-strong: #0c4c39;
+      --accent: #c7562f;
+      --warn: #a15d00;
+      --danger: #b93232;
+      --ok: #147a4a;
+      --shadow: 0 18px 40px rgba(32, 41, 37, .08);
+      font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      background: var(--bg);
+      color: var(--ink);
+      min-height: 100vh;
+    }
+
+    button, input, select, textarea { font: inherit; }
+    button { border: 0; cursor: pointer; }
+
+    .app {
+      min-height: 100vh;
+      display: grid;
+      grid-template-columns: 248px minmax(0, 1fr);
+    }
+
+    .sidebar {
+      background: #12251f;
+      color: #f3faf6;
+      padding: 24px 18px;
+      display: flex;
+      flex-direction: column;
+      gap: 26px;
+      position: sticky;
+      top: 0;
+      height: 100vh;
+    }
+
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 0 6px;
+      justify-content: center;
+    }
+
+    .brand img {
+      max-width: 100%;
+      height: auto;
+      max-height: 80px; 
+      object-fit: contain;
+      display: block;
+    }
+
+    .nav { display: grid; gap: 8px; }
+    .nav button {
+      width: 100%;
+      min-height: 42px;
+      border-radius: 8px;
+      background: transparent;
+      color: #cfe0d7;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 0 12px;
+      text-align: left;
+    }
+
+    .nav button.active, .nav button:hover {
+      background: rgba(255, 255, 255, .1);
+      color: #fff;
+    }
+
+    .sidebar-footer {
+      margin-top: auto;
+      padding: 12px;
+      border: 1px solid rgba(255, 255, 255, .15);
+      border-radius: 8px;
+      color: #d9e8e0;
+      font-size: 13px;
+      line-height: 1.45;
+    }
+
+    main { min-width: 0; }
+    .topbar {
+      min-height: 78px;
+      background: rgba(246, 247, 244, .9);
+      backdrop-filter: blur(16px);
+      border-bottom: 1px solid var(--line);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 18px;
+      padding: 16px 28px;
+      position: sticky;
+      top: 0;
+      z-index: 5;
+    }
+
+    .page-title h2 { margin: 0; font-size: 24px; letter-spacing: 0; }
+    .page-title p { margin: 3px 0 0; color: var(--muted); font-size: 14px; }
+    .actions { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; justify-content: flex-end; }
+    
+    .btn {
+      min-height: 40px;
+      border-radius: 8px;
+      padding: 0 14px;
+      background: var(--panel);
+      color: var(--ink);
+      border: 1px solid var(--line);
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      white-space: nowrap;
+    }
+    .btn.primary { background: var(--brand); border-color: var(--brand); color: #fff; font-weight: 700; }
+    .btn.primary:hover { background: var(--brand-strong); }
+    .btn:hover { border-color: #adbbb4; }
+    .btn.sm { min-height: 28px; height: 28px; padding: 0 8px; font-size: 12px; border-radius: 6px; }
+
+    .content { padding: 24px 28px 36px; display: grid; gap: 22px; }
+    .content[hidden] { display: none; }
+    .stats { display: grid; grid-template-columns: repeat(4, minmax(150px, 1fr)); gap: 14px; }
+    
+    .stat {
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      padding: 16px;
+      box-shadow: var(--shadow);
+      min-height: 108px;
+      display: grid;
+      align-content: space-between;
+    }
+    .stat span { color: var(--muted); font-size: 13px; }
+    .stat strong { font-size: 28px; letter-spacing: 0; }
+
+    .workspace { display: grid; grid-template-columns: minmax(0, 1fr) 320px; gap: 18px; align-items: start; }
+    .section { background: var(--panel); border: 1px solid var(--line); border-radius: 8px; box-shadow: var(--shadow); overflow: hidden; margin-bottom: 10px; }
+    .section-head { min-height: 66px; padding: 14px 16px; border-bottom: 1px solid var(--line); display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+    .section-head h3 { margin: 0; font-size: 17px; }
+
+    .filters { display: grid; grid-template-columns: minmax(180px, 1fr) 150px 150px; gap: 10px; padding: 14px 16px; background: #fbfcfa; border-bottom: 1px solid var(--line); }
+    .field { display: grid; gap: 6px; }
+    .field label { color: var(--muted); font-size: 12px; font-weight: 700; }
+
+    .input, select, textarea { width: 100%; min-height: 40px; border-radius: 8px; border: 1px solid var(--line); background: #fff; color: var(--ink); padding: 0 11px; outline: 0; }
+    textarea { padding: 10px 11px; resize: vertical; min-height: 80px; }
+    .input:focus, select:focus, textarea:focus { border-color: var(--brand); box-shadow: 0 0 0 3px rgba(22, 102, 77, .15); }
+
+    .table-wrap { overflow: auto; }
+    table { width: 100%; border-collapse: collapse; min-width: 900px; }
+    th, td { padding: 13px 16px; border-bottom: 1px solid var(--line); text-align: left; vertical-align: middle; }
+    th { background: #fbfcfa; color: var(--muted); font-size: 12px; text-transform: uppercase; letter-spacing: .04em; position: sticky; top: 0; z-index: 1; }
+    tbody tr:hover { background: #f8faf8; }
+    
+    .sku { color: var(--muted); font-size: 12px; margin-top: 2px; }
+    .pill { min-height: 26px; border-radius: 999px; display: inline-flex; align-items: center; padding: 0 9px; font-size: 12px; font-weight: 800; white-space: nowrap; }
+    .pill.ok { background: #e4f3ea; color: var(--ok); }
+    .pill.warn { background: #fff0d7; color: var(--warn); }
+    .pill.danger { background: #ffe3e0; color: var(--danger); }
+
+    .row-actions { display: flex; gap: 7px; justify-content: flex-end; }
+    .icon-btn { width: 34px; height: 34px; border-radius: 8px; border: 1px solid var(--line); background: #fff; color: var(--ink); display: grid; place-items: center; font-weight: 800; }
+    .icon-btn:hover { border-color: var(--brand); color: var(--brand); }
+    .icon-btn.danger:hover { border-color: var(--danger); color: var(--danger); }
+
+    .side-panel { display: grid; gap: 18px; }
+    
+    .list { padding: 14px 16px 16px; display: grid; gap: 10px; }
+    .alert-item, .activity-item { border: 1px solid var(--line); border-radius: 8px; padding: 12px; display: grid; gap: 5px; background: #fff; }
+    .alert-item strong, .activity-item strong { font-size: 14px; }
+    .meta { color: var(--muted); font-size: 12px; line-height: 1.35; }
+    .empty { color: var(--muted); padding: 18px; text-align: center; }
+
+    /* CNC Fanuc Live Dashboard Custom Style */
+    .cnc-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(420px, 1fr)); gap: 20px; }
+    .cnc-card { background: var(--panel); border: 1px solid var(--line); border-radius: 12px; box-shadow: var(--shadow); overflow: hidden; display: flex; flex-direction: column; }
+    .cnc-header { padding: 16px; background: #111827; color: #fff; display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid var(--line); }
+    .cnc-header h4 { margin: 0; font-size: 17px; font-weight: 700; letter-spacing: 0.5px; }
+    .cnc-status-indicator { display: flex; align-items: center; gap: 6px; font-weight: bold; font-size: 12px; text-transform: uppercase; }
+    .cnc-dot { width: 10px; height: 10px; border-radius: 50%; display: inline-block; }
+    
+    /* Trạng thái vòng tròn nhỏ ở Header */
+    .cnc-dot.running { background: #10b981; box-shadow: 0 0 8px #10b981; }
+    .cnc-dot.alarm { background: #ef4444; box-shadow: 0 0 10px #ef4444; animation: blink 0.6s infinite alternate; }
+    .cnc-dot.idle { background: #f59e0b; box-shadow: 0 0 8px #f59e0b; }
+    
+    .cnc-body { padding: 16px; display: flex; flex-direction: column; gap: 12px; background: #fafafa; flex-grow: 1; }
+    
+    /* Màu sắc hiển thị ô trục chính theo yêu cầu */
+    .cnc-param-box { border: 1px solid var(--line); border-radius: 8px; padding: 12px 10px; text-align: center; transition: background 0.3s ease; background: #ffffff; }
+    .cnc-param-box.bg-running { background: #e6fcf5 !important; border-color: #a3e635; } /* Màu xanh khi chạy */
+    .cnc-param-box.bg-idle { background: #fefce8 !important; border-color: #fde047; }    /* Màu vàng khi dừng */
+    .cnc-param-box.bg-alarm { background: #fef2f2 !important; border-color: #fca5a5; animation: alarmPulse 1s infinite alternate; }   /* Màu đỏ khi lỗi */
+
+    .cnc-param-box span { font-size: 11px; color: var(--muted); font-weight: 700; display: block; margin-bottom: 4px; text-transform: uppercase; letter-spacing: 0.5px; }
+    .cnc-param-box strong { font-size: 22px; color: #111827; font-family: monospace, sans-serif; }
+    
+    .cnc-program-bar { background: #f3f4f6; border: 1px dashed #cdc9c9; border-radius: 6px; padding: 8px 12px; display: flex; justify-content: space-between; align-items: center; font-size: 13px; }
+    .cnc-program-bar span { color: var(--muted); font-weight: 600; }
+    .cnc-program-bar strong { color: #1e40af; font-family: monospace; font-size: 14px; }
+
+    .cnc-alarm-banner { background: #fff1f2; border: 1px solid #fecdd3; border-radius: 8px; padding: 10px; display: flex; flex-direction: column; gap: 3px; }
+    .cnc-alarm-banner strong { color: var(--danger); font-size: 13px; display: flex; align-items: center; gap: 5px; }
+    .cnc-alarm-banner p { margin: 0; font-size: 12px; color: #9f1239; line-height: 1.4; }
+
+    /* Ô chứa Nhật ký lỗi tích hợp bên trong từng máy */
+    .cnc-card-logs {
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: #ffffff;
+      padding: 10px;
+      margin-top: auto;
+    }
+    .cnc-card-logs-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 6px;
+      border-bottom: 1px solid var(--line);
+      padding-bottom: 4px;
+    }
+    .cnc-card-logs-header span {
+      font-size: 12px;
+      font-weight: 700;
+      color: #374151;
+    }
+    .cnc-logs-list {
+      max-height: 110px;
+      overflow-y: auto;
+      display: flex;
+      flex-direction: column;
+      gap: 5px;
+      padding-right: 2px;
+    }
+    .cnc-log-item {
+      font-size: 11px;
+      line-height: 1.4;
+      padding: 6px;
+      border-radius: 4px;
+      background: #f9fafb;
+      border-left: 3px solid var(--line);
+    }
+    .cnc-log-item.danger {
+      background: #fff5f5;
+      border-left-color: var(--danger);
+      color: #9f1239;
+    }
+    .cnc-log-item.ok {
+      background: #f0fdf4;
+      border-left-color: var(--ok);
+      color: #166534;
+    }
+
+    .history-tools { display: grid; grid-template-columns: minmax(200px, 1fr) 150px 150px; gap: 10px; padding: 14px 16px; background: #fbfcfa; border-bottom: 1px solid var(--line); }
+
+    dialog { border: 0; padding: 0; border-radius: 8px; width: min(720px, calc(100vw - 28px)); box-shadow: 0 30px 70px rgba(16, 24, 20, .28); }
+    dialog::backdrop { background: rgba(15, 24, 20, .45); }
+    .modal-head, .modal-foot { padding: 16px 18px; display: flex; align-items: center; justify-content: space-between; gap: 12px; border-bottom: 1px solid var(--line); }
+    .modal-foot { border-top: 1px solid var(--line); border-bottom: 0; justify-content: flex-end; }
+    .modal-head h3 { margin: 0; font-size: 18px; }
+
+    .form-grid { padding: 18px; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; }
+    .form-grid .wide { grid-column: 1 / -1; }
+
+    .toast { position: fixed; right: 18px; bottom: 18px; min-height: 44px; max-width: min(420px, calc(100vw - 36px)); border-radius: 8px; background: #13251f; color: #fff; padding: 12px 14px; box-shadow: var(--shadow); display: none; z-index: 20; }
+    .toast.show { display: block; animation: rise .18s ease-out; }
+
+    .login-screen {
+      min-height: 100vh; display: grid; place-items: center; padding: 22px;
+      background: linear-gradient(135deg, rgba(18, 37, 31, .94), rgba(22, 102, 77, .88));
+    }
+    .login-panel { width: min(440px, 100%); background: #fff; border-radius: 8px; border: 1px solid var(--line); box-shadow: 0 30px 80px rgba(0, 0, 0, .24); padding: 26px; display: grid; gap: 18px; }
+    .login-title h1 { margin: 0; font-size: 23px; line-height: 1.2; }
+    .login-error { min-height: 20px; color: var(--danger); font-size: 13px; font-weight: 700; }
+
+    body.locked .app, body.locked dialog, body.locked .toast { display: none; }
+    body:not(.locked) .login-screen { display: none; }
+
+    @keyframes rise {
+      from { transform: translateY(8px); opacity: 0; }
+      to { transform: translateY(0); opacity: 1; }
+    }
+    @keyframes blink {
+      from { opacity: 0.4; }
+      to { opacity: 1; }
+    }
+    @keyframes alarmPulse {
+      from { border-color: #fca5a5; box-shadow: 0 0 2px rgba(239, 68, 68, 0.1); }
+      to { border-color: #ef4444; box-shadow: 0 0 8px rgba(239, 68, 68, 0.3); }
+    }
+
+    @media (max-width: 1060px) {
+      .app { grid-template-columns: 1fr; }
+      .sidebar { position: static; height: auto; padding: 14px 16px; flex-direction: row; align-items: center; gap: 14px; }
+      .nav { display: flex; overflow: auto; }
+      .nav button { white-space: nowrap; }
+      .sidebar-footer { display: none; }
+      .workspace { grid-template-columns: 1fr; }
+    }
   </style>
 </head>
-<body>
+<body class="locked">
+  <section class="login-screen">
+    <form class="login-panel" id="loginForm" onsubmit="return false;">
+      <div class="login-title">
+        <img src="logo.jpg" alt="LTD Logo" style="width: 120px; height: auto; object-fit: contain;">
+        <div>
+          <h1>LTD VIET NAM</h1>
+          <p>Đăng nhập hệ thống nhà xưởng</p>
+        </div>
+      </div>
+      <div class="field">
+        <label for="usernameInput">Nhân viên</label>
+        <input class="input" id="usernameInput" required placeholder="User Name">
+      </div>
+      <div class="field">
+        <label for="passwordInput">Mật khẩu</label>
+        <input class="input" id="passwordInput" type="password" required placeholder="Password">
+      </div>
+      <div class="login-error" id="loginError"></div>
+      <button class="btn primary" type="submit" id="submitLoginBtn">Đăng nhập</button>
+    </form>
+  </section>
 
   <div class="app">
-    <aside style="background: #12251f; color: #fff; padding: 20px;">
-      <h2>LTD VIET NAM</h2>
-      <nav>
-        <button onclick="switchPage('inventoryPage')">Tổng quan</button><br>
-        <button onclick="switchPage('machinesPage')">Máy móc</button><br>
-        <button onclick="switchPage('historyPage')">Lịch sử</button>
+    <aside class="sidebar">
+      <div class="brand">
+        <img src="logo.jpg" alt="LTD VIET NAM Logo">
+      </div>
+      <nav class="nav" aria-label="Chức năng">
+        <button class="active" type="button" data-page="cncMonitorPage">📊 Giám sát CNC Fanuc</button>
+        <button type="button" data-page="inventoryPage">Linh kiện</button>
+        <button type="button" data-page="machinesPage">Danh sách máy</button>
+        <button type="button" data-page="maintenanceJobsPage">📅 Lịch bảo trì máy</button>
+        <button type="button" data-page="historyPage">Lịch sử sửa máy</button>
       </nav>
+      <div class="sidebar-footer">
+        <strong id="todayLabel"></strong>
+        <div style="color: #6ee7b7; font-weight: bold; margin-top: 4px;" id="onlineCountLabel">● Đang trực tuyến: 1 người</div>
+        <div style="color: #a7f3d0; font-size: 12px; margin-top: 2px;">● Đám mây (Fanuc API) kết nối</div>
+      </div>
     </aside>
 
     <main>
-      <section id="inventoryPage" class="content">
-        <button class="btn" onclick="openItemDialog()">+ Thêm linh kiện</button>
-        <div class="table-wrap">
-          <table id="inventoryTable">
-            <thead><tr><th>Tên</th><th>Mã</th><th>Thiết bị</th><th>Số lượng</th><th>Thao tác</th></tr></thead>
-            <tbody id="inventoryBody"></tbody>
-          </table>
+      <header class="topbar">
+        <div class="page-title">
+          <h2 id="pageHeading">Giám sát trạng thái CNC Realtime</h2>
+          <p id="pageSubtitle">Theo dõi dữ liệu phản hồi trực tiếp từ máy: chương trình, tốc độ và lịch sử lỗi CNC Fanuc.</p>
+        </div>
+        <div class="actions">
+          <button class="btn" id="exportBtn" type="button" style="display:none;">Xuất Linh Kiện CSV</button>
+          <button class="btn" id="exportMachineBtn" type="button" style="display:none;">Xuất Máy CSV</button>
+          <button class="btn" id="exportJobBtn" type="button" style="display:none;">Xuất Lịch Job CSV</button>
+          <button class="btn" id="exportHistoryBtn" type="button" style="display:none;">Xuất Lịch Sử CSV</button>
+          <button class="btn" id="logoutBtn" type="button">Đăng xuất</button>
+          
+          <button class="btn primary" id="addCncMonitorBtn" type="button">Thêm máy giám sát</button>
+          <button class="btn primary" id="addBtn" type="button" style="display:none;">Thêm linh kiện</button>
+          <button class="btn primary" id="addMachineMainBtn" type="button" style="display:none;">Thêm máy mới</button>
+          <button class="btn primary" id="addJobMainBtn" type="button" style="display:none;">Tạo Job Bảo Trì</button>
+        </div>
+      </header>
+
+      <!-- TAB MỚI: GIÁM SÁT MÁY CNC TRỰC TIẾP -->
+      <section class="content" id="cncMonitorPage">
+        <div class="cnc-grid" id="cncCardsContainer">
+          <!-- Dữ liệu card CNC load động từ JS/Firebase -->
         </div>
       </section>
 
-      <section id="machinesPage" class="content hidden">
-        <button class="btn" onclick="openMachineDialog()">+ Thêm máy</button>
-        <div class="table-wrap">
-          <table id="machineTable">
-            <thead><tr><th>Tên máy</th><th>Nhà cung cấp</th><th>Hành động</th></tr></thead>
-            <tbody id="machineListBody"></tbody>
-          </table>
+      <!-- TAB 1: LINH KIỆN & TỔNG QUAN -->
+      <section class="content" id="inventoryPage" hidden>
+        <div class="stats" id="overview">
+          <article class="stat">
+            <span>Tổng mã linh kiện</span>
+            <strong id="statItems">0</strong>
+          </article>
+          <article class="stat">
+            <span>Số lượng còn</span>
+            <strong id="statUnits">0</strong>
+          </article>
+          <article class="stat">
+            <span>Vị trí kệ</span>
+            <strong id="statValue">0</strong>
+          </article>
+          <article class="stat">
+            <span>Sắp hết linh kiện</span>
+            <strong id="statLow">0</strong>
+          </article>
+        </div>
+
+        <div class="workspace">
+          <section class="section" id="inventorySection">
+            <div class="section-head">
+              <h3>Danh sách linh kiện bảo trì</h3>
+              <span class="meta" id="resultCount">Đang tải...</span>
+            </div>
+            <div class="filters">
+              <div class="field">
+                <label for="searchInput">Tìm kiếm</label>
+                <input class="input" id="searchInput" type="search" placeholder="Tên linh kiện, mã, kệ...">
+              </div>
+              <div class="field">
+                <label for="categoryFilter">Nhóm linh kiện</label>
+                <select id="categoryFilter"><option value="all">Tất cả</option></select>
+              </div>
+              <div class="field">
+                <label for="statusFilter">Trạng thái</label>
+                <select id="statusFilter">
+                  <option value="all">Tất cả</option>
+                  <option value="ok">Đủ dùng</option>
+                  <option value="low">Sắp hết</option>
+                  <option value="out">Hết linh kiện</option>
+                </select>
+              </div>
+            </div>
+            <div class="table-wrap">
+              <table>
+                <thead>
+                  <tr>
+                    <th>Linh kiện</th>
+                    <th>Nhóm</th>
+                    <th>Thông số</th>
+                    <th>Số lượng còn</th>
+                    <th>Tối thiểu</th>
+                    <th>Kệ</th>
+                    <th>Thiết bị</th>
+                    <th>Hình ảnh</th>
+                    <th>Ghi chú</th>
+                    <th>Trạng thái</th>
+                    <th></th>
+                  </tr>
+                </thead>
+                <tbody id="inventoryBody"></tbody>
+              </table>
+            </div>
+          </section>
+
+          <aside class="side-panel">
+            <section class="section">
+              <div class="section-head"><h3>Cảnh báo hạn & tồn</h3></div>
+              <div class="list" id="alertList"></div>
+            </section>
+            <section class="section">
+              <div class="section-head"><h3>Hoạt động gần đây</h3></div>
+              <div class="list" id="activityList"></div>
+            </section>
+          </aside>
         </div>
       </section>
 
-      <section id="historyPage" class="content hidden">
-        <button class="btn" onclick="openHistoryDialog()">+ Thêm lịch sử</button>
-        <div class="table-wrap">
-          <table id="historyTable">
-            <thead><tr><th>Ngày</th><th>Máy</th><th>Lỗi</th><th>Xử lý</th></tr></thead>
-            <tbody id="historyList"></tbody>
-          </table>
-        </div>
+      <!-- TAB 2: DANH SÁCH MÁY MÓC -->
+      <section class="content" id="machinesPage" hidden>
+        <section class="section">
+          <div class="section-head">
+            <div>
+              <h3>Danh sách quản lý máy nhà xưởng</h3>
+              <div class="meta">Theo dõi thông tin thiết bị cơ bản và thời gian bảo hành nhà cung cấp.</div>
+            </div>
+            <button class="btn primary" id="addMachineBtn" type="button">Thêm máy mới</button>
+          </div>
+          <div style="padding: 14px 16px; background: #fbfcfa; border-bottom: 1px solid var(--line);">
+            <div class="field">
+              <label for="machineSearchInput">Tìm nhanh máy thiết bị</label>
+              <input class="input" id="machineSearchInput" type="search" placeholder="Tìm theo tên máy, đơn vị cung cấp...">
+            </div>
+          </div>
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>Tên máy thiết bị</th>
+                  <th>Ngày lắp đặt</th>
+                  <th>Hạn bảo hành</th>
+                  <th>Công ty cung cấp</th>
+                  <th>Số điện thoại</th>
+                  <th></th>
+                </tr>
+              </thead>
+              <tbody id="machineListBody"></tbody>
+            </table>
+          </div>
+        </section>
+      </section>
+
+      <!-- TAB 3: KẾ HOẠCH JOB BẢO TRÌ MÁY -->
+      <section class="content" id="maintenanceJobsPage" hidden>
+        <section class="section">
+          <div class="section-head">
+            <div>
+              <h3>Thiết lập kế hoạch Job bảo trì định kỳ</h3>
+              <div class="meta">Cài đặt nhiều hạng mục kiểm tra, thay thế vật tư riêng biệt cho mỗi thiết bị máy.</div>
+            </div>
+            <button class="btn primary" id="addJobBtn" type="button">Thêm kế hoạch Job mới</button>
+          </div>
+          <div style="padding: 14px 16px; background: #fbfcfa; border-bottom: 1px solid var(--line);">
+            <div class="field">
+              <label for="jobSearchInput">Lọc nhanh theo tên máy hoặc tên công việc</label>
+              <input class="input" id="jobSearchInput" type="search" placeholder="Ví dụ: Kiểm tra biến tần, Thay dầu...">
+            </div>
+          </div>
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>Tên thiết bị máy</th>
+                  <th>Hạng mục / Công việc bảo trì (Job)</th>
+                  <th>Chu kỳ lặp lại</th>
+                  <th>Ngày bảo trì dự kiến tiếp theo</th>
+                  <th>Mô tả chi tiết kỹ thuật</th>
+                  <th>Trạng thái</th>
+                  <th>Thao tác</th>
+                </tr>
+              </thead>
+              <tbody id="jobListBody"></tbody>
+            </table>
+          </div>
+        </section>
+      </section>
+
+      <!-- TAB 4: LỊCH SỬ SỬA CHỮA -->
+      <section class="content" id="historyPage" hidden>
+        <section class="section">
+          <div class="section-head">
+            <div>
+              <h3>Lịch sử lỗi và nội dung xử lý</h3>
+              <div class="meta">Theo dõi lỗi phát sinh đột xuất của thiết bị máy và phương án khắc phục cơ điện.</div>
+            </div>
+            <button class="btn primary" id="addHistoryBtn" type="button">Thêm lịch sử</button>
+          </div>
+          <div class="history-tools">
+            <div class="field">
+              <label for="historySearchInput">Tìm nhanh</label>
+              <input class="input" id="historySearchInput" type="search" placeholder="Tên máy, nội dung lỗi...">
+            </div>
+            <div class="field">
+              <label for="historyFromInput">Từ ngày</label>
+              <input class="input" id="historyFromInput" type="date">
+            </div>
+            <div class="field">
+              <label for="historyToInput">Đến ngày</label>
+              <input class="input" id="historyToInput" type="date">
+            </div>
+          </div>
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>Ngày lỗi</th>
+                  <th>Tên máy lỗi</th>
+                  <th>Người xử lý</th>
+                  <th>Nội dung lỗi</th>
+                  <th>Nội dung xử lý</th>
+                  <th>Hình ảnh</th>
+                  <th></th>
+                </tr>
+              </thead>
+              <tbody id="historyList"></tbody>
+            </table>
+          </div>
+        </section>
       </section>
     </main>
   </div>
 
-  <dialog id="itemDialog">
-    <form id="itemForm">
-      <h3>Linh kiện</h3>
-      <input type="hidden" id="itemId">
-      <input class="input" id="nameInput" placeholder="Tên linh kiện" required><br><br>
-      <input class="input" id="skuInput" placeholder="Mã linh kiện" required><br><br>
-      <input class="input" id="supplierInput" placeholder="Thiết bị sử dụng" required><br><br>
-      <button class="btn" type="submit">Lưu</button>
-      <button type="button" onclick="document.getElementById('itemDialog').close()">Hủy</button>
+  <!-- DIALOG THÊM MÁY GIÁM SÁT CNC -->
+  <dialog id="cncMonitorDialog">
+    <form id="cncMonitorForm" method="dialog">
+      <div class="modal-head">
+        <h3 id="cncDialogTitle">Thêm máy theo dõi trực tiếp</h3>
+        <button class="icon-btn" type="button" id="closeCncDialog">x</button>
+      </div>
+      <div class="form-grid">
+        <input type="hidden" id="cncId">
+        <div class="field wide">
+          <label for="cncMachineSelect">Chọn máy thiết bị (Lấy từ Danh Sách Máy)</label>
+          <select id="cncMachineSelect" class="input" required>
+            <option value="">-- Chọn máy cần cấu hình giám sát --</option>
+          </select>
+        </div>
+        <div class="field">
+          <label for="cncStatusInput">Trạng thái khởi tạo</label>
+          <select id="cncStatusInput" class="input">
+            <option value="idle">Chờ lệnh (IDLE)</option>
+            <option value="running">Đang chạy (RUNNING)</option>
+            <option value="alarm">Báo lỗi (ALARM)</option>
+          </select>
+        </div>
+        <div class="field">
+          <label for="cncProgramInput">Tên chương trình hiện tại</label>
+          <input class="input" id="cncProgramInput" placeholder="Ví dụ: O0024" value="O0000">
+        </div>
+      </div>
+      <div class="modal-foot">
+        <button class="btn" id="cancelCncBtn" type="button">Hủy</button>
+        <button class="btn primary" type="submit">Xác nhận cấu hình</button>
+      </div>
     </form>
   </dialog>
 
+  <!-- CÁC DIALOG KHÁC -->
+  <dialog id="itemDialog">
+    <form id="itemForm" method="dialog">
+      <div class="modal-head">
+        <h3 id="dialogTitle">Thêm linh kiện</h3>
+        <button class="icon-btn" value="cancel" type="button" id="closeDialog">x</button>
+      </div>
+      <div class="form-grid">
+        <input type="hidden" id="itemId">
+        <div class="field">
+          <label for="nameInput">Tên linh kiện</label>
+          <input class="input" id="nameInput" required>
+        </div>
+        <div class="field">
+          <label for="skuInput">Mã linh kiện</label>
+          <input class="input" id="skuInput" required>
+        </div>
+        <div class="field">
+          <label for="categoryInput">Nhóm linh kiện</label>
+          <input class="input" id="categoryInput" required>
+        </div>
+        <div class="field">
+          <label for="supplierInput">Thiết bị dùng cho</label>
+          <input class="input" id="supplierInput" required>
+        </div>
+        <div class="field">
+          <label for="quantityInput">Số lượng còn</label>
+          <input class="input" id="quantityInput" type="number" required min="0">
+        </div>
+        <div class="field">
+          <label for="minInput">Tồn tối thiểu</label>
+          <input class="input" id="minInput" type="number" required min="0">
+        </div>
+        <div class="field">
+          <label for="priceInput">Giá tham khảo</label>
+          <input class="input" id="priceInput" type="number" required min="0">
+        </div>
+        <div class="field">
+          <label for="locationInput">Nằm ở kệ số</label>
+          <input class="input" id="locationInput">
+        </div>
+        <div class="field wide">
+          <label for="specsInput">Thông số kỹ thuật linh kiện</label>
+          <textarea id="specsInput"></textarea>
+        </div>
+        <div class="field wide">
+          <label for="noteInput">Ghi chú</label>
+          <textarea id="noteInput"></textarea>
+        </div>
+        <div class="field wide">
+          <label for="itemImageInput">Hình ảnh linh kiện (nếu có)</label>
+          <input class="input" id="itemImageInput" type="file" accept="image/*">
+          <input type="hidden" id="itemImageDataHidden">
+          <div id="itemImagePreviewWrap" style="margin-top: 10px; display: none;">
+            <img id="itemImagePreview" src="" style="max-width: 140px; max-height: 140px; object-fit: contain;">
+          </div>
+        </div>
+      </div>
+      <div class="modal-foot">
+        <button class="btn" id="cancelBtn" type="button">Hủy</button>
+        <button class="btn primary" type="submit">Lưu</button>
+      </div>
+    </form>
+  </dialog>
+
+  <dialog id="moveDialog">
+    <form id="moveForm" method="dialog">
+      <div class="modal-head">
+        <h3 id="moveTitle">Cập nhật tồn</h3>
+        <button class="icon-btn" type="button" id="closeMoveDialog">x</button>
+      </div>
+      <div class="form-grid">
+        <input type="hidden" id="moveItemId">
+        <div class="field">
+          <label for="moveType">Loại</label>
+          <select id="moveType">
+            <option value="in">Nhập kho</option>
+            <option value="out">Xuất kho</option>
+          </select>
+        </div>
+        <div class="field">
+          <label for="moveAmount">Số lượng</label>
+          <input class="input" id="moveAmount" type="number" required min="1" value="1">
+        </div>
+        <div class="field wide">
+          <label for="moveNote">Ghi chú</label>
+          <input class="input" id="moveNote">
+        </div>
+      </div>
+      <div class="modal-foot">
+        <button class="btn" id="cancelMoveBtn" type="button">Hủy</button>
+        <button class="btn primary" type="submit">Cập nhật</button>
+      </div>
+    </form>
+  </dialog>
+
+  <dialog id="historyDialog">
+    <form id="historyForm" method="dialog">
+      <div class="modal-head">
+        <h3 id="historyTitle">Thêm lịch sử sửa máy</h3>
+        <button class="icon-btn" type="button" id="closeHistoryDialog">x</button>
+      </div>
+      <div class="form-grid">
+        <input type="hidden" id="historyId">
+        <div class="field">
+          <label for="machineInput">Tên máy lỗi</label>
+          <input class="input" id="machineInput" required>
+        </div>
+        <div class="field">
+          <label for="faultTimeInput">Ngày lỗi</label>
+          <input class="input" id="faultTimeInput" type="date" required>
+        </div>
+        <div class="field wide">
+          <label for="staffInput">Người xử lý</label>
+          <input class="input" id="staffInput" required>
+        </div>
+        <div class="field wide">
+          <label for="faultInput">Nội dung lỗi</label>
+          <textarea id="faultInput" required></textarea>
+        </div>
+        <div class="field wide">
+          <label for="fixInput">Nội dung xử lý lỗi</label>
+          <textarea id="fixInput" required></textarea>
+        </div>
+        <div class="field wide">
+          <label for="historyImageInput">Hình ảnh sửa máy đính kèm</label>
+          <input class="input" id="historyImageInput" type="file" accept="image/*">
+          <input type="hidden" id="historyImageDataHidden">
+          <div id="historyImagePreviewWrap" style="margin-top: 10px; display: none;">
+            <img id="historyImagePreview" src="" style="max-width: 140px; max-height: 140px; object-fit: contain;">
+          </div>
+        </div>
+      </div>
+      <div class="modal-foot">
+        <button class="btn" id="cancelHistoryBtn" type="button">Hủy</button>
+        <button class="btn primary" type="submit">Lưu lịch sử</button>
+      </div>
+    </form>
+  </dialog>
+
+  <dialog id="machineDialog">
+    <form id="machineForm" method="dialog">
+      <div class="modal-head">
+        <h3 id="machineTitle">Thêm máy thiết bị</h3>
+        <button class="icon-btn" type="button" id="closeMachineDialog">x</button>
+      </div>
+      <div class="form-grid">
+        <input type="hidden" id="machineId">
+        <div class="field wide">
+          <label for="mNameInput">Tên máy thiết bị</label>
+          <input class="input" id="mNameInput" required>
+        </div>
+        <div class="field">
+          <label for="mSetupDateInput">Ngày lắp đặt</label>
+          <input class="input" id="mSetupDateInput" type="date" required>
+        </div>
+        <div class="field">
+          <label for="mWarrantyInput">Hạn bảo hành</label>
+          <input class="input" id="mWarrantyInput" type="date" required>
+        </div>
+        <div class="field">
+          <label for="mVendorInput">Công ty cung cấp</label>
+          <input class="input" id="mVendorInput" required>
+        </div>
+        <div class="field">
+          <label for="mPhoneInput">Số điện thoại liên hệ</label>
+          <input class="input" id="mPhoneInput" required>
+        </div>
+      </div>
+      <div class="modal-foot">
+        <button class="btn" id="cancelMachineBtn" type="button">Hủy</button>
+        <button class="btn primary" type="submit">Lưu thông tin</button>
+      </div>
+    </form>
+  </dialog>
+
+  <dialog id="jobDialog">
+    <form id="jobForm" method="dialog">
+      <div class="modal-head">
+        <h3 id="jobTitle">Thiết lập Job Bảo trì</h3>
+        <button class="icon-btn" type="button" id="closeJobDialog">x</button>
+      </div>
+      <div class="form-grid">
+        <input type="hidden" id="jobId">
+        <div class="field wide">
+          <label for="jMachineSelect">Chọn Thiết Bị Máy</label>
+          <select id="jMachineSelect" class="input" required>
+            <option value="">-- Vui lòng chọn máy --</option>
+          </select>
+        </div>
+        <div class="field wide">
+          <label for="jNameInput">Tên Công Việc / Hạng mục kiểm tra (Job Name)</label>
+          <input class="input" id="jNameInput" required placeholder="Ví dụ: Thay dầu hộp số, Đo dòng motor trục X...">
+        </div>
+        <div class="field">
+          <label for="jPeriodInput">Chu kỳ thực hiện</label>
+          <select id="jPeriodInput" class="input">
+            <option value="1">1 Tháng</option>
+            <option value="2">2 Tháng</option>
+            <option value="3">3 Tháng (Quý)</option>
+            <option value="6">6 Tháng</option>
+            <option value="12">12 Tháng (Hàng Năm)</option>
+          </select>
+        </div>
+        <div class="field">
+          <label for="jNextDateInput">Ngày bảo trì tiếp theo</label>
+          <input class="input" id="jNextDateInput" type="date" required>
+        </div>
+        <div class="field wide">
+          <label for="jDescInput">Mô tả chi tiết các bước xử lý kỹ thuật</label>
+          <textarea id="jDescInput" placeholder="Nhập hướng dẫn thao tác hoặc lưu ý vật tư thay thế nếu có..."></textarea>
+        </div>
+      </div>
+      <div class="modal-foot">
+        <button class="btn" id="cancelJobBtn" type="button">Hủy</button>
+        <button class="btn primary" type="submit">Lưu kế hoạch Job</button>
+      </div>
+    </form>
+  </dialog>
+
+  <div class="toast" id="toast" role="status" aria-live="polite"></div>
+
   <script>
-    // Logic xử lý Form không dùng method="dialog" để tránh xung đột
-    document.getElementById('itemForm').addEventListener('submit', function(e) {
+    const DB_URL = "https://ltdst-80b3e-default-rtdb.asia-southeast1.firebasedatabase.app";
+    const LOGIN_KEY = "ltd-maintenance-login-v1";
+    
+    const STAFF_ACCOUNTS = [
+      { username: "baotri", password: "LTD@123", name: "Nhân viên bảo trì" },
+      { username: "admin", password: "LTD@admin", name: "Quản lý bảo trì" }
+    ];
+
+    if (!sessionStorage.getItem("ltd_user_session_id")) {
+      sessionStorage.setItem("ltd_user_session_id", crypto.randomUUID());
+    }
+    const mySessionId = sessionStorage.getItem("ltd_user_session_id");
+
+    let items = [];
+    let activities = [];
+    let repairHistory = [];
+    let machines = [];
+    let maintenanceJobs = [];
+    let cncDevices = [];
+    let cncAlarmHistory = [];
+
+    const number = new Intl.NumberFormat("vi-VN");
+
+    const els = {
+      todayLabel: document.querySelector("#todayLabel"),
+      pageHeading: document.querySelector("#pageHeading"),
+      pageSubtitle: document.querySelector("#pageSubtitle"),
+      cncMonitorPage: document.querySelector("#cncMonitorPage"),
+      inventoryPage: document.querySelector("#inventoryPage"),
+      machinesPage: document.querySelector("#machinesPage"),
+      maintenanceJobsPage: document.querySelector("#maintenanceJobsPage"),
+      historyPage: document.querySelector("#historyPage"),
+      
+      addCncMonitorBtn: document.querySelector("#addCncMonitorBtn"),
+      addBtn: document.querySelector("#addBtn"),
+      addMachineMainBtn: document.querySelector("#addMachineMainBtn"),
+      addJobMainBtn: document.querySelector("#addJobMainBtn"),
+      exportBtn: document.querySelector("#exportBtn"),
+      exportMachineBtn: document.querySelector("#exportMachineBtn"),
+      exportJobBtn: document.querySelector("#exportJobBtn"),
+      exportHistoryBtn: document.querySelector("#exportHistoryBtn"),
+      statItems: document.querySelector("#statItems"),
+      statUnits: document.querySelector("#statUnits"),
+      statValue: document.querySelector("#statValue"),
+      statLow: document.querySelector("#statLow"),
+      resultCount: document.querySelector("#resultCount"),
+      inventoryBody: document.querySelector("#inventoryBody"),
+      machineListBody: document.querySelector("#machineListBody"),
+      jobListBody: document.querySelector("#jobListBody"),
+      historyList: document.querySelector("#historyList"),
+      searchInput: document.querySelector("#searchInput"),
+      machineSearchInput: document.querySelector("#machineSearchInput"),
+      jobSearchInput: document.querySelector("#jobSearchInput"),
+      historySearchInput: document.querySelector("#historySearchInput"),
+      historyFromInput: document.querySelector("#historyFromInput"),
+      historyToInput: document.querySelector("#historyToInput"),
+      categoryFilter: document.querySelector("#categoryFilter"),
+      statusFilter: document.querySelector("#statusFilter"),
+      alertList: document.querySelector("#alertList"),
+      activityList: document.querySelector("#activityList"),
+      cncCardsContainer: document.querySelector("#cncCardsContainer"),
+      
+      cncMonitorDialog: document.querySelector("#cncMonitorDialog"),
+      cncMonitorForm: document.querySelector("#cncMonitorForm"),
+      cncMachineSelect: document.querySelector("#cncMachineSelect"),
+      cncStatusInput: document.querySelector("#cncStatusInput"),
+      cncProgramInput: document.querySelector("#cncProgramInput"),
+      cncId: document.querySelector("#cncId"),
+
+      itemDialog: document.querySelector("#itemDialog"),
+      itemForm: document.querySelector("#itemForm"),
+      dialogTitle: document.querySelector("#dialogTitle"),
+      itemId: document.querySelector("#itemId"),
+      nameInput: document.querySelector("#nameInput"),
+      skuInput: document.querySelector("#skuInput"),
+      categoryInput: document.querySelector("#categoryInput"),
+      supplierInput: document.querySelector("#supplierInput"),
+      quantityInput: document.querySelector("#quantityInput"),
+      minInput: document.querySelector("#minInput"),
+      priceInput: document.querySelector("#priceInput"),
+      locationInput: document.querySelector("#locationInput"),
+      specsInput: document.querySelector("#specsInput"),
+      noteInput: document.querySelector("#noteInput"),
+      itemImageInput: document.querySelector("#itemImageInput"),
+      itemImageDataHidden: document.querySelector("#itemImageDataHidden"),
+      itemImagePreviewWrap: document.querySelector("#itemImagePreviewWrap"),
+      itemImagePreview: document.querySelector("#itemImagePreview"),
+
+      moveDialog: document.querySelector("#moveDialog"),
+      moveForm: document.querySelector("#moveForm"),
+      moveTitle: document.querySelector("#moveTitle"),
+      moveItemId: document.querySelector("#moveItemId"),
+      moveType: document.querySelector("#moveType"),
+      moveAmount: document.querySelector("#moveAmount"),
+      moveNote: document.querySelector("#moveNote"),
+
+      historyDialog: document.querySelector("#historyDialog"),
+      historyForm: document.querySelector("#historyForm"),
+      historyTitle: document.querySelector("#historyTitle"),
+      historyId: document.querySelector("#historyId"),
+      machineInput: document.querySelector("#machineInput"),
+      faultTimeInput: document.querySelector("#faultTimeInput"),
+      staffInput: document.querySelector("#staffInput"),
+      faultInput: document.querySelector("#faultInput"),
+      fixInput: document.querySelector("#fixInput"),
+      historyImageInput: document.querySelector("#historyImageInput"),
+      historyImageDataHidden: document.querySelector("#historyImageDataHidden"),
+      historyImagePreviewWrap: document.querySelector("#historyImagePreviewWrap"),
+      historyImagePreview: document.querySelector("#historyImagePreview"),
+
+      machineDialog: document.querySelector("#machineDialog"),
+      machineForm: document.querySelector("#machineForm"),
+      machineTitle: document.querySelector("#machineTitle"),
+      mId: document.querySelector("#machineId"),
+      mName: document.querySelector("#mNameInput"),
+      mSetupDate: document.querySelector("#mSetupDateInput"),
+      mWarranty: document.querySelector("#mWarrantyInput"),
+      mVendor: document.querySelector("#mVendorInput"),
+      mPhone: document.querySelector("#mPhoneInput"),
+
+      jobDialog: document.querySelector("#jobDialog"),
+      jobForm: document.querySelector("#jobForm"),
+      jobTitle: document.querySelector("#jobTitle"),
+      jId: document.querySelector("#jobId"),
+      jMachineSelect: document.querySelector("#jMachineSelect"),
+      jName: document.querySelector("#jNameInput"),
+      jPeriod: document.querySelector("#jPeriodInput"),
+      jNextDate: document.querySelector("#jNextDateInput"),
+      jDesc: document.querySelector("#jDescInput"),
+
+      loginForm: document.querySelector("#loginForm"),
+      usernameInput: document.querySelector("#usernameInput"),
+      passwordInput: document.querySelector("#passwordInput"),
+      loginError: document.querySelector("#loginError"),
+      toast: document.querySelector("#toast")
+    };
+
+    els.todayLabel.textContent = new Intl.DateTimeFormat("vi-VN", {
+      weekday: "long", day: "2-digit", month: "2-digit", year: "numeric"
+    }).format(new Date());
+
+    async function fbFetch(path, method = "GET", body = null) {
+      const options = { method };
+      if (body) {
+        options.headers = { "Content-Type": "application/json" };
+        options.body = JSON.stringify(body);
+      }
+      try {
+        const res = await fetch(`${DB_URL}/${path}.json`, options);
+        return await res.json();
+      } catch (err) {
+        console.error("Lỗi đám mây Firebase:", err);
+        return null;
+      }
+    }
+
+    async function loadCloudData() {
+      if(els.resultCount) els.resultCount.textContent = "Đang kết nối Cloud...";
+      try {
+        const [cloudItems, cloudActivities, cloudHistory, cloudMachines, cloudJobs, cloudCnc, cloudCncAlarms] = await Promise.all([
+          fbFetch("items"),
+          fbFetch("activities"),
+          fbFetch("repairHistory"),
+          fbFetch("machines"),
+          fbFetch("maintenanceJobs"),
+          fbFetch("cncDevices"),
+          fbFetch("cncAlarmHistory")
+        ]);
+
+        items = cloudItems ? Object.values(cloudItems) : [];
+        activities = cloudActivities ? Object.values(cloudActivities) : [{ at: new Date().toISOString(), text: "Hệ thống mây Fanuc sẵn sàng." }];
+        repairHistory = cloudHistory ? Object.values(cloudHistory) : [];
+        machines = cloudMachines ? Object.values(cloudMachines) : [];
+        maintenanceJobs = cloudJobs ? Object.values(cloudJobs) : [];
+        cncDevices = cloudCnc ? Object.values(cloudCnc) : [];
+        cncAlarmHistory = cloudCncAlarms ? Object.values(cloudCncAlarms) : [];
+
+        render();
+        showToast("Đồng bộ thành công cơ sở dữ liệu xưởng.");
+
+        await fbFetch(`online_users/${mySessionId}`, "PUT", { timestamp: Date.now() });
+        setInterval(async () => {
+          try { await fbFetch(`online_users/${mySessionId}`, "PUT", { timestamp: Date.now() }); } catch(e){}
+        }, 15000);
+
+        setTimeout(checkOnlineUsers, 500);
+        setInterval(checkOnlineUsers, 12000);
+        
+        setInterval(fetchRealtimeCncDataOnly, 3000);
+      } catch (e) {
+        console.error("Lỗi kết nối:", e);
+      }
+    }
+
+    async function fetchRealtimeCncDataOnly() {
+      try {
+        const cloudCnc = await fbFetch("cncDevices");
+        const cloudCncAlarms = await fbFetch("cncAlarmHistory");
+        if(cloudCnc) cncDevices = Object.values(cloudCnc);
+        if(cloudCncAlarms) cncAlarmHistory = Object.values(cloudCncAlarms);
+        renderCncMonitor();
+      } catch (e) {}
+    }
+
+    async function checkOnlineUsers() {
+      try {
+        const allSessions = await fbFetch("online_users");
+        if (allSessions) {
+          const now = Date.now();
+          let activeCount = 0;
+          for (const id in allSessions) {
+            if (now - allSessions[id].timestamp < 45000) { activeCount++; } 
+            else { fbFetch(`online_users/${id}`, "DELETE"); }
+          }
+          const label = document.querySelector("#onlineCountLabel");
+          if (label) {
+            label.innerHTML = `● Đang trực tuyến: <span style="font-size:15px; background:#fff; color:#12251f; padding:1px 6px; border-radius:4px; margin:0 2px;">${activeCount}</span> người`;
+          }
+        }
+      } catch(e){}
+    }
+
+    async function syncNode(nodeName, dataArray) {
+      try {
+        const obj = {};
+        dataArray.forEach(item => { if(item.id) obj[item.id] = item; });
+        await fbFetch(nodeName, "PUT", obj);
+      } catch(e){}
+    }
+
+    function login(event) {
+      if (event) { event.preventDefault(); event.stopPropagation(); }
+      const userVal = els.usernameInput.value.trim();
+      const passVal = els.passwordInput.value;
+      
+      const account = STAFF_ACCOUNTS.find(e => e.username === userVal && e.password === passVal);
+      if (!account) {
+        els.loginError.textContent = "Sai tài khoản hoặc mật khẩu hệ thống LTD.";
+        return false;
+      }
+      
+      sessionStorage.setItem(LOGIN_KEY, "true");
+      unlockApp();
+      showToast(`Xin chào ${account.name}.`);
+      return false;
+    }
+
+    function unlockApp() { 
+      document.body.classList.remove("locked"); 
+      render();
+      loadCloudData();
+    }
+    
+    function logout() { 
+      try { if (typeof mySessionId !== "undefined") fbFetch(`online_users/${mySessionId}`, "DELETE"); } catch(e){}
+      sessionStorage.removeItem(LOGIN_KEY); 
+      document.body.classList.add("locked"); 
+    }
+
+    function switchPage(pageId) {
+      els.cncMonitorPage.hidden = (pageId !== "cncMonitorPage");
+      els.inventoryPage.hidden = (pageId !== "inventoryPage");
+      els.machinesPage.hidden = (pageId !== "machinesPage");
+      els.maintenanceJobsPage.hidden = (pageId !== "maintenanceJobsPage");
+      els.historyPage.hidden = (pageId !== "historyPage");
+
+      els.addCncMonitorBtn.style.display = (pageId === "cncMonitorPage") ? "inline-flex" : "none";
+      els.addBtn.style.display = (pageId === "inventoryPage") ? "inline-flex" : "none";
+      els.addMachineMainBtn.style.display = (pageId === "machinesPage") ? "inline-flex" : "none";
+      els.addJobMainBtn.style.display = (pageId === "maintenanceJobsPage") ? "inline-flex" : "none";
+      
+      els.exportBtn.style.display = (pageId === "inventoryPage") ? "inline-flex" : "none";
+      els.exportMachineBtn.style.display = (pageId === "machinesPage") ? "inline-flex" : "none";
+      els.exportJobBtn.style.display = (pageId === "maintenanceJobsPage") ? "inline-flex" : "none";
+      els.exportHistoryBtn.style.display = (pageId === "historyPage") ? "inline-flex" : "none";
+
+      if(pageId === "cncMonitorPage") {
+        els.pageHeading.textContent = "Giám sát trạng thái CNC Fanuc Realtime";
+        els.pageSubtitle.textContent = "Theo dõi dữ liệu phản hồi trực tiếp từ máy: chương trình, tốc độ và lịch sử lỗi CNC Fanuc.";
+      } else if(pageId === "inventoryPage") {
+        els.pageHeading.textContent = "Hệ thống Linh Kiện Xưởng";
+        els.pageSubtitle.textContent = "Quản lý linh kiện bảo trì: mã linh kiện, vị trí kệ và số lượng còn trong kho.";
+      } else if(pageId === "machinesPage") {
+        els.pageHeading.textContent = "Quản lý máy móc nhà xưởng";
+        els.pageSubtitle.textContent = "Hệ thống lưu giữ thông tin hồ sơ thiết bị, thời hạn bảo hành của toàn xưởng.";
+      } else if(pageId === "maintenanceJobsPage") {
+        els.pageHeading.textContent = "Kế hoạch Job bảo trì máy móc";
+        els.pageSubtitle.textContent = "Thiết lập nhiều đầu mục công việc kiểm tra cơ điện định kỳ cho từng dòng máy riêng biệt.";
+      } else {
+        els.pageHeading.textContent = "Lịch sử lỗi sửa máy";
+        els.pageSubtitle.textContent = "Theo dõi sự cố đột xuất cơ điện xưởng và phương án xử lý thực tế.";
+      }
+      window.scrollTo({ top: 0 });
+    }
+
+    function itemStatus(item) {
+      if (item.quantity <= 0) return "out";
+      if (item.quantity <= item.min) return "low";
+      return "ok";
+    }
+
+    function render() {
+      const current = els.categoryFilter.value || "all";
+      const categories = [...new Set(items.map(i => i.category))].sort((a, b) => a.localeCompare(b, "vi"));
+      els.categoryFilter.innerHTML = `<option value="all">Tất cả</option>${categories.map(c => `<option value="${escapeHtml(c)}">${escapeHtml(c)}</option>`).join("")}`;
+      els.categoryFilter.value = categories.includes(current) ? current : "all";
+
+      els.statItems.textContent = number.format(items.length);
+      els.statUnits.textContent = number.format(items.reduce((sum, i) => sum + i.quantity, 0));
+      els.statValue.textContent = number.format(new Set(items.map(i => i.location).filter(Boolean)).size);
+      els.statLow.textContent = number.format(items.filter(i => itemStatus(i) !== "ok").length);
+
+      renderCncMonitor();
+      renderInventoryTable();
+      renderMachineTable();
+      renderMaintenanceJobsTable();
+      renderHistoryTable();
+      renderAlertsAndActivities();
+      updateMachineSelectOptions();
+    }
+
+    // LOGIC CHO TAB CNC MONITOR - ĐÃ ĐƯA NHẬT KÝ LỖI VÀO TỪNG Ô MÁY VÀ THÊM NÚT XUẤT EXCEL RIÊNG
+    function renderCncMonitor() {
+      if (!els.cncCardsContainer) return;
+      
+      if(cncDevices.length === 0) {
+        els.cncCardsContainer.innerHTML = `<div class="empty" style="grid-column: 1/-1; padding: 40px;">Chưa có máy CNC nào được cấu hình theo dõi. Vui lòng bấm nút "Thêm máy giám sát" ở trên.</div>`;
+        return;
+      }
+
+      els.cncCardsContainer.innerHTML = cncDevices.map(cnc => {
+        let statusText = "Chờ lệnh (IDLE)";
+        let dotClass = "idle";
+        let spindleBgClass = "bg-idle";
+
+        if (cnc.status === "running") {
+          statusText = "Đang chạy (RUNNING)";
+          dotClass = "running";
+          spindleBgClass = "bg-running";
+        } else if (cnc.status === "alarm") {
+          statusText = "BÁO LỖI (ALARM)";
+          dotClass = "alarm";
+          spindleBgClass = "bg-alarm";
+        }
+
+        // Lọc các lỗi phát sinh thuộc riêng máy này
+        const machineAlarms = cncAlarmHistory.filter(al => al.machineName === cnc.name)
+          .sort((a, b) => new Date(b.time) - new Date(a.time));
+
+        let logsHtml = `<div class="empty" style="padding: 10px 0; font-size:11px;">Chưa có ghi nhận lịch sử lỗi.</div>`;
+        if (machineAlarms.length > 0) {
+          logsHtml = machineAlarms.map(al => `
+            <div class="cnc-log-item ${al.status.includes('Đã') ? 'ok' : 'danger'}">
+              <strong style="display:block;">[${new Intl.DateTimeFormat("vi-VN", {timeStyle:"short"}).format(new Date(al.time))}] Mã: ${escapeHtml(al.code)}</strong>
+              <span>${escapeHtml(al.desc)}</span>
+              <div style="font-size:10px; margin-top:2px; font-style:italic; opacity:0.8;">Mức độ: ${escapeHtml(al.severity)} | Trạng thái: ${escapeHtml(al.status)}</div>
+            </div>
+          `).join("");
+        }
+
+        return `
+          <div class="cnc-card">
+            <div class="cnc-header">
+              <h4>${escapeHtml(cnc.name)}</h4>
+              <div class="cnc-status-indicator">
+                <span class="cnc-dot ${dotClass}"></span>
+                <span>${statusText}</span>
+              </div>
+            </div>
+            <div class="cnc-body">
+              <div class="cnc-program-bar">
+                <span>Chương trình (Program)</span>
+                <strong>${escapeHtml(cnc.programName || "O0000")}</strong>
+              </div>
+
+              <div class="cnc-param-row" style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
+                <div class="cnc-param-box ${spindleBgClass}">
+                  <span>Tốc độ Trục chính</span>
+                  <strong>${number.format(cnc.spindleSpeed || 0)} <small style="font-size:12px; font-weight:normal;">RPM</small></strong>
+                </div>
+                <div class="cnc-param-box">
+                  <span>Tốc độ Bước tiến (F)</span>
+                  <strong>${number.format(cnc.feedRate || 0)} <small style="font-size:12px; font-weight:normal;">mm/m</small></strong>
+                </div>
+              </div>
+              
+              ${cnc.status === 'alarm' ? `
+                <div class="cnc-alarm-banner">
+                  <strong>⚠️ FOCAS ALARM: ${escapeHtml(cnc.alarmCode || "Mã lỗi hệ thống")}</strong>
+                  <p>${escapeHtml(cnc.alarmDesc || "Đang chờ phân tích dữ liệu xung lỗi...")}</p>
+                </div>
+              ` : `
+                <div style="color: var(--ok); font-size:12px; font-weight:bold; text-align:center; padding:6px; background:#f0fdf4; border-radius:6px; border:1px solid #bbf7d0;">
+                  ✓ Bộ điều khiển Fanuc không có Alarm hiện hành
+                </div>
+              `}
+              
+              <!-- TÍCH HỢP NHẬT KÝ LỖI RIÊNG CHO TỪNG MÁY THEO YÊU CẦU -->
+              <div class="cnc-card-logs">
+                <div class="cnc-card-logs-header">
+                  <span>📋 Nhật ký lỗi của máy (${machineAlarms.length})</span>
+                  ${machineAlarms.length > 0 ? `
+                    <button class="btn sm" type="button" onclick="exportSingleMachineAlarms('${escapeHtml(cnc.name)}')">
+                      📥 Xuất Excel Máy
+                    </button>
+                  ` : ''}
+                </div>
+                <div class="cnc-logs-list">
+                  ${logsHtml}
+                </div>
+              </div>
+
+              <div style="text-align: right; margin-top: 5px;">
+                 <button class="icon-btn danger" type="button" title="Hủy theo dõi" onclick="deleteCncMonitor('${cnc.id}')" style="width:28px; height:28px; font-size:12px;">×</button>
+              </div>
+            </div>
+          </div>
+        `;
+      }).join("");
+    }
+
+    // HÀM XUẤT LỊCH SỬ LỖI CỦA MỘT MÁY CNC CỤ THỂ RA EXCEL/CSV
+    function exportSingleMachineAlarms(machineName) {
+      const machineAlarms = cncAlarmHistory.filter(al => al.machineName === machineName)
+        .sort((a, b) => new Date(b.time) - new Date(a.time));
+        
+      if(machineAlarms.length === 0) {
+        alert("Máy này hiện tại không có dữ liệu nhật ký lỗi để xuất.");
+        return;
+      }
+      
+      const headers = ["Thời gian ghi nhận", "Tên thiết bị máy", "Mã số lỗi (Alarm Code)", "Nội dung chi tiết lỗi CNC", "Mức độ", "Trạng thái"];
+      const rows = machineAlarms.map(al => [
+        new Intl.DateTimeFormat("vi-VN", {dateStyle:"medium", timeStyle:"short"}).format(new Date(al.time)),
+        al.machineName,
+        al.code,
+        al.desc,
+        al.severity,
+        al.status
+      ]);
+      
+      downloadCsv(headers, rows, `nhat-ky-loi-may-${machineName.toLowerCase().replaceAll(" ", "-")}`);
+    }
+
+    function openCncMonitorDialog() {
+      if(machines.length === 0) {
+        alert("Vui lòng bổ sung danh sách thiết bị máy ở Tab 'Danh sách máy' trước khi thiết lập giám sát CNC!");
+        switchPage("machinesPage");
+        document.querySelectorAll(".nav button").forEach(b => b.classList.remove("active"));
+        document.querySelector("[data-page='machinesPage']").classList.add("active");
+        return;
+      }
+      
+      els.cncMachineSelect.innerHTML = `<option value="">-- Chọn máy cần cấu hình giám sát --</option>` + 
+        machines.map(m => `<option value="${escapeHtml(m.name)}">${escapeHtml(m.name)}</option>`).join("");
+      
+      els.cncId.value = "";
+      els.cncProgramInput.value = "O0001";
+      els.cncStatusInput.value = "idle";
+      els.cncMonitorDialog.showModal();
+    }
+
+    async function saveCncMonitor(e) {
       e.preventDefault();
-      alert('Đã lưu linh kiện: ' + document.getElementById('nameInput').value);
-      document.getElementById('itemDialog').close();
+      const selectedMachineName = els.cncMachineSelect.value;
+      if(!selectedMachineName) return;
+
+      if(cncDevices.some(d => d.name === selectedMachineName)) {
+        alert("Thiết bị máy này đã tồn tại trong danh sách giám sát trực tiếp rồi!");
+        return;
+      }
+
+      const id = "cnc_" + crypto.randomUUID().slice(0,8);
+      const payload = {
+        id,
+        name: selectedMachineName,
+        status: els.cncStatusInput.value,
+        programName: els.cncProgramInput.value.trim() || "O0000",
+        spindleSpeed: 0,
+        feedRate: 0,
+        alarmCode: els.cncStatusInput.value === "alarm" ? "ALM_001" : "",
+        alarmDesc: els.cncStatusInput.value === "alarm" ? "Phát hiện xung lỗi trục từ bộ điều khiển Fanuc" : ""
+      };
+
+      cncDevices.push(payload);
+      addAct(`Cấu hình giám sát máy CNC: ${payload.name}`);
+      els.cncMonitorDialog.close();
+      render();
+      await Promise.all([syncNode("cncDevices", cncDevices), syncNode("activities", activities)]);
+    }
+
+    async function deleteCncMonitor(id) {
+      if(!confirm("Gỡ bỏ thiết bị này khỏi danh sách thẻ giám sát trực tiếp?")) return;
+      cncDevices = cncDevices.filter(d => d.id !== id);
+      addAct("Gỡ một thiết bị giám sát CNC.");
+      render();
+      await Promise.all([fbFetch(`cncDevices/${id}`, "DELETE"), syncNode("activities", activities)]);
+    }
+
+    function renderInventoryTable() {
+      const term = els.searchInput.value.trim().toLowerCase();
+      const cat = els.categoryFilter.value;
+      const stat = els.statusFilter.value;
+
+      const rows = items.filter(i => {
+        const h = [i.name, i.sku, i.supplier, i.location, i.specs || '', i.note || ''].join(" ").toLowerCase();
+        return (!term || h.includes(term)) && (cat === "all" || i.category === cat) && (stat === "all" || itemStatus(i) === stat);
+      }).sort((a, b) => a.name.localeCompare(b.name, "vi"));
+
+      els.resultCount.textContent = `${rows.length} linh kiện`;
+      if (!rows.length) {
+        els.inventoryBody.innerHTML = `<tr><td colspan="11" class="empty">Không có linh kiện phù hợp.</td></tr>`;
+        return;
+      }
+
+      els.inventoryBody.innerHTML = rows.map(item => {
+        const s = itemStatus(item);
+        const lbl = { ok: "Đủ dùng", low: "Sắp hết", out: "Hết linh kiện" }[s];
+        const cls = { ok: "ok", low: "warn", out: "danger" }[s];
+        return `<tr>
+          <td><strong>${escapeHtml(item.name)}</strong><div class="sku">${escapeHtml(item.sku)}</div></td>
+          <td>${escapeHtml(item.category)}</td>
+          <td style="font-size:13px; color:var(--muted);">${escapeHtml(item.specs || "-")}</td>
+          <td><strong>${number.format(item.quantity)}</strong></td>
+          <td>${number.format(item.min)}</td>
+          <td>${escapeHtml(item.location || "-")}</td>
+          <td>${escapeHtml(item.supplier)}</td>
+          <td>
+            ${item.image ? `<img src="${item.image}" style="width:42px; height:42px; object-fit:cover; border-radius:4px; border:1px solid var(--line); cursor:zoom-in;" onclick="viewFullImage('${item.image}')">` : `-`}
+          </td>
+          <td style="font-size:13px; color:var(--muted);">${escapeHtml(item.note || "-")}</td>
+          <td><span class="pill ${cls}">${lbl}</span></td>
+          <td>
+            <div class="row-actions">
+              <button class="icon-btn" type="button" onclick="openMoveDialog('${item.id}')">±</button>
+              <button class="icon-btn" type="button" onclick="openItemDialog('${item.id}')">✎</button>
+              <button class="icon-btn danger" type="button" onclick="deleteItem('${item.id}')">×</button>
+            </div>
+          </td>
+        </tr>`;
+      }).join("");
+    }
+
+    function renderMachineTable() {
+      const term = els.machineSearchInput.value.trim().toLowerCase();
+      const rows = machines.filter(m => {
+        return !term || [m.name, m.vendor].join(" ").toLowerCase().includes(term);
+      }).sort((a,b) => a.name.localeCompare(b.name, "vi"));
+
+      if(!rows.length) {
+        els.machineListBody.innerHTML = `<tr><td colspan="6" class="empty">Không tìm thấy thiết bị nào.</td></tr>`;
+        return;
+      }
+
+      els.machineListBody.innerHTML = rows.map(m => `<tr>
+        <td><strong>${escapeHtml(m.name)}</strong></td>
+        <td>${formatDateDisplay(m.setupDate)}</td>
+        <td><strong>${formatDateDisplay(m.warranty)}</strong></td>
+        <td>${escapeHtml(m.vendor)}</td>
+        <td><a href="tel:${m.phone}">${escapeHtml(m.phone)}</a></td>
+        <td>
+          <div class="row-actions">
+            <button class="icon-btn" type="button" onclick="openMachineDialog('${m.id}')">✎</button>
+            <button class="icon-btn danger" type="button" onclick="deleteMachine('${m.id}')">×</button>
+          </div>
+        </td>
+      </tr>`).join("");
+    }
+
+    function renderMaintenanceJobsTable() {
+      const term = els.jobSearchInput.value.trim().toLowerCase();
+      const rows = maintenanceJobs.filter(j => {
+        return !term || [j.machineName, j.jobName, j.desc].join(" ").toLowerCase().includes(term);
+      }).sort((a,b) => j.nextDate.localeCompare(b.nextDate));
+
+      if(!rows.length) {
+        els.jobListBody.innerHTML = `<tr><td colspan="7" class="empty">Không tìm thấy hạng mục bảo trì định kỳ nào.</td></tr>`;
+        return;
+      }
+
+      const todayStr = new Date().toISOString().slice(0, 10);
+
+      els.jobListBody.innerHTML = rows.map(j => {
+        const isOverdue = j.nextDate <= todayStr;
+        const statusPill = isOverdue 
+          ? `<span class="pill danger">🚨 Quá hạn bảo trì</span>`
+          : `<span class="pill ok">Bình thường</span>`;
+
+        return `<tr>
+          <td><strong>${escapeHtml(j.machineName)}</strong></td>
+          <td><span style="color:var(--brand); font-weight:700;">📌 ${escapeHtml(j.jobName)}</span></td>
+          <td>${j.period} tháng</td>
+          <td><strong style="color: ${isOverdue ? 'var(--danger)' : 'var(--ok)'}">${formatDateDisplay(j.nextDate)}</strong></td>
+          <td style="font-size:13px; max-width:250px; white-space:pre-wrap; color:var(--muted);">${escapeHtml(j.desc || "-")}</td>
+          <td>${statusPill}</td>
+          <td>
+            <div class="row-actions">
+              <button class="icon-btn" type="button" title="Gia hạn chu kỳ" onclick="completeAndRenewJob('${j.id}')">✔</button>
+              <button class="icon-btn" type="button" onclick="openJobDialog('${j.id}')">✎</button>
+              <button class="icon-btn danger" type="button" onclick="deleteJob('${j.id}')">×</button>
+            </div>
+          </td>
+        </tr>`;
+      }).join("");
+    }
+
+    function renderHistoryTable() {
+      const term = els.historySearchInput.value.trim().toLowerCase();
+      const fromV = els.historyFromInput.value ? new Date(els.historyFromInput.value) : null;
+      const toV = els.historyToInput.value ? new Date(els.historyToInput.value) : null;
+
+      const rows = repairHistory.filter(h => {
+        const d = new Date(h.faultTime);
+        const hay = [h.machine, h.staff, h.fault, h.fix].join(" ").toLowerCase();
+        return (!term || hay.includes(term)) && (!fromV || d >= fromV) && (!toV || d <= toV);
+      }).sort((a,b) => new Date(b.faultTime) - new Date(a.faultTime));
+
+      if(!rows.length) {
+        els.historyList.innerHTML = `<tr><td colspan="7" class="empty">Không tìm thấy lịch sử phù hợp.</td></tr>`;
+        return;
+      }
+
+      els.historyList.innerHTML = rows.map(h => `<tr>
+        <td><strong>${formatDateDisplay(h.faultTime)}</strong></td>
+        <td><strong>${escapeHtml(h.machine)}</strong></td>
+        <td><span style="color:var(--brand);font-weight:700;">${escapeHtml(h.staff)}</span></td>
+        <td style="font-size:13px;">${escapeHtml(h.fault)}</td>
+        <td style="font-size:13px;">${escapeHtml(h.fix)}</td>
+        <td>
+          ${h.image ? `<img src="${h.image}" style="width:42px; height:42px; object-fit:cover; border-radius:4px; cursor:zoom-in;" onclick="viewFullImage('${h.image}')">` : `-`}
+        </td>
+        <td>
+          <div class="row-actions">
+            <button class="icon-btn" type="button" onclick="openHistoryDialog('${h.id}')">✎</button>
+            <button class="icon-btn danger" type="button" onclick="deleteHistory('${h.id}')">×</button>
+          </div>
+        </td>
+      </tr>`).join("");
+    }
+
+    function updateMachineSelectOptions() {
+      const currentSelection = els.jMachineSelect.value;
+      els.jMachineSelect.innerHTML = `<option value="">-- Vui lòng chọn máy --</option>` + 
+        machines.map(m => `<option value="${escapeHtml(m.id)}">${escapeHtml(m.name)}</option>`).join("");
+      els.jMachineSelect.value = currentSelection;
+    }
+
+    function viewFullImage(source) {
+      const w = window.open();
+      w.document.write(`<body style="margin:0; background:#000; display:flex; justify-content:center; align-items:center; min-height:100vh;"><img src="${source}" style="max-width:100%; max-height:100vh;"></body>`);
+    }
+
+    function renderAlertsAndActivities() {
+      let alertHtml = "";
+      const todayStr = new Date().toISOString().slice(0, 10);
+
+      maintenanceJobs.forEach(j => {
+        if (j.nextDate && j.nextDate <= todayStr) {
+          alertHtml += `
+            <div class="alert-item" style="border-left: 4px solid var(--danger); background: #fff5f5;">
+              <strong style="color: var(--danger);">🚨 ĐẾN HẠN JOB BẢO TRÌ</strong>
+              <div style="font-weight:bold; margin-top:2px;">${escapeHtml(j.machineName)}</div>
+              <div style="font-size:13px; font-weight:600; color:var(--brand);">Hạng mục: ${escapeHtml(j.jobName)}</div>
+            </div>
+          `;
+        }
+      });
+
+      const alerts = items.filter(i => itemStatus(i) !== "ok").sort((a,b)=>a.quantity-b.quantity);
+      alerts.forEach(i => {
+        const currentStat = itemStatus(i);
+        const badgeCls = currentStat === 'low' ? 'warn' : 'danger';
+        const badgeText = currentStat === 'low' ? 'Sắp hết' : 'Hết kho';
+        alertHtml += `
+          <div class="alert-item">
+            <strong>${escapeHtml(i.name)}</strong>
+            <span class="pill ${badgeCls}">${badgeText}</span>
+            <div class="meta">Kho còn ${i.quantity} / Tối thiểu ${i.min}. Kệ: ${escapeHtml(i.location || "-")}</div>
+          </div>
+        `;
+      });
+
+      els.alertList.innerHTML = alertHtml ? alertHtml : `<div class="empty">Không có cảnh báo tồn.</div>`;
+      els.activityList.innerHTML = activities.slice(0,5).map(a => `
+        <div class="activity-item">
+          <strong>${escapeHtml(a.text)}</strong>
+          <div class="meta">${new Intl.DateTimeFormat("vi-VN", {hour:"2-digit", minute:"2-digit"}).format(new Date(a.at))}</div>
+        </div>
+      `).join("");
+    }
+
+    function openItemDialog(id = "") {
+      const item = items.find(i => i.id === id);
+      els.dialogTitle.textContent = item ? "Sửa thông tin linh kiện" : "Thêm linh kiện mới";
+      els.itemId.value = item?.id || "";
+      els.nameInput.value = item?.name || "";
+      els.skuInput.value = item?.sku || "";
+      els.categoryInput.value = item?.category || "";
+      els.supplierInput.value = item?.supplier || "";
+      els.quantityInput.value = item?.quantity ?? 0;
+      els.minInput.value = item?.min ?? 0;
+      els.priceInput.value = item?.price ?? 0;
+      els.locationInput.value = item?.location || "";
+      els.specsInput.value = item?.specs || "";
+      els.noteInput.value = item?.note || "";
+      els.itemImageInput.value = "";
+      
+      if (item && item.image) {
+        els.itemImageDataHidden.value = item.image;
+        els.itemImagePreview.src = item.image;
+        els.itemImagePreviewWrap.style.display = "block";
+      } else {
+        els.itemImageDataHidden.value = "";
+        els.itemImagePreview.src = "";
+        els.itemImagePreviewWrap.style.display = "none";
+      }
+      els.itemDialog.showModal();
+    }
+    
+    function closeItemDialog() { els.itemDialog.close(); els.itemForm.reset(); }
+    
+    async function saveItem(e) {
+      e.preventDefault();
+      const id = els.itemId.value || crypto.randomUUID();
+      const payload = {
+        id, name: els.nameInput.value.trim(), sku: els.skuInput.value.trim().toUpperCase(),
+        category: els.categoryInput.value.trim(), supplier: els.supplierInput.value.trim(),
+        quantity: Number(els.quantityInput.value), min: Number(els.minInput.value),
+        price: Number(els.priceInput.value), location: els.locationInput.value.trim(), 
+        specs: els.specsInput.value.trim(), note: els.noteInput.value.trim(),
+        image: els.itemImageDataHidden.value || ""
+      };
+      const idx = items.findIndex(i => i.id === id);
+      if(idx >= 0) { items[idx] = payload; addAct(`Sửa linh kiện: ${payload.name}`); }
+      else { items.push(payload); addAct(`Thêm mới linh kiện: ${payload.name}`); }
+      closeItemDialog(); render();
+      await Promise.all([syncNode("items", items), syncNode("activities", activities)]);
+    }
+
+    async function deleteItem(id) {
+      if(!confirm("Xóa linh kiện này khỏi kho?")) return;
+      items = items.filter(i => i.id !== id);
+      addAct("Xóa một mã linh kiện."); render();
+      await Promise.all([fbFetch(`items/${id}`, "DELETE"), syncNode("activities", activities)]);
+    }
+
+    function openMoveDialog(id) {
+      const item = items.find(i => i.id === id); if(!item) return;
+      els.moveItemId.value = id; els.moveTitle.textContent = `Cập nhật xuất nhập: ${item.name}`;
+      els.moveDialog.showModal();
+    }
+    function closeMoveDialog() { els.moveDialog.close(); els.moveForm.reset(); }
+    
+    async function saveMovement(e) {
+      e.preventDefault();
+      const item = items.find(i => i.id === els.moveItemId.value); if(!item) return;
+      const amt = Number(els.moveAmount.value);
+      if(els.moveType.value === "out" && amt > item.quantity) { alert("Vượt quá lượng tồn kho!"); return; }
+      item.quantity += (els.moveType.value === "in" ? amt : -amt);
+      addAct(`${els.moveType.value === 'in' ? 'Nhập kho' : 'Xuất kho'} ${amt} ${item.name}`);
+      closeMoveDialog(); render();
+      await Promise.all([syncNode("items", items), syncNode("activities", activities)]);
+    }
+
+    function openMachineDialog(id = "") {
+      const m = machines.find(x => x.id === id);
+      els.machineTitle.textContent = m ? "Sửa thông tin thiết bị" : "Thêm máy thiết bị mới";
+      els.mId.value = m?.id || "";
+      els.mName.value = m?.name || "";
+      els.mSetupDate.value = m?.setupDate || new Date().toISOString().slice(0,10);
+      els.mWarranty.value = m?.warranty || new Date().toISOString().slice(0,10);
+      els.mVendor.value = m?.vendor || "";
+      els.mPhone.value = m?.phone || "";
+      els.machineDialog.showModal();
+    }
+    function closeMachineDialog() { els.machineDialog.close(); els.machineForm.reset(); }
+    
+    async function saveMachine(e) {
+      e.preventDefault();
+      const id = els.mId.value || crypto.randomUUID();
+      const payload = {
+        id, name: els.mName.value.trim(), setupDate: els.mSetupDate.value,
+        warranty: els.mWarranty.value, vendor: els.mVendor.value.trim(), phone: els.mPhone.value.trim()
+      };
+      const idx = machines.findIndex(x => x.id === id);
+      if(idx >= 0) { 
+        machines[idx] = payload; 
+        addAct(`Cập nhật hồ sơ máy: ${payload.name}`);
+        maintenanceJobs.forEach(j => { if(j.machineId === id) j.machineName = payload.name; });
+      } else { 
+        machines.push(payload); 
+        addAct(`Thêm máy mới: ${payload.name}`); 
+      }
+      closeMachineDialog(); render();
+      await Promise.all([syncNode("machines", machines), syncNode("maintenanceJobs", maintenanceJobs), syncNode("activities", activities)]);
+    }
+
+    async function deleteMachine(id) {
+      if(!confirm("Xóa máy này đồng nghĩa xóa các Job bảo trì đính kèm?")) return;
+      machines = machines.filter(x => x.id !== id);
+      maintenanceJobs = maintenanceJobs.filter(j => j.machineId !== id);
+      addAct("Xóa thông tin thiết bị máy."); render();
+      await Promise.all([fbFetch(`machines/${id}`, "DELETE"), syncNode("maintenanceJobs", maintenanceJobs), syncNode("activities", activities)]);
+    }
+
+    function openJobDialog(id = "") {
+      if (machines.length === 0) {
+        alert("Vui lòng bổ sung danh sách máy trước!");
+        return;
+      }
+      updateMachineSelectOptions();
+      const j = maintenanceJobs.find(x => x.id === id);
+      els.jobTitle.textContent = j ? "Sửa đổi thông tin Job" : "Thiết lập Job Bảo trì mới";
+      els.jId.value = j?.id || "";
+      els.jMachineSelect.value = j?.machineId || "";
+      els.jName.value = j?.jobName || "";
+      els.jPeriod.value = j?.period || "3";
+      els.jNextDate.value = j?.nextDate || new Date().toISOString().slice(0,10);
+      els.jDesc.value = j?.desc || "";
+      els.jobDialog.showModal();
+    }
+    function closeJobDialog() { els.jobDialog.close(); els.jobForm.reset(); }
+
+    async function saveJob(e) {
+      e.preventDefault();
+      const mId = els.jMachineSelect.value;
+      const targetMachine = machines.find(x => x.id === mId);
+      if(!targetMachine) return;
+
+      const id = els.jId.value || crypto.randomUUID();
+      const payload = {
+        id, machineId: mId, machineName: targetMachine.name,
+        jobName: els.jName.value.trim(), period: Number(els.jPeriod.value),
+        nextDate: els.jNextDate.value, desc: els.jDesc.value.trim()
+      };
+
+      const idx = maintenanceJobs.findIndex(x => x.id === id);
+      if (idx >= 0) {
+        maintenanceJobs[idx] = payload;
+        addAct(`Cập nhật Job [${payload.jobName}] - Máy ${payload.machineName}`);
+      } else {
+        maintenanceJobs.push(payload);
+        addAct(`Lập lịch Job [${payload.jobName}] - Máy ${payload.machineName}`);
+      }
+      closeJobDialog(); render();
+      await Promise.all([syncNode("maintenanceJobs", maintenanceJobs), syncNode("activities", activities)]);
+    }
+
+    async function deleteJob(id) {
+      if(!confirm("Hủy bỏ hạng mục bảo trì định kỳ này?")) return;
+      maintenanceJobs = maintenanceJobs.filter(x => x.id !== id);
+      addAct("Hủy một lịch bảo trì thiết bị."); render();
+      await Promise.all([syncNode("maintenanceJobs", maintenanceJobs), syncNode("activities", activities)]);
+    }
+
+    async function completeAndRenewJob(id) {
+      const j = maintenanceJobs.find(x => x.id === id); if(!j) return;
+      const currentNextDate = new Date(j.nextDate); if(isNaN(currentNextDate.getTime())) return;
+
+      repairHistory.push({
+        id: crypto.randomUUID(), machine: j.machineName, faultTime: new Date().toISOString().slice(0,10),
+        staff: "Bảo Trì Định Kỳ", fault: `Đến kỳ hạn bảo trì: [${j.jobName}]`,
+        fix: `Đã hoàn thành kiểm tra theo đúng quy trình: 
+${j.desc || 'Không có mô tả'}`
+      });
+
+      currentNextDate.setMonth(currentNextDate.getMonth() + Number(j.period));
+      j.nextDate = currentNextDate.toISOString().slice(0, 10);
+
+      addAct(`Hoàn tất & Gia hạn kế tiếp Job: ${j.jobName}`); render();
+      showToast("Đã tự động đẩy lịch bảo trì sang chu kỳ tiếp theo.");
+      await Promise.all([syncNode("maintenanceJobs", maintenanceJobs), syncNode("repairHistory", repairHistory), syncNode("activities", activities)]);
+    }
+
+    function openHistoryDialog(id = "") {
+      const h = repairHistory.find(x => x.id === id);
+      els.historyTitle.textContent = h ? "Sửa lịch sử sửa máy" : "Thêm lịch sử sửa máy";
+      els.historyId.value = h?.id || "";
+      els.machineInput.value = h?.machine || "";
+      els.faultTimeInput.value = h?.faultTime || new Date().toISOString().slice(0,10);
+      els.staffInput.value = h?.staff || "";
+      els.faultInput.value = h?.fault || "";
+      els.fixInput.value = h?.fix || "";
+      els.historyImageInput.value = "";
+      if (h && h.image) {
+        els.historyImageDataHidden.value = h.image;
+        els.historyImagePreview.src = h.image;
+        els.historyImagePreviewWrap.style.display = "block";
+      } else {
+        els.historyImageDataHidden.value = "";
+        els.historyImagePreview.src = "";
+        els.historyImagePreviewWrap.style.display = "none";
+      }
+      els.historyDialog.showModal();
+    }
+    
+    function closeHistoryDialog() { els.historyDialog.close(); els.historyForm.reset(); }
+    
+    async function saveRepairHistory(e) {
+      e.preventDefault();
+      const id = els.historyId.value || crypto.randomUUID();
+      const payload = {
+        id, machine: els.machineInput.value.trim(), faultTime: els.faultTimeInput.value,
+        staff: els.staffInput.value.trim(), fault: els.faultInput.value.trim(), fix: els.fixInput.value.trim(),
+        image: els.historyImageDataHidden.value || ""
+      };
+      const idx = repairHistory.findIndex(x => x.id === id);
+      if(idx >= 0) { repairHistory[idx] = payload; addAct(`Sửa lịch sử lỗi máy: ${payload.machine}`); }
+      else { repairHistory.push(payload); addAct(`Ghi sự cố sửa máy: ${payload.machine}`); }
+      closeHistoryDialog(); render();
+      await Promise.all([syncNode("repairHistory", repairHistory), syncNode("activities", activities)]);
+    }
+
+    async function deleteHistory(id) {
+      if(!confirm("Xóa lịch sử lỗi này trên đám mây?")) return;
+      repairHistory = repairHistory.filter(x => x.id !== id);
+      addAct("Xóa lịch sử sự cố."); render();
+      await Promise.all([fbFetch(`repairHistory/${id}`, "DELETE"), syncNode("activities", activities)]);
+    }
+
+    function addAct(text) { activities.unshift({ at: new Date().toISOString(), text }); }
+    function showToast(msg) { els.toast.textContent = msg; els.toast.classList.add("show"); setTimeout(() => els.toast.classList.remove("show"), 3000); }
+    function formatDateDisplay(val) {
+      if(!val) return "-";
+      const d = new Date(val);
+      return isNaN(d.getTime()) ? val : `${String(d.getDate()).padStart(2,'0')}/${String(d.getMonth()+1).padStart(2,'0')}/${d.getFullYear()}`;
+    }
+    function escapeHtml(v) {
+      return String(v??'').replaceAll("&","&amp;").replaceAll("<","&lt;").replaceAll(">","&gt;").replaceAll('"',"&quot;").replaceAll("'","&#039;");
+    }
+
+    els.addCncMonitorBtn.addEventListener("click", openCncMonitorDialog);
+    document.querySelector("#closeCncDialog").addEventListener("click", () => els.cncMonitorDialog.close());
+    document.querySelector("#cancelCncBtn").addEventListener("click", () => els.cncMonitorDialog.close());
+    els.cncMonitorForm.addEventListener("submit", saveCncMonitor);
+
+    els.addBtn.addEventListener("click", () => openItemDialog());
+    els.addMachineMainBtn.addEventListener("click", () => openMachineDialog());
+    els.addJobMainBtn.addEventListener("click", () => openJobDialog());
+    document.querySelector("#addMachineBtn").addEventListener("click", () => openMachineDialog());
+    document.querySelector("#addJobBtn").addEventListener("click", () => openJobDialog());
+    document.querySelector("#addHistoryBtn").addEventListener("click", () => openHistoryDialog());
+    
+    document.querySelector("#closeDialog").addEventListener("click", closeItemDialog);
+    document.querySelector("#cancelBtn").addEventListener("click", closeItemDialog);
+    document.querySelector("#closeMoveDialog").addEventListener("click", closeMoveDialog);
+    document.querySelector("#cancelMoveBtn").addEventListener("click", closeMoveDialog);
+    document.querySelector("#closeHistoryDialog").addEventListener("click", closeHistoryDialog);
+    document.querySelector("#cancelHistoryBtn").addEventListener("click", closeHistoryDialog);
+    document.querySelector("#closeMachineDialog").addEventListener("click", closeMachineDialog);
+    document.querySelector("#cancelMachineBtn").addEventListener("click", closeMachineDialog);
+    document.querySelector("#closeJobDialog").addEventListener("click", closeJobDialog);
+    document.querySelector("#cancelJobBtn").addEventListener("click", closeJobDialog);
+    
+    document.querySelector("#logoutBtn").addEventListener("click", logout);
+    els.loginForm.addEventListener("submit", login);
+    document.querySelector("#submitLoginBtn").addEventListener("click", login);
+
+    document.querySelectorAll(".nav button").forEach(button => {
+      button.addEventListener("click", () => {
+        document.querySelectorAll(".nav button").forEach(entry => entry.classList.remove("active"));
+        button.classList.add("active");
+        switchPage(button.dataset.page);
+      });
     });
 
-    function openItemDialog() { document.getElementById('itemDialog').showModal(); }
-    function switchPage(id) {
-      document.querySelectorAll('.content').forEach(el => el.classList.add('hidden'));
-      document.getElementById(id).classList.remove('hidden');
+    els.searchInput.addEventListener("input", render);
+    els.categoryFilter.addEventListener("change", render);
+    els.statusFilter.addEventListener("change", render);
+    els.machineSearchInput.addEventListener("input", render);
+    els.jobSearchInput.addEventListener("input", render);
+    els.historySearchInput.addEventListener("input", render);
+    els.historyFromInput.addEventListener("change", render);
+    els.historyToInput.addEventListener("change", render);
+    
+    els.itemForm.addEventListener("submit", saveItem);
+    els.moveForm.addEventListener("submit", saveMovement);
+    els.historyForm.addEventListener("submit", saveRepairHistory);
+    els.machineForm.addEventListener("submit", saveMachine);
+    els.jobForm.addEventListener("submit", saveJob);
+
+    els.itemImageInput.addEventListener("change", function(e) {
+      const file = e.target.files[0]; if (!file) return;
+      const reader = new FileReader();
+      reader.onload = function(evt) {
+        els.itemImageDataHidden.value = evt.target.result;
+        els.itemImagePreview.src = evt.target.result;
+        els.itemImagePreviewWrap.style.display = "block";
+      };
+      reader.readAsDataURL(file);
+    });
+
+    els.historyImageInput.addEventListener("change", function(e) {
+      const file = e.target.files[0]; if (!file) return;
+      const reader = new FileReader();
+      reader.onload = function(evt) {
+        els.historyImageDataHidden.value = evt.target.result;
+        els.historyImagePreview.src = evt.target.result;
+        els.historyImagePreviewWrap.style.display = "block";
+      };
+      reader.readAsDataURL(file);
+    });
+
+    els.exportBtn.addEventListener("click", () => {
+      const h = ["Tên linh kiện", "Mã", "Nhóm", "Thông số", "Còn lại", "Tối thiểu", "Kệ", "Thiết bị dùng", "Giá"];
+      const r = items.map(i => [i.name, i.sku, i.category, i.specs || '', i.quantity, i.min, i.location, i.supplier, i.price]);
+      downloadCsv(h, r, "kho-linh-kien-ltd");
+    });
+    els.exportMachineBtn.addEventListener("click", () => {
+      const h = ["Tên máy", "Ngày lắp", "Hạn bảo hành", "Nhà cung cấp", "SĐT"];
+      const r = machines.map(m => [m.name, formatDateDisplay(m.setupDate), formatDateDisplay(m.warranty), m.vendor, m.phone]);
+      downloadCsv(h, r, "danh-sach-may-ltd");
+    });
+    els.exportJobBtn.addEventListener("click", () => {
+      const h = ["Tên máy", "Tên Job bảo trì", "Chu kỳ (tháng)", "Ngày đến hạn tiếp theo", "Mô tả kỹ thuật"];
+      const r = maintenanceJobs.map(j => [j.machineName, j.jobName, j.period, formatDateDisplay(j.nextDate), j.desc]);
+      downloadCsv(h, r, "ke-hoach-job-bao-tri-ltd");
+    });
+    els.exportHistoryBtn.addEventListener("click", () => {
+      const h = ["Ngày lỗi", "Máy lỗi", "Người sửa", "Nội dung lỗi", "Nội dung xử lý"];
+      const r = repairHistory.map(x => [formatDateDisplay(x.faultTime), x.machine, x.staff, x.fault, x.fix]);
+      downloadCsv(h, r, "lich-su-sua-may-ltd");
+    });
+
+    function downloadCsv(headers, rows, filename) {
+      const csv = [headers, ...rows].map(row => row.map(c => `"${String(c??'').replaceAll('"','""')}"`).join(",")).join("
+");
+      const blob = new Blob(["﻿" + csv], { type: "text/csv;charset=utf-8" });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url; link.download = `${filename}-${new Date().toISOString().slice(0,10)}.csv`;
+      link.click(); URL.revokeObjectURL(url);
     }
+
+    window.addEventListener("beforeunload", () => {
+      try { if (typeof mySessionId !== "undefined") navigator.sendBeacon(`${DB_URL}/online_users/${mySessionId}.json?x-http-method-override=DELETE`); } catch(e){}
+    });
+
+    if (sessionStorage.getItem(LOGIN_KEY) === "true") { unlockApp(); }
   </script>
 </body>
 </html>
