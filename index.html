@@ -67,7 +67,7 @@
     }
 
     .brand h1 {
-      font-size: 16px;
+      font-size: 18px;
       line-height: 1.15;
       margin: 0;
       letter-spacing: 0;
@@ -499,23 +499,14 @@
 
     .login-title {
       display: flex;
-      flex-direction: column;
       align-items: center;
-      gap: 10px;
-      text-align: center;
-    }
-
-    .login-title img {
-      width: 180px;
-      height: auto;
-      object-fit: contain;
+      gap: 12px;
     }
 
     .login-title h1 {
-      margin: 5px 0 0 0;
-      font-size: 22px;
+      margin: 0;
+      font-size: 23px;
       line-height: 1.2;
-      color: var(--ink);
     }
 
     .login-title p {
@@ -590,16 +581,15 @@
       .actions { width: 100%; }
     }
   </style>
+  
+  <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
 </head>
 <body class="locked">
   <section class="login-screen" aria-label="Đăng nhập kho bảo trì">
     <form class="login-panel" id="loginForm">
       <div class="login-title">
-        <img src="logo.jpg" alt="LTD Logo">
-        <div>
-          <h1>LTD VIET NAM</h1>
-          <p>Đăng nhập kho linh kiện bảo trì</p>
-        </div>
+        <img src="logo.jpg" alt="LTD Logo" style="width: 100%; max-width: 380px; height: auto; object-fit: contain; margin: 0 auto;">
       </div>
       <div class="field">
         <label for="usernameInput">Nhân viên bảo trì</label>
@@ -617,8 +607,7 @@
   <div class="app">
     <aside class="sidebar">
       <div class="brand">
-        <img src="logo.jpg" alt="LTD Logo" style="width: 65px; height: auto; object-fit: contain; background: #fff; padding: 3px; border-radius: 6px;">
-        <h1>LTD VIET NAM</h1>
+        <img src="logo.jpg" alt="LTD Logo" style="width: 100%; max-width: 200px; height: auto; object-fit: contain;">
       </div>
       <nav class="nav" aria-label="Chức năng">
         <button class="active" type="button" data-page="inventoryPage">Tổng quan</button>
@@ -628,7 +617,7 @@
       </nav>
       <div class="sidebar-footer">
         <strong id="todayLabel"></strong>
-        <div>Dữ liệu lưu đồng bộ đám mây đám mây trực tuyến.</div>
+        <div style="color: #7ee2b8; font-weight: bold; margin-top: 5px;">● Đang kết nối Firebase đám mây</div>
       </div>
     </aside>
 
@@ -641,7 +630,7 @@
         <div class="actions">
           <button class="btn" id="exportBtn" type="button">Xuất Linh Kiện CSV</button>
           <button class="btn" id="exportHistoryBtn" type="button" style="display:none;">Xuất Lịch Sử CSV</button>
-          <button class="btn" id="resetBtn" type="button">Cài lại dữ liệu mẫu</button>
+          <button class="btn" id="resetBtn" type="button">Khởi tạo lại dữ liệu mẫu</button>
           <button class="btn" id="logoutBtn" type="button">Đăng xuất</button>
           <button class="btn primary" id="addBtn" type="button">Thêm linh kiện</button>
           <button class="btn primary" id="addMachineMainBtn" type="button" style="display:none;">Thêm máy mới</button>
@@ -672,7 +661,7 @@
           <section class="section" id="inventorySection">
             <div class="section-head">
               <h3>Danh sách linh kiện bảo trì</h3>
-              <span class="meta" id="resultCount">Đang tải...</span>
+              <span class="meta" id="resultCount"></span>
             </div>
             <div class="filters">
               <div class="field">
@@ -707,9 +696,7 @@
                     <th></th>
                   </tr>
                 </thead>
-                <tbody id="inventoryBody">
-                  <tr><td colspan="8" class="empty">Đang kết nối dữ liệu đám mây...</td></tr>
-                </tbody>
+                <tbody id="inventoryBody"></tbody>
               </table>
             </div>
           </section>
@@ -965,18 +952,13 @@
 
   <div class="toast" id="toast" role="status" aria-live="polite"></div>
 
-  <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-database-compat.js"></script>
-
   <script>
-    // ⚠️ HƯỚNG DẪN QUAN TRỌNG:
-    // Đoạn cấu hình firebaseConfig dưới đây là cấu hình dùng thử mặc định.
-    // Để hệ thống thuộc quyền sở hữu riêng của bạn, hãy tạo dự án Firebase (Free) rồi thay thế các thông số này.
+    // CẤU HÌNH ĐƯỜNG LINK FIREBASE TRÙNG KHỚP 100% VỚI ẢNH CHỤP MÀN HÌNH CỦA BẠN
     const firebaseConfig = {
-      databaseURL: "https://ltd-vietnam-maintenance-default-rtdb.firebaseio.com"
+      databaseURL: "https://ltdst-80b3e-default-rtdb.asia-southeast1.firebasedatabase.app"
     };
-
-    // Khởi tạo Firebase đám mây
+    
+    // Khởi tạo kết nối Firebase
     firebase.initializeApp(firebaseConfig);
     const db = firebase.database();
 
@@ -986,24 +968,23 @@
       { username: "admin", password: "LTD@admin", name: "Quản lý bảo trì" }
     ];
 
-    // Dữ liệu mẫu ban đầu (Chỉ đẩy lên đám mây khi database hoàn toàn trống)
     const sampleItems = [
-      { id: "item_1", name: "Vòng bi 6204 ZZ", sku: "LTD-VB-6204", category: "Cơ khí", quantity: 24, min: 8, price: 45000, supplier: "Motor băng tải", location: "Kệ A1", note: "Dùng cho motor nhỏ" },
-      { id: "item_2", name: "Dây curoa B-72", sku: "LTD-DC-B72", category: "Truyền động", quantity: 6, min: 5, price: 128000, supplier: "Máy đóng gói", location: "Kệ A2", note: "" },
-      { id: "item_3", name: "Cảm biến tiệm cận M18", sku: "LTD-CB-M18", category: "Điện điều khiển", quantity: 3, min: 4, price: 320000, supplier: "Line chiết rót", location: "Kệ B1", note: "PNP NO" },
-      { id: "item_4", name: "Contactor 3P 18A", sku: "LTD-CT-18A", category: "Điện công suất", quantity: 0, min: 2, price: 410000, supplier: "Tủ điều khiển", location: "Kệ B2", note: "Cần mua bổ sung" },
-      { id: "item_5", name: "Ống khí PU 8mm", sku: "LTD-PU-08", category: "Khí nén", quantity: 42, min: 15, price: 12000, supplier: "Hệ thống khí nén", location: "Kệ C1", note: "Tính theo mét" },
-      { id: "item_6", name: "Relay trung gian 24VDC", sku: "LTD-RL-24V", category: "Điện điều khiển", quantity: 12, min: 6, price: 68000, supplier: "Tủ PLC", location: "Kệ B3", note: "" }
+      { id: "1", name: "Vòng bi 6204 ZZ", sku: "LTD-VB-6204", category: "Cơ khí", quantity: 24, min: 8, price: 45000, supplier: "Motor băng tải", location: "Kệ A1", note: "Dùng cho motor nhỏ" },
+      { id: "2", name: "Dây curoa B-72", sku: "LTD-DC-B72", category: "Truyền động", quantity: 6, min: 5, price: 128000, supplier: "Máy đóng gói", location: "Kệ A2", note: "" },
+      { id: "3", name: "Cảm biến tiệm cận M18", sku: "LTD-CB-M18", category: "Điện điều khiển", quantity: 3, min: 4, price: 320000, supplier: "Line chiết rót", location: "Kệ B1", note: "PNP NO" },
+      { id: "4", name: "Contactor 3P 18A", sku: "LTD-CT-18A", category: "Điện công suất", quantity: 0, min: 2, price: 410000, supplier: "Tủ điều khiển", location: "Kệ B2", note: "Cần mua bổ sung" },
+      { id: "5", name: "Ống khí PU 8mm", sku: "LTD-PU-08", category: "Khí nén", quantity: 42, min: 15, price: 12000, supplier: "Hệ thống khí nén", location: "Kệ C1", note: "Tính theo mét" },
+      { id: "6", name: "Relay trung gian 24VDC", sku: "LTD-RL-24V", category: "Điện điều khiển", quantity: 12, min: 6, price: 68000, supplier: "Tủ PLC", location: "Kệ B3", note: "" }
     ];
 
     const sampleHistory = [
-      { id: "hist_1", machine: "Máy đóng gói số 1", faultTime: "2026-06-10", staff: "Nguyễn Hải Thái", fault: "Máy dừng giữa chu kỳ, motor băng tải không chạy.", fix: "Kiểm tra tủ điều khiển, thay relay trung gian 24VDC, chạy thử ổn định." },
-      { id: "hist_2", machine: "Line chiết rót", faultTime: "2026-06-09", staff: "Trần Văn Trung", fault: "Cảm biến không nhận chai tại vị trí cấp liệu.", fix: "Vệ sinh đầu cảm biến, chỉnh lại khoảng cách phát hiện và siết lại gá đỡ." }
+      { id: "h1", machine: "Máy đóng gói số 1", faultTime: "2026-06-10", staff: "Nguyễn Hải Thái", fault: "Máy dừng giữa chu kỳ, motor băng tải không chạy.", fix: "Kiểm tra tủ điều khiển, thay relay trung gian 24VDC, chạy thử ổn định." },
+      { id: "h2", machine: "Line chiết rót", faultTime: "2026-06-09", staff: "Trần Văn Trung", fault: "Cảm biến không nhận chai tại vị trí cấp liệu.", fix: "Vệ sinh đầu cảm biến, chỉnh lại khoảng cách phát hiện và siết lại gá đỡ." }
     ];
 
     const sampleMachines = [
-      { id: "mach_1", name: "Máy đóng gói số 1", setupDate: "2024-01-15", warranty: "2026-01-15", vendor: "Công ty Cơ Khí Toàn Cầu", phone: "0901.234.567" },
-      { id: "mach_2", name: "Line chiết rót tự động", setupDate: "2025-05-20", warranty: "2027-05-20", vendor: "Thiết Bị Công Nghiệp Ánh Dương", phone: "028.3840.9999" }
+      { id: "m1", name: "Máy đóng gói số 1", setupDate: "2024-01-15", warranty: "2026-01-15", vendor: "Công ty Cơ Khí Toàn Cầu", phone: "0901.234.567" },
+      { id: "m2", name: "Line chiết rót tự động", setupDate: "2025-05-20", warranty: "2027-05-20", vendor: "Thiết Bị Công Nghiệp Ánh Dương", phone: "028.3840.9999" }
     ];
 
     let items = [];
@@ -1095,7 +1076,7 @@
       weekday: "long", day: "2-digit", month: "2-digit", year: "numeric"
     }).format(new Date());
 
-    // Đăng ký sự kiện nút
+    // Đăng ký Event Listeners
     els.addBtn.addEventListener("click", () => openItemDialog());
     els.addMachineMainBtn.addEventListener("click", () => openMachineDialog());
     document.querySelector("#addMachineBtn").addEventListener("click", () => openMachineDialog());
@@ -1137,29 +1118,27 @@
     els.historyForm.addEventListener("submit", saveRepairHistory);
     els.machineForm.addEventListener("submit", saveMachine);
 
-    // KẾT NỐI REALTIME: Đồng bộ trực tiếp với mây Google Firebase
-    db.ref().on("value", snapshot => {
+    // LẮNG NGHE DỮ LIỆU ĐỒNG BỘ REALTIME TỪ FIREBASE ĐÁM MÂY
+    db.ref("maintenance").on("value", snapshot => {
       const data = snapshot.val() || {};
+      items = data.items ? Object.values(data.items) : [];
+      repairHistory = data.history ? Object.values(data.history) : [];
+      machines = data.machines ? Object.values(data.machines) : [];
+      activities = data.activities ? Object.values(data.activities) : [{ at: new Date().toISOString(), text: "Kết nối đám mây Firebase thành công." }];
       
-      // Nếu cloud chưa có gì, thực hiện đẩy dữ liệu mẫu lên mây lần đầu tiên
-      if (!data.items && !data.machines) {
-        db.ref().set({
-          items: sampleItems,
-          repairHistory: sampleHistory,
-          machines: sampleMachines,
-          activities: [{ at: new Date().toISOString(), text: "Hệ thống kho trực tuyến khởi tạo thành công." }]
-        });
-        return;
-      }
-
-      // Nhận dữ liệu đồng bộ từ mọi thiết bị truyền về dữ liệu cục bộ máy này
-      items = Object.values(data.items || {});
-      repairHistory = Object.values(data.repairHistory || {});
-      machines = Object.values(data.machines || {});
-      activities = Object.values(data.activities || {});
-
-      if (sessionStorage.getItem(LOGIN_KEY) === "true") { unlockApp(); }
+      if (sessionStorage.getItem(LOGIN_KEY) === "true") { render(); }
     });
+
+    if (sessionStorage.getItem(LOGIN_KEY) === "true") { unlockApp(); }
+
+    function syncToFirebase() {
+      db.ref("maintenance").set({
+        items: items.reduce((acc, cur) => ({...acc, [cur.id]: cur}), {}),
+        history: repairHistory.reduce((acc, cur) => ({...acc, [cur.id]: cur}), {}),
+        machines: machines.reduce((acc, cur) => ({...acc, [cur.id]: cur}), {}),
+        activities: activities.slice(0, 20)
+      });
+    }
 
     function login(event) {
       event.preventDefault();
@@ -1326,7 +1305,7 @@
           <span class="pill ${{low:'warn', out:'danger'}[itemStatus(i)]}">${{low:'Sắp hết', out:'Hết linh kiện'}[itemStatus(i)]}</span>
           <div class="meta">Còn ${i.quantity} / Tối thiểu ${i.min}. Cần mua: ${Math.max(i.min-i.quantity, 0)}.</div>
         </div>
-      `) : `<div class="empty">Không có cảnh báo tồn.</div>`;
+      `).join("") : `<div class="empty">Không có cảnh báo tồn.</div>`;
 
       els.activityList.innerHTML = activities.slice(0,5).map(a => `
         <div class="activity-item">
@@ -1336,7 +1315,6 @@
       `).join("");
     }
 
-    // ĐỒNG BỘ ĐÁM MÂY CHO MỤC LINH KIỆN
     function openItemDialog(id = "") {
       const item = items.find(i => i.id === id);
       els.dialogTitle.textContent = item ? "Sửa linh kiện" : "Thêm linh kiện mới";
@@ -1355,7 +1333,7 @@
     function closeItemDialog() { els.itemDialog.close(); els.itemForm.reset(); }
     function saveItem(e) {
       e.preventDefault();
-      const id = els.itemId.value || "item_" + Date.now();
+      const id = els.itemId.value || "item-" + Date.now();
       const payload = {
         id, name: els.nameInput.value.trim(), sku: els.skuInput.value.trim().toUpperCase(),
         category: els.categoryInput.value.trim(), supplier: els.supplierInput.value.trim(),
@@ -1365,18 +1343,16 @@
       if (items.some(i => i.sku.toLowerCase() === payload.sku.toLowerCase() && i.id !== id)) {
         showToast("Mã linh kiện bị trùng."); return;
       }
-      
-      db.ref("items/" + id).set(payload);
-      addAct(`${els.itemId.value ? 'Cập nhật' : 'Thêm'} linh kiện: ${payload.name}`);
-      closeItemDialog(); showToast("Đã lưu linh kiện lên hệ thống.");
+      const idx = items.findIndex(i => i.id === id);
+      if(idx >= 0) { items[idx] = payload; addAct(`Cập nhật linh kiện: ${payload.name}`); } 
+      else { items.push(payload); addAct(`Thêm linh kiện mới: ${payload.name}`); }
+      closeItemDialog(); showToast("Đã lưu linh kiện đám mây."); syncToFirebase();
     }
     function deleteItem(id) {
-      if(!confirm("Xóa linh kiện này khỏi hệ thống chung?")) return;
-      db.ref("items/" + id).remove();
-      addAct("Xóa một mã linh kiện.");
+      if(!confirm("Xóa linh kiện này trên đám mây?")) return;
+      items = items.filter(i => i.id !== id); addAct("Xóa một mã linh kiện."); syncToFirebase();
     }
 
-    // ĐỒNG BỘ ĐÁM MÂY KHI CẬP NHẬT TỒN KHO
     function openMoveDialog(id) {
       const item = items.find(i => i.id === id); if(!item) return;
       els.moveItemId.value = id; els.moveTitle.textContent = `Cập nhật tồn: ${item.name}`;
@@ -1388,15 +1364,11 @@
       const item = items.find(i => i.id === els.moveItemId.value); if(!item) return;
       const amt = Number(els.moveAmount.value);
       if(els.moveType.value === "out" && amt > item.quantity) { showToast("Xuất vượt quá lượng tồn kho!"); return; }
-      
-      const newQty = item.quantity + (els.moveType.value === "in" ? amt : -amt);
-      db.ref("items/" + item.id + "/quantity").set(newQty);
-      
+      item.quantity += (els.moveType.value === "in" ? amt : -amt);
       addAct(`${els.moveType.value === 'in' ? 'Nhập' : 'Xuất'} ${amt} ${item.name}`);
-      closeMoveDialog(); showToast("Đã đồng bộ tồn kho.");
+      closeMoveDialog(); showToast("Đã cập nhật kho lên Firebase."); syncToFirebase();
     }
 
-    // ĐỒNG BỘ ĐÁM MÂY CHO MỤC LỊCH SỬ SỬA MÁY
     function openHistoryDialog(id = "") {
       const h = repairHistory.find(x => x.id === id);
       els.historyTitle.textContent = h ? "Sửa lịch sử sửa máy" : "Thêm lịch sử sửa máy";
@@ -1411,23 +1383,21 @@
     function closeHistoryDialog() { els.historyDialog.close(); els.historyForm.reset(); }
     function saveRepairHistory(e) {
       e.preventDefault();
-      const id = els.historyId.value || "hist_" + Date.now();
+      const id = els.historyId.value || "history-" + Date.now();
       const payload = {
         id, machine: els.machineInput.value.trim(), faultTime: els.faultTimeInput.value,
         staff: els.staffInput.value.trim(), fault: els.faultInput.value.trim(), fix: els.fixInput.value.trim()
       };
-      
-      db.ref("repairHistory/" + id).set(payload);
-      addAct(`${els.historyId.value ? 'Sửa' : 'Ghi nhận'} xử lý máy: ${payload.machine}`);
-      closeHistoryDialog(); showToast("Đã cập nhật lịch sử lỗi.");
+      const idx = repairHistory.findIndex(x => x.id === id);
+      if(idx >= 0) { repairHistory[idx] = payload; addAct(`Sửa lịch sử máy: ${payload.machine}`); }
+      else { repairHistory.push(payload); addAct(`Ghi nhận sửa máy: ${payload.machine}`); }
+      closeHistoryDialog(); showToast("Đã lưu lịch sử sửa máy."); syncToFirebase();
     }
     function deleteHistory(id) {
       if(!confirm("Xóa dòng lịch sử lỗi này?")) return;
-      db.ref("repairHistory/" + id).remove();
-      addAct("Xóa lịch sử lỗi.");
+      repairHistory = repairHistory.filter(x => x.id !== id); addAct("Xóa lịch sử lỗi."); syncToFirebase();
     }
 
-    // ĐỒNG BỘ ĐÁM MÂY CHO DANH SÁCH MÁY MÓC
     function openMachineDialog(id = "") {
       const m = machines.find(x => x.id === id);
       els.machineTitle.textContent = m ? "Sửa thông tin máy" : "Thêm máy thiết bị mới";
@@ -1442,28 +1412,22 @@
     function closeMachineDialog() { els.machineDialog.close(); els.machineForm.reset(); }
     function saveMachine(e) {
       e.preventDefault();
-      const id = els.mId.value || "mach_" + Date.now();
+      const id = els.mId.value || "machine-" + Date.now();
       const payload = {
         id, name: els.mName.value.trim(), setupDate: els.mSetupDate.value,
         warranty: els.mWarranty.value, vendor: els.mVendor.value.trim(), phone: els.mPhone.value.trim()
       };
-      
-      db.ref("machines/" + id).set(payload);
-      addAct(`${els.mId.value ? 'Cập nhật' : 'Thêm'} thiết bị: ${payload.name}`);
-      closeMachineDialog(); showToast("Đã lưu thông tin máy.");
+      const idx = machines.findIndex(x => x.id === id);
+      if(idx >= 0) { machines[idx] = payload; addAct(`Cập nhật máy: ${payload.name}`); }
+      else { machines.push(payload); addAct(`Thêm máy mới vào xưởng: ${payload.name}`); }
+      closeMachineDialog(); showToast("Đã lưu thông tin máy."); syncToFirebase();
     }
     function deleteMachine(id) {
-      if(!confirm("Xóa thông tin máy này khỏi hệ thống chung?")) return;
-      db.ref("machines/" + id).remove();
-      addAct("Xóa thông tin thiết bị máy.");
+      if(!confirm("Xóa thông tin máy này khỏi hệ thống?")) return;
+      machines = machines.filter(x => x.id !== id); addAct("Xóa thông tin thiết bị máy."); syncToFirebase();
     }
 
-    // GHI NHẬN HOẠT ĐỘNG
-    function addAct(text) {
-      activities.unshift({ at: new Date().toISOString(), text });
-      db.ref("activities").set(activities.slice(0, 20));
-    }
-    
+    function addAct(text) { activities.unshift({ at: new Date().toISOString(), text }); }
     function showToast(msg) { els.toast.textContent = msg; els.toast.classList.add("show"); setTimeout(() => els.toast.classList.remove("show"), 3000); }
     
     function formatDateDisplay(val) {
@@ -1498,14 +1462,10 @@
     }
 
     function resetData() {
-      if(!confirm("Xóa sạch mây và đặt lại toàn bộ dữ liệu mặc định?")) return;
-      db.ref().set({
-        items: sampleItems,
-        repairHistory: sampleHistory,
-        machines: sampleMachines,
-        activities: [{ at: new Date().toISOString(), text: "Dữ liệu nhà xưởng đã được reset trên mây." }]
-      });
-      showToast("Đã khôi phục dữ liệu gốc đám mây.");
+      if(!confirm("Hành động này sẽ ghi đè dữ liệu mẫu lên đám mây Firebase. Xác nhận?")) return;
+      items = [...sampleItems]; repairHistory = [...sampleHistory]; machines = [...sampleMachines];
+      activities = [{ at: new Date().toISOString(), text: "Dữ liệu đám mây đã đặt lại dữ liệu mẫu." }];
+      syncToFirebase(); showToast("Đã khởi tạo lại đám mây.");
     }
   </script>
 </body>
