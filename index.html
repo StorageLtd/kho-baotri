@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>LTD VIET NAM</title>
+  <title>LTD VIET NAM - Cloud</title>
   <style>
     :root {
       color-scheme: light;
@@ -32,14 +32,8 @@
       min-height: 100vh;
     }
 
-    button, input, select, textarea {
-      font: inherit;
-    }
-
-    button {
-      border: 0;
-      cursor: pointer;
-    }
+    button, input, select, textarea { font: inherit; }
+    button { border: 0; cursor: pointer; }
 
     .app {
       min-height: 100vh;
@@ -74,11 +68,7 @@
       white-space: nowrap;
     }
 
-    .nav {
-      display: grid;
-      gap: 8px;
-    }
-
+    .nav { display: grid; gap: 8px; }
     .nav button {
       width: 100%;
       min-height: 42px;
@@ -92,8 +82,7 @@
       text-align: left;
     }
 
-    .nav button.active,
-    .nav button:hover {
+    .nav button.active, .nav button:hover {
       background: rgba(255, 255, 255, .1);
       color: #fff;
     }
@@ -108,10 +97,7 @@
       line-height: 1.45;
     }
 
-    main {
-      min-width: 0;
-    }
-
+    main { min-width: 0; }
     .topbar {
       min-height: 78px;
       background: rgba(246, 247, 244, .9);
@@ -127,26 +113,10 @@
       z-index: 5;
     }
 
-    .page-title h2 {
-      margin: 0;
-      font-size: 24px;
-      letter-spacing: 0;
-    }
-
-    .page-title p {
-      margin: 3px 0 0;
-      color: var(--muted);
-      font-size: 14px;
-    }
-
-    .actions {
-      display: flex;
-      align-items: center;
-      gap: 10px;
-      flex-wrap: wrap;
-      justify-content: flex-end;
-    }
-
+    .page-title h2 { margin: 0; font-size: 24px; letter-spacing: 0; }
+    .page-title p { margin: 3px 0 0; color: var(--muted); font-size: 14px; }
+    .actions { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; justify-content: flex-end; }
+    
     .btn {
       min-height: 40px;
       border-radius: 8px;
@@ -159,33 +129,14 @@
       gap: 8px;
       white-space: nowrap;
     }
-
-    .btn.primary {
-      background: var(--brand);
-      border-color: var(--brand);
-      color: #fff;
-      font-weight: 700;
-    }
-
+    .btn.primary { background: var(--brand); border-color: var(--brand); color: #fff; font-weight: 700; }
     .btn.primary:hover { background: var(--brand-strong); }
     .btn:hover { border-color: #adbbb4; }
 
-    .content {
-      padding: 24px 28px 36px;
-      display: grid;
-      gap: 22px;
-    }
-
-    .content[hidden] {
-      display: none;
-    }
-
-    .stats {
-      display: grid;
-      grid-template-columns: repeat(4, minmax(150px, 1fr));
-      gap: 14px;
-    }
-
+    .content { padding: 24px 28px 36px; display: grid; gap: 22px; }
+    .content[hidden] { display: none; }
+    .stats { display: grid; grid-template-columns: repeat(4, minmax(150px, 1fr)); gap: 14px; }
+    
     .stat {
       background: var(--panel);
       border: 1px solid var(--line);
@@ -196,341 +147,73 @@
       display: grid;
       align-content: space-between;
     }
+    .stat span { color: var(--muted); font-size: 13px; }
+    .stat strong { font-size: 28px; letter-spacing: 0; }
 
-    .stat span {
-      color: var(--muted);
-      font-size: 13px;
-    }
+    .workspace { display: grid; grid-template-columns: minmax(0, 1fr) 320px; gap: 18px; align-items: start; }
+    .section { background: var(--panel); border: 1px solid var(--line); border-radius: 8px; box-shadow: var(--shadow); overflow: hidden; margin-bottom: 10px; }
+    .section-head { min-height: 66px; padding: 14px 16px; border-bottom: 1px solid var(--line); display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+    .section-head h3 { margin: 0; font-size: 17px; }
 
-    .stat strong {
-      font-size: 28px;
-      letter-spacing: 0;
-    }
+    .filters { display: grid; grid-template-columns: minmax(180px, 1fr) 150px 150px; gap: 10px; padding: 14px 16px; background: #fbfcfa; border-bottom: 1px solid var(--line); }
+    .field { display: grid; gap: 6px; }
+    .field label { color: var(--muted); font-size: 12px; font-weight: 700; }
 
-    .workspace {
-      display: grid;
-      grid-template-columns: minmax(0, 1fr) 320px;
-      gap: 18px;
-      align-items: start;
-    }
+    .input, select, textarea { width: 100%; min-height: 40px; border-radius: 8px; border: 1px solid var(--line); background: #fff; color: var(--ink); padding: 0 11px; outline: 0; }
+    textarea { padding: 10px 11px; resize: vertical; min-height: 80px; }
+    .input:focus, select:focus, textarea:focus { border-color: var(--brand); box-shadow: 0 0 0 3px rgba(22, 102, 77, .15); }
 
-    .section {
-      background: var(--panel);
-      border: 1px solid var(--line);
-      border-radius: 8px;
-      box-shadow: var(--shadow);
-      overflow: hidden;
-      margin-bottom: 10px;
-    }
-
-    .section-head {
-      min-height: 66px;
-      padding: 14px 16px;
-      border-bottom: 1px solid var(--line);
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      gap: 12px;
-    }
-
-    .section-head h3 {
-      margin: 0;
-      font-size: 17px;
-    }
-
-    .filters {
-      display: grid;
-      grid-template-columns: minmax(180px, 1fr) 150px 150px;
-      gap: 10px;
-      padding: 14px 16px;
-      background: #fbfcfa;
-      border-bottom: 1px solid var(--line);
-    }
-
-    .field {
-      display: grid;
-      gap: 6px;
-    }
-
-    .field label {
-      color: var(--muted);
-      font-size: 12px;
-      font-weight: 700;
-    }
-
-    .input, select, textarea {
-      width: 100%;
-      min-height: 40px;
-      border-radius: 8px;
-      border: 1px solid var(--line);
-      background: #fff;
-      color: var(--ink);
-      padding: 0 11px;
-      outline: 0;
-    }
-
-    textarea {
-      padding: 10px 11px;
-      resize: vertical;
-      min-height: 80px;
-    }
-
-    .input:focus, select:focus, textarea:focus {
-      border-color: var(--brand);
-      box-shadow: 0 0 0 3px rgba(22, 102, 77, .15);
-    }
-
-    .table-wrap {
-      overflow: auto;
-    }
-
-    table {
-      width: 100%;
-      border-collapse: collapse;
-      min-width: 820px;
-    }
-
-    th, td {
-      padding: 13px 16px;
-      border-bottom: 1px solid var(--line);
-      text-align: left;
-      vertical-align: middle;
-    }
-
-    th {
-      background: #fbfcfa;
-      color: var(--muted);
-      font-size: 12px;
-      text-transform: uppercase;
-      letter-spacing: .04em;
-      position: sticky;
-      top: 0;
-      z-index: 1;
-    }
-
-    tbody tr:hover {
-      background: #f8faf8;
-    }
-
-    .sku {
-      color: var(--muted);
-      font-size: 12px;
-      margin-top: 2px;
-    }
-
-    .pill {
-      min-height: 26px;
-      border-radius: 999px;
-      display: inline-flex;
-      align-items: center;
-      padding: 0 9px;
-      font-size: 12px;
-      font-weight: 800;
-      white-space: nowrap;
-    }
-
+    .table-wrap { overflow: auto; }
+    table { width: 100%; border-collapse: collapse; min-width: 820px; }
+    th, td { padding: 13px 16px; border-bottom: 1px solid var(--line); text-align: left; vertical-align: middle; }
+    th { background: #fbfcfa; color: var(--muted); font-size: 12px; text-transform: uppercase; letter-spacing: .04em; position: sticky; top: 0; z-index: 1; }
+    tbody tr:hover { background: #f8faf8; }
+    
+    .sku { color: var(--muted); font-size: 12px; margin-top: 2px; }
+    .pill { min-height: 26px; border-radius: 999px; display: inline-flex; align-items: center; padding: 0 9px; font-size: 12px; font-weight: 800; white-space: nowrap; }
     .pill.ok { background: #e4f3ea; color: var(--ok); }
     .pill.warn { background: #fff0d7; color: var(--warn); }
     .pill.danger { background: #ffe3e0; color: var(--danger); }
-    .pill.neutral { background: #edf0f2; color: #59636d; }
 
-    .row-actions {
-      display: flex;
-      gap: 7px;
-      justify-content: flex-end;
-    }
-
-    .icon-btn {
-      width: 34px;
-      height: 34px;
-      border-radius: 8px;
-      border: 1px solid var(--line);
-      background: #fff;
-      color: var(--ink);
-      display: grid;
-      place-items: center;
-      font-weight: 800;
-    }
-
+    .row-actions { display: flex; gap: 7px; justify-content: flex-end; }
+    .icon-btn { width: 34px; height: 34px; border-radius: 8px; border: 1px solid var(--line); background: #fff; color: var(--ink); display: grid; place-items: center; font-weight: 800; }
     .icon-btn:hover { border-color: var(--brand); color: var(--brand); }
     .icon-btn.danger:hover { border-color: var(--danger); color: var(--danger); }
 
-    .side-panel {
-      display: grid;
-      gap: 18px;
-    }
+    .side-panel { display: grid; gap: 18px; }
+    .history-tools { display: grid; grid-template-columns: minmax(180px, 1fr) 190px 190px; gap: 10px; padding: 14px 16px; background: #fbfcfa; border-bottom: 1px solid var(--line); }
+    .history-table { min-width: 980px; }
+    .history-table td { vertical-align: top; }
+    .history-table .text-cell { min-width: 200px; line-height: 1.45; }
 
-    .history-tools {
-      display: grid;
-      grid-template-columns: minmax(180px, 1fr) 190px 190px;
-      gap: 10px;
-      padding: 14px 16px;
-      background: #fbfcfa;
-      border-bottom: 1px solid var(--line);
-    }
+    .list { padding: 14px 16px 16px; display: grid; gap: 10px; }
+    .alert-item, .activity-item { border: 1px solid var(--line); border-radius: 8px; padding: 12px; display: grid; gap: 5px; background: #fff; }
+    .alert-item strong, .activity-item strong { font-size: 14px; }
+    .meta { color: var(--muted); font-size: 12px; line-height: 1.35; }
+    .empty { color: var(--muted); padding: 18px; text-align: center; }
 
-    .history-table {
-      min-width: 980px;
-    }
+    dialog { border: 0; padding: 0; border-radius: 8px; width: min(720px, calc(100vw - 28px)); box-shadow: 0 30px 70px rgba(16, 24, 20, .28); }
+    dialog::backdrop { background: rgba(15, 24, 20, .45); }
+    .modal-head, .modal-foot { padding: 16px 18px; display: flex; align-items: center; justify-content: space-between; gap: 12px; border-bottom: 1px solid var(--line); }
+    .modal-foot { border-top: 1px solid var(--line); border-bottom: 0; justify-content: flex-end; }
+    .modal-head h3 { margin: 0; font-size: 18px; }
 
-    .history-table td {
-      vertical-align: top;
-    }
+    .form-grid { padding: 18px; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; }
+    .form-grid .wide { grid-column: 1 / -1; }
 
-    .history-table .text-cell {
-      min-width: 200px;
-      line-height: 1.45;
-    }
-
-    .list {
-      padding: 14px 16px 16px;
-      display: grid;
-      gap: 10px;
-    }
-
-    .alert-item, .activity-item {
-      border: 1px solid var(--line);
-      border-radius: 8px;
-      padding: 12px;
-      display: grid;
-      gap: 5px;
-      background: #fff;
-    }
-
-    .alert-item strong, .activity-item strong {
-      font-size: 14px;
-    }
-
-    .meta {
-      color: var(--muted);
-      font-size: 12px;
-      line-height: 1.35;
-    }
-
-    .empty {
-      color: var(--muted);
-      padding: 18px;
-      text-align: center;
-    }
-
-    dialog {
-      border: 0;
-      padding: 0;
-      border-radius: 8px;
-      width: min(720px, calc(100vw - 28px));
-      box-shadow: 0 30px 70px rgba(16, 24, 20, .28);
-    }
-
-    dialog::backdrop {
-      background: rgba(15, 24, 20, .45);
-    }
-
-    .modal-head, .modal-foot {
-      padding: 16px 18px;
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      gap: 12px;
-      border-bottom: 1px solid var(--line);
-    }
-
-    .modal-foot {
-      border-top: 1px solid var(--line);
-      border-bottom: 0;
-      justify-content: flex-end;
-    }
-
-    .modal-head h3 {
-      margin: 0;
-      font-size: 18px;
-    }
-
-    .form-grid {
-      padding: 18px;
-      display: grid;
-      grid-template-columns: repeat(2, minmax(0, 1fr));
-      gap: 14px;
-    }
-
-    .form-grid .wide {
-      grid-column: 1 / -1;
-    }
-
-    .toast {
-      position: fixed;
-      right: 18px;
-      bottom: 18px;
-      min-height: 44px;
-      max-width: min(420px, calc(100vw - 36px));
-      border-radius: 8px;
-      background: #13251f;
-      color: #fff;
-      padding: 12px 14px;
-      box-shadow: var(--shadow);
-      display: none;
-      z-index: 20;
-    }
-
-    .toast.show {
-      display: block;
-      animation: rise .18s ease-out;
-    }
+    .toast { position: fixed; right: 18px; bottom: 18px; min-height: 44px; max-width: min(420px, calc(100vw - 36px)); border-radius: 8px; background: #13251f; color: #fff; padding: 12px 14px; box-shadow: var(--shadow); display: none; z-index: 20; }
+    .toast.show { display: block; animation: rise .18s ease-out; }
 
     .login-screen {
-      min-height: 100vh;
-      display: grid;
-      place-items: center;
-      padding: 22px;
-      background:
-        linear-gradient(135deg, rgba(18, 37, 31, .94), rgba(22, 102, 77, .88)),
-        repeating-linear-gradient(90deg, rgba(255, 255, 255, .05) 0 1px, transparent 1px 90px);
+      min-height: 100vh; display: grid; place-items: center; padding: 22px;
+      background: linear-gradient(135deg, rgba(18, 37, 31, .94), rgba(22, 102, 77, .88));
     }
+    .login-panel { width: min(440px, 100%); background: #fff; border-radius: 8px; border: 1px solid var(--line); box-shadow: 0 30px 80px rgba(0, 0, 0, .24); padding: 26px; display: grid; gap: 18px; }
+    .login-title h1 { margin: 0; font-size: 23px; line-height: 1.2; }
+    .login-error { min-height: 20px; color: var(--danger); font-size: 13px; font-weight: 700; }
 
-    .login-panel {
-      width: min(440px, 100%);
-      background: #fff;
-      border-radius: 8px;
-      border: 1px solid var(--line);
-      box-shadow: 0 30px 80px rgba(0, 0, 0, .24);
-      padding: 26px;
-      display: grid;
-      gap: 18px;
-    }
-
-    .login-title {
-      display: flex;
-      align-items: center;
-      gap: 12px;
-    }
-
-    .login-title h1 {
-      margin: 0;
-      font-size: 23px;
-      line-height: 1.2;
-    }
-
-    .login-title p {
-      margin: 3px 0 0;
-      color: var(--muted);
-      font-size: 14px;
-    }
-
-    .login-error {
-      min-height: 20px;
-      color: var(--danger);
-      font-size: 13px;
-      font-weight: 700;
-    }
-
-    body.locked .app,
-    body.locked dialog,
-    body.locked .toast {
-      display: none;
-    }
-
-    body:not(.locked) .login-screen {
-      display: none;
-    }
+    body.locked .app, body.locked dialog, body.locked .toast { display: none; }
+    body:not(.locked) .login-screen { display: none; }
 
     @keyframes rise {
       from { transform: translateY(8px); opacity: 0; }
@@ -539,57 +222,20 @@
 
     @media (max-width: 1060px) {
       .app { grid-template-columns: 1fr; }
-      .sidebar {
-        position: static;
-        height: auto;
-        padding: 14px 16px;
-        flex-direction: row;
-        align-items: center;
-        gap: 14px;
-      }
-      .nav {
-        display: flex;
-        overflow: auto;
-      }
-      .nav button {
-        white-space: nowrap;
-      }
+      .sidebar { position: static; height: auto; padding: 14px 16px; flex-direction: row; align-items: center; gap: 14px; }
+      .nav { display: flex; overflow: auto; }
+      .nav button { white-space: nowrap; }
       .sidebar-footer { display: none; }
       .workspace { grid-template-columns: 1fr; }
     }
-
-    @media (max-width: 760px) {
-      .topbar {
-        align-items: flex-start;
-        flex-direction: column;
-        padding: 16px;
-      }
-      .content { padding: 16px; }
-      .stats { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-      .history-tools { grid-template-columns: 1fr; }
-      .filters { grid-template-columns: 1fr; }
-      .form-grid { grid-template-columns: 1fr; }
-      .actions { justify-content: flex-start; }
-    }
-
-    @media (max-width: 500px) {
-      .stats { grid-template-columns: 1fr; }
-      .sidebar { align-items: flex-start; flex-direction: column; }
-      .brand h1 { font-size: 16px; }
-      .page-title h2 { font-size: 21px; }
-      .btn { width: 100%; justify-content: center; }
-      .actions { width: 100%; }
-    }
   </style>
-  
-  <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
 </head>
 <body class="locked">
   <section class="login-screen" aria-label="Đăng nhập kho bảo trì">
     <form class="login-panel" id="loginForm">
       <div class="login-title">
-        <img src="logo.jpg" alt="LTD Logo" style="width: 100%; max-width: 380px; height: auto; object-fit: contain; margin: 0 auto;">
+        <h1>LTD VIET NAM</h1>
+        <p style="color: var(--muted); margin: 4px 0 0 0;">Hệ thống quản lý kho bảo trì bảo dưỡng</p>
       </div>
       <div class="field">
         <label for="usernameInput">Nhân viên bảo trì</label>
@@ -607,7 +253,7 @@
   <div class="app">
     <aside class="sidebar">
       <div class="brand">
-        <img src="logo.jpg" alt="LTD Logo" style="width: 100%; max-width: 200px; height: auto; object-fit: contain;">
+        <h1>LTD VIET NAM</h1>
       </div>
       <nav class="nav" aria-label="Chức năng">
         <button class="active" type="button" data-page="inventoryPage">Tổng quan</button>
@@ -617,7 +263,7 @@
       </nav>
       <div class="sidebar-footer">
         <strong id="todayLabel"></strong>
-        <div style="color: #7ee2b8; font-weight: bold; margin-top: 5px;">● Đang kết nối Firebase đám mây</div>
+        <div style="color: #6ee7b7; font-weight: bold; margin-top: 4px;">● Hệ thống đám mây (Firebase)</div>
       </div>
     </aside>
 
@@ -630,7 +276,6 @@
         <div class="actions">
           <button class="btn" id="exportBtn" type="button">Xuất Linh Kiện CSV</button>
           <button class="btn" id="exportHistoryBtn" type="button" style="display:none;">Xuất Lịch Sử CSV</button>
-          <button class="btn" id="resetBtn" type="button">Khởi tạo lại dữ liệu mẫu</button>
           <button class="btn" id="logoutBtn" type="button">Đăng xuất</button>
           <button class="btn primary" id="addBtn" type="button">Thêm linh kiện</button>
           <button class="btn primary" id="addMachineMainBtn" type="button" style="display:none;">Thêm máy mới</button>
@@ -661,16 +306,16 @@
           <section class="section" id="inventorySection">
             <div class="section-head">
               <h3>Danh sách linh kiện bảo trì</h3>
-              <span class="meta" id="resultCount"></span>
+              <span class="meta" id="resultCount">Đang tải...</span>
             </div>
             <div class="filters">
               <div class="field">
                 <label for="searchInput">Tìm kiếm</label>
-                <input class="input" id="searchInput" type="search" placeholder="Tên linh kiện, mã, kệ, thiết bị">
+                <input class="input" id="searchInput" type="search" placeholder="Tên linh kiện, mã, kệ...">
               </div>
               <div class="field">
                 <label for="categoryFilter">Nhóm linh kiện</label>
-                <select id="categoryFilter"></select>
+                <select id="categoryFilter"><option value="all">Tất cả</option></select>
               </div>
               <div class="field">
                 <label for="statusFilter">Trạng thái</label>
@@ -702,17 +347,12 @@
           </section>
 
           <aside class="side-panel">
-            <section class="section" id="alertsSection">
-              <div class="section-head">
-                <h3>Cảnh báo</h3>
-              </div>
+            <section class="section">
+              <div class="section-head"><h3>Cảnh báo</h3></div>
               <div class="list" id="alertList"></div>
             </section>
-
             <section class="section">
-              <div class="section-head">
-                <h3>Hoạt động gần đây</h3>
-              </div>
+              <div class="section-head"><h3>Hoạt động gần đây</h3></div>
               <div class="list" id="activityList"></div>
             </section>
           </aside>
@@ -720,15 +360,15 @@
       </section>
 
       <section class="content" id="machinesPage" hidden>
-        <section class="section" id="machinesSection">
+        <section class="section">
           <div class="section-head">
             <div>
               <h3>Danh sách quản lý máy nhà xưởng</h3>
-              <div class="meta">Theo dõi ngày lắp đặt, thời gian bảo hành và thông tin liên hệ nhà cung cấp thiết bị.</div>
+              <div class="meta">Theo dõi ngày lắp đặt, thời gian bảo hành và nhà cung cấp.</div>
             </div>
             <button class="btn primary" id="addMachineBtn" type="button">Thêm máy mới</button>
           </div>
-          <div class="history-tools" style="grid-template-columns: 1fr;">
+          <div style="padding: 14px 16px; background: #fbfcfa; border-bottom: 1px solid var(--line);">
             <div class="field">
               <label for="machineSearchInput">Tìm nhanh máy thiết bị</label>
               <input class="input" id="machineSearchInput" type="search" placeholder="Tìm theo tên máy, đơn vị cung cấp...">
@@ -753,18 +393,18 @@
       </section>
 
       <section class="content" id="historyPage" hidden>
-        <section class="section" id="repairHistorySection">
+        <section class="section">
           <div class="section-head">
             <div>
               <h3>Lịch sử lỗi và nội dung xử lý</h3>
-              <div class="meta">Theo dõi máy lỗi, thời gian lỗi và cách nhân viên bảo trì đã xử lý.</div>
+              <div class="meta">Theo dõi lỗi thiết bị máy và phương án sửa chữa.</div>
             </div>
             <button class="btn primary" id="addHistoryBtn" type="button">Thêm lịch sử</button>
           </div>
           <div class="history-tools">
             <div class="field">
               <label for="historySearchInput">Tìm nhanh</label>
-              <input class="input" id="historySearchInput" type="search" placeholder="Tên máy, người xử lý, lỗi, cách xử lý">
+              <input class="input" id="historySearchInput" type="search" placeholder="Tên máy, nội dung lỗi...">
             </div>
             <div class="field">
               <label for="historyFromInput">Từ ngày</label>
@@ -799,45 +439,45 @@
     <form id="itemForm" method="dialog">
       <div class="modal-head">
         <h3 id="dialogTitle">Thêm linh kiện</h3>
-        <button class="icon-btn" value="cancel" type="button" id="closeDialog" aria-label="Đóng">x</button>
+        <button class="icon-btn" value="cancel" type="button" id="closeDialog">x</button>
       </div>
       <div class="form-grid">
         <input type="hidden" id="itemId">
         <div class="field">
           <label for="nameInput">Tên linh kiện</label>
-          <input class="input" id="nameInput" required maxlength="80">
+          <input class="input" id="nameInput" required>
         </div>
         <div class="field">
           <label for="skuInput">Mã linh kiện</label>
-          <input class="input" id="skuInput" required maxlength="32">
+          <input class="input" id="skuInput" required>
         </div>
         <div class="field">
           <label for="categoryInput">Nhóm linh kiện</label>
-          <input class="input" id="categoryInput" required maxlength="40">
+          <input class="input" id="categoryInput" required>
         </div>
         <div class="field">
           <label for="supplierInput">Thiết bị dùng cho</label>
-          <input class="input" id="supplierInput" required maxlength="70">
+          <input class="input" id="supplierInput" required>
         </div>
         <div class="field">
           <label for="quantityInput">Số lượng còn</label>
-          <input class="input" id="quantityInput" type="number" required min="0" step="1">
+          <input class="input" id="quantityInput" type="number" required min="0">
         </div>
         <div class="field">
           <label for="minInput">Tồn tối thiểu</label>
-          <input class="input" id="minInput" type="number" required min="0" step="1">
+          <input class="input" id="minInput" type="number" required min="0">
         </div>
         <div class="field">
           <label for="priceInput">Giá tham khảo</label>
-          <input class="input" id="priceInput" type="number" required min="0" step="1000">
+          <input class="input" id="priceInput" type="number" required min="0">
         </div>
         <div class="field">
           <label for="locationInput">Nằm ở kệ số</label>
-          <input class="input" id="locationInput" maxlength="40">
+          <input class="input" id="locationInput">
         </div>
         <div class="field wide">
           <label for="noteInput">Ghi chú</label>
-          <textarea id="noteInput" maxlength="180"></textarea>
+          <textarea id="noteInput"></textarea>
         </div>
       </div>
       <div class="modal-foot">
@@ -851,7 +491,7 @@
     <form id="moveForm" method="dialog">
       <div class="modal-head">
         <h3 id="moveTitle">Cập nhật tồn</h3>
-        <button class="icon-btn" type="button" id="closeMoveDialog" aria-label="Đóng">x</button>
+        <button class="icon-btn" type="button" id="closeMoveDialog">x</button>
       </div>
       <div class="form-grid">
         <input type="hidden" id="moveItemId">
@@ -864,11 +504,11 @@
         </div>
         <div class="field">
           <label for="moveAmount">Số lượng</label>
-          <input class="input" id="moveAmount" type="number" required min="1" step="1" value="1">
+          <input class="input" id="moveAmount" type="number" required min="1" value="1">
         </div>
         <div class="field wide">
           <label for="moveNote">Ghi chú</label>
-          <input class="input" id="moveNote" maxlength="120">
+          <input class="input" id="moveNote">
         </div>
       </div>
       <div class="modal-foot">
@@ -882,13 +522,13 @@
     <form id="historyForm" method="dialog">
       <div class="modal-head">
         <h3 id="historyTitle">Thêm lịch sử sửa máy</h3>
-        <button class="icon-btn" type="button" id="closeHistoryDialog" aria-label="Đóng">x</button>
+        <button class="icon-btn" type="button" id="closeHistoryDialog">x</button>
       </div>
       <div class="form-grid">
         <input type="hidden" id="historyId">
         <div class="field">
           <label for="machineInput">Tên máy lỗi</label>
-          <input class="input" id="machineInput" required maxlength="40" placeholder="Ví dụ: Máy đóng gói số 1">
+          <input class="input" id="machineInput" required>
         </div>
         <div class="field">
           <label for="faultTimeInput">Ngày lỗi</label>
@@ -896,15 +536,15 @@
         </div>
         <div class="field wide">
           <label for="staffInput">Người xử lý</label>
-          <input class="input" id="staffInput" required maxlength="50" placeholder="Ví dụ: Nguyễn Hải Thái">
+          <input class="input" id="staffInput" required>
         </div>
         <div class="field wide">
           <label for="faultInput">Nội dung lỗi</label>
-          <textarea id="faultInput" required maxlength="260" placeholder="Mô tả hiện tượng lỗi"></textarea>
+          <textarea id="faultInput" required></textarea>
         </div>
         <div class="field wide">
           <label for="fixInput">Nội dung xử lý lỗi</label>
-          <textarea id="fixInput" required maxlength="320" placeholder="Ghi cách kiểm tra, thay linh kiện..."></textarea>
+          <textarea id="fixInput" required></textarea>
         </div>
       </div>
       <div class="modal-foot">
@@ -918,13 +558,13 @@
     <form id="machineForm" method="dialog">
       <div class="modal-head">
         <h3 id="machineTitle">Thêm máy thiết bị</h3>
-        <button class="icon-btn" type="button" id="closeMachineDialog" aria-label="Đóng">x</button>
+        <button class="icon-btn" type="button" id="closeMachineDialog">x</button>
       </div>
       <div class="form-grid">
         <input type="hidden" id="machineId">
         <div class="field wide">
           <label for="mNameInput">Tên máy thiết bị</label>
-          <input class="input" id="mNameInput" required maxlength="100" placeholder="Ví dụ: Bơm tăng áp Line 2">
+          <input class="input" id="mNameInput" required>
         </div>
         <div class="field">
           <label for="mSetupDateInput">Ngày lắp đặt</label>
@@ -936,11 +576,11 @@
         </div>
         <div class="field">
           <label for="mVendorInput">Công ty cung cấp</label>
-          <input class="input" id="mVendorInput" required maxlength="100" placeholder="Đơn vị bán máy">
+          <input class="input" id="mVendorInput" required>
         </div>
         <div class="field">
           <label for="mPhoneInput">Số điện thoại</label>
-          <input class="input" id="mPhoneInput" required maxlength="30" placeholder="SĐT liên hệ kỹ thuật">
+          <input class="input" id="mPhoneInput" required>
         </div>
       </div>
       <div class="modal-foot">
@@ -953,40 +593,15 @@
   <div class="toast" id="toast" role="status" aria-live="polite"></div>
 
   <script>
-    // CẤU HÌNH ĐƯỜNG LINK FIREBASE TRÙNG KHỚP 100% VỚI ẢNH CHỤP MÀN HÌNH CỦA BẠN
-    const firebaseConfig = {
-      databaseURL: "https://ltdst-80b3e-default-rtdb.asia-southeast1.firebasedatabase.app"
-    };
+    const DB_URL = "https://ltdst-80b3e-default-rtdb.asia-southeast1.firebasedatabase.app";
     
-    // Khởi tạo kết nối Firebase
-    firebase.initializeApp(firebaseConfig);
-    const db = firebase.database();
-
     const LOGIN_KEY = "ltd-maintenance-login-v1";
     const STAFF_ACCOUNTS = [
       { username: "baotri", password: "LTD@123", name: "Nhân viên bảo trì" },
       { username: "admin", password: "LTD@admin", name: "Quản lý bảo trì" }
     ];
 
-    const sampleItems = [
-      { id: "1", name: "Vòng bi 6204 ZZ", sku: "LTD-VB-6204", category: "Cơ khí", quantity: 24, min: 8, price: 45000, supplier: "Motor băng tải", location: "Kệ A1", note: "Dùng cho motor nhỏ" },
-      { id: "2", name: "Dây curoa B-72", sku: "LTD-DC-B72", category: "Truyền động", quantity: 6, min: 5, price: 128000, supplier: "Máy đóng gói", location: "Kệ A2", note: "" },
-      { id: "3", name: "Cảm biến tiệm cận M18", sku: "LTD-CB-M18", category: "Điện điều khiển", quantity: 3, min: 4, price: 320000, supplier: "Line chiết rót", location: "Kệ B1", note: "PNP NO" },
-      { id: "4", name: "Contactor 3P 18A", sku: "LTD-CT-18A", category: "Điện công suất", quantity: 0, min: 2, price: 410000, supplier: "Tủ điều khiển", location: "Kệ B2", note: "Cần mua bổ sung" },
-      { id: "5", name: "Ống khí PU 8mm", sku: "LTD-PU-08", category: "Khí nén", quantity: 42, min: 15, price: 12000, supplier: "Hệ thống khí nén", location: "Kệ C1", note: "Tính theo mét" },
-      { id: "6", name: "Relay trung gian 24VDC", sku: "LTD-RL-24V", category: "Điện điều khiển", quantity: 12, min: 6, price: 68000, supplier: "Tủ PLC", location: "Kệ B3", note: "" }
-    ];
-
-    const sampleHistory = [
-      { id: "h1", machine: "Máy đóng gói số 1", faultTime: "2026-06-10", staff: "Nguyễn Hải Thái", fault: "Máy dừng giữa chu kỳ, motor băng tải không chạy.", fix: "Kiểm tra tủ điều khiển, thay relay trung gian 24VDC, chạy thử ổn định." },
-      { id: "h2", machine: "Line chiết rót", faultTime: "2026-06-09", staff: "Trần Văn Trung", fault: "Cảm biến không nhận chai tại vị trí cấp liệu.", fix: "Vệ sinh đầu cảm biến, chỉnh lại khoảng cách phát hiện và siết lại gá đỡ." }
-    ];
-
-    const sampleMachines = [
-      { id: "m1", name: "Máy đóng gói số 1", setupDate: "2024-01-15", warranty: "2026-01-15", vendor: "Công ty Cơ Khí Toàn Cầu", phone: "0901.234.567" },
-      { id: "m2", name: "Line chiết rót tự động", setupDate: "2025-05-20", warranty: "2027-05-20", vendor: "Thiết Bị Công Nghiệp Ánh Dương", phone: "028.3840.9999" }
-    ];
-
+    // Mảng dữ liệu sạch - nạp trực tiếp từ đám mây (không chứa bất kì logic sinh dữ liệu mẫu nào)
     let items = [];
     let activities = [];
     let repairHistory = [];
@@ -1076,68 +691,45 @@
       weekday: "long", day: "2-digit", month: "2-digit", year: "numeric"
     }).format(new Date());
 
-    // Đăng ký Event Listeners
-    els.addBtn.addEventListener("click", () => openItemDialog());
-    els.addMachineMainBtn.addEventListener("click", () => openMachineDialog());
-    document.querySelector("#addMachineBtn").addEventListener("click", () => openMachineDialog());
-    document.querySelector("#addHistoryBtn").addEventListener("click", () => openHistoryDialog());
-    
-    document.querySelector("#closeDialog").addEventListener("click", closeItemDialog);
-    document.querySelector("#cancelBtn").addEventListener("click", closeItemDialog);
-    document.querySelector("#closeMoveDialog").addEventListener("click", closeMoveDialog);
-    document.querySelector("#cancelMoveBtn").addEventListener("click", closeMoveDialog);
-    document.querySelector("#closeHistoryDialog").addEventListener("click", closeHistoryDialog);
-    document.querySelector("#cancelHistoryBtn").addEventListener("click", closeHistoryDialog);
-    document.querySelector("#closeMachineDialog").addEventListener("click", closeMachineDialog);
-    document.querySelector("#cancelMachineBtn").addEventListener("click", closeMachineDialog);
-    
-    els.exportBtn.addEventListener("click", exportCsv);
-    els.exportHistoryBtn.addEventListener("click", exportHistoryCsv);
-    document.querySelector("#resetBtn").addEventListener("click", resetData);
-    document.querySelector("#logoutBtn").addEventListener("click", logout);
-    els.loginForm.addEventListener("submit", login);
+    async function fbFetch(path, method = "GET", body = null) {
+      const options = { method };
+      if (body) {
+        options.headers = { "Content-Type": "application/json" };
+        options.body = JSON.stringify(body);
+      }
+      try {
+        const res = await fetch(`${DB_URL}/${path}.json`, options);
+        return await res.json();
+      } catch (err) {
+        console.error("Lỗi Firebase:", err);
+        showToast("Lỗi kết nối mạng đám mây!");
+        return null;
+      }
+    }
 
-    document.querySelectorAll(".nav button").forEach(button => {
-      button.addEventListener("click", () => {
-        document.querySelectorAll(".nav button").forEach(entry => entry.classList.remove("active"));
-        button.classList.add("active");
-        switchPage(button.dataset.page);
-      });
-    });
-
-    els.searchInput.addEventListener("input", render);
-    els.categoryFilter.addEventListener("change", render);
-    els.statusFilter.addEventListener("change", render);
-    els.machineSearchInput.addEventListener("input", render);
-    els.historySearchInput.addEventListener("input", render);
-    els.historyFromInput.addEventListener("change", render);
-    els.historyToInput.addEventListener("change", render);
-    
-    els.itemForm.addEventListener("submit", saveItem);
-    els.moveForm.addEventListener("submit", saveMovement);
-    els.historyForm.addEventListener("submit", saveRepairHistory);
-    els.machineForm.addEventListener("submit", saveMachine);
-
-    // LẮNG NGHE DỮ LIỆU ĐỒNG BỘ REALTIME TỪ FIREBASE ĐÁM MÂY
-    db.ref("maintenance").on("value", snapshot => {
-      const data = snapshot.val() || {};
-      items = data.items ? Object.values(data.items) : [];
-      repairHistory = data.history ? Object.values(data.history) : [];
-      machines = data.machines ? Object.values(data.machines) : [];
-      activities = data.activities ? Object.values(data.activities) : [{ at: new Date().toISOString(), text: "Kết nối đám mây Firebase thành công." }];
+    // TẢI DỮ LIỆU THỰC TẾ TỪ FIREBASE
+    async function loadCloudData() {
+      if(els.resultCount) els.resultCount.textContent = "Đang tải...";
       
-      if (sessionStorage.getItem(LOGIN_KEY) === "true") { render(); }
-    });
+      const [cloudItems, cloudActivities, cloudHistory, cloudMachines] = await Promise.all([
+        fbFetch("items"),
+        fbFetch("activities"),
+        fbFetch("repairHistory"),
+        fbFetch("machines")
+      ]);
 
-    if (sessionStorage.getItem(LOGIN_KEY) === "true") { unlockApp(); }
+      items = cloudItems ? Object.values(cloudItems) : [];
+      activities = cloudActivities ? Object.values(cloudActivities) : [{ at: new Date().toISOString(), text: "Kết nối đám mây trống." }];
+      repairHistory = cloudHistory ? Object.values(cloudHistory) : [];
+      machines = cloudMachines ? Object.values(cloudMachines) : [];
 
-    function syncToFirebase() {
-      db.ref("maintenance").set({
-        items: items.reduce((acc, cur) => ({...acc, [cur.id]: cur}), {}),
-        history: repairHistory.reduce((acc, cur) => ({...acc, [cur.id]: cur}), {}),
-        machines: machines.reduce((acc, cur) => ({...acc, [cur.id]: cur}), {}),
-        activities: activities.slice(0, 20)
-      });
+      render();
+    }
+
+    async function syncNode(nodeName, dataArray) {
+      const obj = {};
+      dataArray.forEach(item => { if(item.id) obj[item.id] = item; });
+      await fbFetch(nodeName, "PUT", obj);
     }
 
     function login(event) {
@@ -1152,7 +744,11 @@
       showToast(`Xin chào ${account.name}.`);
     }
 
-    function unlockApp() { document.body.classList.remove("locked"); render(); }
+    function unlockApp() { 
+      document.body.classList.remove("locked"); 
+      loadCloudData();
+    }
+    
     function logout() { sessionStorage.removeItem(LOGIN_KEY); document.body.classList.add("locked"); }
 
     function switchPage(pageId) {
@@ -1331,9 +927,10 @@
       els.itemDialog.showModal();
     }
     function closeItemDialog() { els.itemDialog.close(); els.itemForm.reset(); }
-    function saveItem(e) {
+    
+    async function saveItem(e) {
       e.preventDefault();
-      const id = els.itemId.value || "item-" + Date.now();
+      const id = els.itemId.value || crypto.randomUUID();
       const payload = {
         id, name: els.nameInput.value.trim(), sku: els.skuInput.value.trim().toUpperCase(),
         category: els.categoryInput.value.trim(), supplier: els.supplierInput.value.trim(),
@@ -1343,14 +940,30 @@
       if (items.some(i => i.sku.toLowerCase() === payload.sku.toLowerCase() && i.id !== id)) {
         showToast("Mã linh kiện bị trùng."); return;
       }
+      
       const idx = items.findIndex(i => i.id === id);
-      if(idx >= 0) { items[idx] = payload; addAct(`Cập nhật linh kiện: ${payload.name}`); } 
-      else { items.push(payload); addAct(`Thêm linh kiện mới: ${payload.name}`); }
-      closeItemDialog(); showToast("Đã lưu linh kiện đám mây."); syncToFirebase();
+      if(idx >= 0) { 
+        items[idx] = payload; 
+        addAct(`Cập nhật linh kiện: ${payload.name}`); 
+      } else { 
+        items.push(payload); 
+        addAct(`Thêm linh kiện mới: ${payload.name}`); 
+      }
+      closeItemDialog(); 
+      showToast("Đang đồng bộ đám mây...");
+      
+      await Promise.all([syncNode("items", items), syncNode("activities", activities)]);
+      showToast("Đã lưu linh kiện lên Firebase."); 
+      render();
     }
-    function deleteItem(id) {
+
+    async function deleteItem(id) {
       if(!confirm("Xóa linh kiện này trên đám mây?")) return;
-      items = items.filter(i => i.id !== id); addAct("Xóa một mã linh kiện."); syncToFirebase();
+      items = items.filter(i => i.id !== id); 
+      addAct("Xóa một mã linh kiện."); 
+      render();
+      await Promise.all([fbFetch(`items/${id}`, "DELETE"), syncNode("activities", activities)]);
+      showToast("Đã xóa khỏi Firebase.");
     }
 
     function openMoveDialog(id) {
@@ -1359,14 +972,21 @@
       els.moveDialog.showModal();
     }
     function closeMoveDialog() { els.moveDialog.close(); els.moveForm.reset(); }
-    function saveMovement(e) {
+    
+    async function saveMovement(e) {
       e.preventDefault();
       const item = items.find(i => i.id === els.moveItemId.value); if(!item) return;
       const amt = Number(els.moveAmount.value);
       if(els.moveType.value === "out" && amt > item.quantity) { showToast("Xuất vượt quá lượng tồn kho!"); return; }
+      
       item.quantity += (els.moveType.value === "in" ? amt : -amt);
       addAct(`${els.moveType.value === 'in' ? 'Nhập' : 'Xuất'} ${amt} ${item.name}`);
-      closeMoveDialog(); showToast("Đã cập nhật kho lên Firebase."); syncToFirebase();
+      closeMoveDialog(); 
+      showToast("Đang tải dữ liệu...");
+      
+      await Promise.all([syncNode("items", items), syncNode("activities", activities)]);
+      showToast("Cập nhật kho thành công."); 
+      render();
     }
 
     function openHistoryDialog(id = "") {
@@ -1381,9 +1001,10 @@
       els.historyDialog.showModal();
     }
     function closeHistoryDialog() { els.historyDialog.close(); els.historyForm.reset(); }
-    function saveRepairHistory(e) {
+    
+    async function saveRepairHistory(e) {
       e.preventDefault();
-      const id = els.historyId.value || "history-" + Date.now();
+      const id = els.historyId.value || crypto.randomUUID();
       const payload = {
         id, machine: els.machineInput.value.trim(), faultTime: els.faultTimeInput.value,
         staff: els.staffInput.value.trim(), fault: els.faultInput.value.trim(), fix: els.fixInput.value.trim()
@@ -1391,11 +1012,20 @@
       const idx = repairHistory.findIndex(x => x.id === id);
       if(idx >= 0) { repairHistory[idx] = payload; addAct(`Sửa lịch sử máy: ${payload.machine}`); }
       else { repairHistory.push(payload); addAct(`Ghi nhận sửa máy: ${payload.machine}`); }
-      closeHistoryDialog(); showToast("Đã lưu lịch sử sửa máy."); syncToFirebase();
+      
+      closeHistoryDialog();
+      showToast("Đang đồng bộ...");
+      await Promise.all([syncNode("repairHistory", repairHistory), syncNode("activities", activities)]);
+      showToast("Đã lưu lịch sử sửa máy."); 
+      render();
     }
-    function deleteHistory(id) {
-      if(!confirm("Xóa dòng lịch sử lỗi này?")) return;
-      repairHistory = repairHistory.filter(x => x.id !== id); addAct("Xóa lịch sử lỗi."); syncToFirebase();
+
+    async function deleteHistory(id) {
+      if(!confirm("Xóa lịch sử lỗi này trên mây?")) return;
+      repairHistory = repairHistory.filter(x => x.id !== id); 
+      addAct("Xóa lịch sử lỗi."); 
+      render();
+      await Promise.all([fbFetch(`repairHistory/${id}`, "DELETE"), syncNode("activities", activities)]);
     }
 
     function openMachineDialog(id = "") {
@@ -1410,9 +1040,10 @@
       els.machineDialog.showModal();
     }
     function closeMachineDialog() { els.machineDialog.close(); els.machineForm.reset(); }
-    function saveMachine(e) {
+    
+    async function saveMachine(e) {
       e.preventDefault();
-      const id = els.mId.value || "machine-" + Date.now();
+      const id = els.mId.value || crypto.randomUUID();
       const payload = {
         id, name: els.mName.value.trim(), setupDate: els.mSetupDate.value,
         warranty: els.mWarranty.value, vendor: els.mVendor.value.trim(), phone: els.mPhone.value.trim()
@@ -1420,11 +1051,20 @@
       const idx = machines.findIndex(x => x.id === id);
       if(idx >= 0) { machines[idx] = payload; addAct(`Cập nhật máy: ${payload.name}`); }
       else { machines.push(payload); addAct(`Thêm máy mới vào xưởng: ${payload.name}`); }
-      closeMachineDialog(); showToast("Đã lưu thông tin máy."); syncToFirebase();
+      
+      closeMachineDialog();
+      showToast("Đang đồng bộ...");
+      await Promise.all([syncNode("machines", machines), syncNode("activities", activities)]);
+      showToast("Đã lưu thiết bị máy."); 
+      render();
     }
-    function deleteMachine(id) {
-      if(!confirm("Xóa thông tin máy này khỏi hệ thống?")) return;
-      machines = machines.filter(x => x.id !== id); addAct("Xóa thông tin thiết bị máy."); syncToFirebase();
+
+    async function deleteMachine(id) {
+      if(!confirm("Xóa thông tin máy này khỏi hệ thống mây?")) return;
+      machines = machines.filter(x => x.id !== id); 
+      addAct("Xóa thông tin thiết bị máy."); 
+      render();
+      await Promise.all([fbFetch(`machines/${id}`, "DELETE"), syncNode("activities", activities)]);
     }
 
     function addAct(text) { activities.unshift({ at: new Date().toISOString(), text }); }
@@ -1440,17 +1080,55 @@
       return String(v??'').replaceAll("&","&amp;").replaceAll("<","&lt;").replaceAll(">","&gt;").replaceAll('"',"&quot;").replaceAll("'","&#039;");
     }
 
-    function exportCsv() {
+    els.addBtn.addEventListener("click", () => openItemDialog());
+    els.addMachineMainBtn.addEventListener("click", () => openMachineDialog());
+    document.querySelector("#addMachineBtn").addEventListener("click", () => openMachineDialog());
+    document.querySelector("#addHistoryBtn").addEventListener("click", () => openHistoryDialog());
+    
+    document.querySelector("#closeDialog").addEventListener("click", closeItemDialog);
+    document.querySelector("#cancelBtn").addEventListener("click", closeItemDialog);
+    document.querySelector("#closeMoveDialog").addEventListener("click", closeMoveDialog);
+    document.querySelector("#cancelMoveBtn").addEventListener("click", closeMoveDialog);
+    document.querySelector("#closeHistoryDialog").addEventListener("click", closeHistoryDialog);
+    document.querySelector("#cancelHistoryBtn").addEventListener("click", closeHistoryDialog);
+    document.querySelector("#closeMachineDialog").addEventListener("click", closeMachineDialog);
+    document.querySelector("#cancelMachineBtn").addEventListener("click", closeMachineDialog);
+    
+    document.querySelector("#logoutBtn").addEventListener("click", logout);
+    els.loginForm.addEventListener("submit", login);
+
+    document.querySelectorAll(".nav button").forEach(button => {
+      button.addEventListener("click", () => {
+        document.querySelectorAll(".nav button").forEach(entry => entry.classList.remove("active"));
+        button.classList.add("active");
+        switchPage(button.dataset.page);
+      });
+    });
+
+    els.searchInput.addEventListener("input", render);
+    els.categoryFilter.addEventListener("change", render);
+    els.statusFilter.addEventListener("change", render);
+    els.machineSearchInput.addEventListener("input", render);
+    els.historySearchInput.addEventListener("input", render);
+    els.historyFromInput.addEventListener("change", render);
+    els.historyToInput.addEventListener("change", render);
+    
+    els.itemForm.addEventListener("submit", saveItem);
+    els.moveForm.addEventListener("submit", saveMovement);
+    els.historyForm.addEventListener("submit", saveRepairHistory);
+    els.machineForm.addEventListener("submit", saveMachine);
+
+    els.exportBtn.addEventListener("click", () => {
       const h = ["Tên linh kiện", "Mã linh kiện", "Nhóm", "Số lượng còn", "Tồn tối thiểu", "Kệ", "Thiết bị dùng", "Giá tham khảo", "Ghi chú"];
       const r = items.map(i => [i.name, i.sku, i.category, i.quantity, i.min, i.location, i.supplier, i.price, i.note]);
       downloadCsv(h, r, "kho-linh-kien-ltd");
-    }
+    });
 
-    function exportHistoryCsv() {
+    els.exportHistoryBtn.addEventListener("click", () => {
       const h = ["Ngày lỗi", "Tên máy lỗi", "Người xử lý", "Nội dung lỗi", "Nội dung xử lý"];
       const r = repairHistory.map(x => [formatDateDisplay(x.faultTime), x.machine, x.staff, x.fault, x.fix]);
       downloadCsv(h, r, "lich-su-sua-may-ltd");
-    }
+    });
 
     function downloadCsv(headers, rows, filename) {
       const csv = [headers, ...rows].map(row => row.map(c => `"${String(c??'').replaceAll('"','""')}"`).join(",")).join("\n");
@@ -1461,12 +1139,7 @@
       link.click(); URL.revokeObjectURL(url);
     }
 
-    function resetData() {
-      if(!confirm("Hành động này sẽ ghi đè dữ liệu mẫu lên đám mây Firebase. Xác nhận?")) return;
-      items = [...sampleItems]; repairHistory = [...sampleHistory]; machines = [...sampleMachines];
-      activities = [{ at: new Date().toISOString(), text: "Dữ liệu đám mây đã đặt lại dữ liệu mẫu." }];
-      syncToFirebase(); showToast("Đã khởi tạo lại đám mây.");
-    }
+    if (sessionStorage.getItem(LOGIN_KEY) === "true") { unlockApp(); }
   </script>
 </body>
 </html>
