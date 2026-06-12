@@ -194,10 +194,10 @@
     .history-table { min-width: 980px; }
     .history-table td { vertical-align: top; }
     
-    /* CSS Xử lý thu gọn ô văn bản lịch sử sửa máy */
-    .history-table .text-cell { 
-      max-width: 260px; 
-      min-width: 200px; 
+    /* CSS Xử lý thu gọn ô văn bản */
+    .text-cell { 
+      max-width: 240px; 
+      min-width: 150px; 
       line-height: 1.45; 
       cursor: pointer;
     }
@@ -370,10 +370,12 @@
                   <tr>
                     <th>Linh kiện</th>
                     <th>Nhóm</th>
+                    <th>Thông số</th>
                     <th>Số lượng còn</th>
                     <th>Tối thiểu</th>
                     <th>Kệ</th>
                     <th>Thiết bị</th>
+                    <th>Hình ảnh</th>
                     <th>Trạng thái</th>
                     <th></th>
                   </tr>
@@ -514,8 +516,20 @@
           <input class="input" id="locationInput">
         </div>
         <div class="field wide">
+          <label for="specsInput">Thông số kỹ thuật linh kiện</label>
+          <textarea id="specsInput" placeholder="Ví dụ: Điện áp 24VDC, Dòng 5A, Kích thước phi 12..."></textarea>
+        </div>
+        <div class="field wide">
           <label for="noteInput">Ghi chú</label>
           <textarea id="noteInput"></textarea>
+        </div>
+        <div class="field wide">
+          <label for="itemImageInput">Hình ảnh linh kiện (nếu có)</label>
+          <input class="input" id="itemImageInput" type="file" accept="image/*">
+          <input type="hidden" id="itemImageDataHidden">
+          <div id="itemImagePreviewWrap" style="margin-top: 10px; display: none;">
+            <img id="itemImagePreview" src="" style="max-width: 140px; max-height: 140px; border-radius: 6px; border: 1px solid var(--line); object-fit: contain;">
+          </div>
         </div>
       </div>
       <div class="modal-foot">
@@ -701,7 +715,13 @@
       minInput: document.querySelector("#minInput"),
       priceInput: document.querySelector("#priceInput"),
       locationInput: document.querySelector("#locationInput"),
+      specsInput: document.querySelector("#specsInput"),
       noteInput: document.querySelector("#noteInput"),
+      // Khai báo các thành phần DOM xử lý tải ảnh linh kiện
+      itemImageInput: document.querySelector("#itemImageInput"),
+      itemImageDataHidden: document.querySelector("#itemImageDataHidden"),
+      itemImagePreviewWrap: document.querySelector("#itemImagePreviewWrap"),
+      itemImagePreview: document.querySelector("#itemImagePreview"),
 
       moveDialog: document.querySelector("#moveDialog"),
       moveForm: document.querySelector("#moveForm"),
@@ -720,7 +740,6 @@
       staffInput: document.querySelector("#staffInput"),
       faultInput: document.querySelector("#faultInput"),
       fixInput: document.querySelector("#fixInput"),
-      // Khai báo các biến DOM cho phần xử lý ảnh lịch sửa chữa máy
       historyImageInput: document.querySelector("#historyImageInput"),
       historyImageDataHidden: document.querySelector("#historyImageDataHidden"),
       historyImagePreviewWrap: document.querySelector("#historyImagePreviewWrap"),
@@ -901,13 +920,13 @@
       const stat = els.statusFilter.value;
 
       const rows = items.filter(i => {
-        const h = [i.name, i.sku, i.supplier, i.location].join(" ").toLowerCase();
+        const h = [i.name, i.sku, i.supplier, i.location, i.specs || ''].join(" ").toLowerCase();
         return (!term || h.includes(term)) && (cat === "all" || i.category === cat) && (stat === "all" || itemStatus(i) === stat);
       }).sort((a, b) => a.name.localeCompare(b.name, "vi"));
 
       els.resultCount.textContent = `${rows.length} linh kiện`;
       if (!rows.length) {
-        els.inventoryBody.innerHTML = `<tr><td colspan="8" class="empty">Không có linh kiện phù hợp.</td></tr>`;
+        els.inventoryBody.innerHTML = `<tr><td colspan="10" class="empty">Không có linh kiện phù hợp.</td></tr>`;
         return;
       }
 
@@ -918,10 +937,14 @@
         return `<tr>
           <td><strong>${escapeHtml(item.name)}</strong><div class="sku">${escapeHtml(item.sku)}</div></td>
           <td>${escapeHtml(item.category)}</td>
+          <td class="text-cell" onclick="toggleTextCollapse(this)"><div class="text-truncated">${escapeHtml(item.specs || "Không có")}</div></td>
           <td><strong>${number.format(item.quantity)}</strong></td>
           <td>${number.format(item.min)}</td>
           <td>${escapeHtml(item.location || "Chưa gán")}</td>
           <td>${escapeHtml(item.supplier)}</td>
+          <td>
+            ${item.image ? `<img src="${item.image}" style="width:42px; height:42px; object-fit:cover; border-radius:4px; border:1px solid var(--line); cursor:zoom-in;" title="Bấm vào để phóng to ảnh linh kiện" onclick="viewFullImage('${item.image}')">` : `<span style="color:var(--muted); font-size:12px;">-</span>`}
+          </td>
           <td><span class="pill ${cls}">${lbl}</span></td>
           <td>
             <div class="row-actions">
@@ -994,23 +1017,23 @@
       </tr>`).join("");
     }
 
-    // Hàm bổ trợ đóng / mở rộng nội dung văn bản khi bấm chuột
+    // Hàm đóng / mở rộng nội dung văn bản khi bấm chuột
     function toggleTextCollapse(cellElement) {
       const textContainer = cellElement.querySelector('div');
-      if (textContainer.classList.contains('text-truncated')) {
+      if (textContainer && textContainer.classList.contains('text-truncated')) {
         textContainer.classList.remove('text-truncated');
         textContainer.classList.add('text-full');
-      } else {
+      } else if (textContainer) {
         textContainer.classList.remove('text-full');
         textContainer.classList.add('text-truncated');
       }
     }
 
-    // Hàm bổ trợ mở tab mới hiển thị ảnh gốc cỡ lớn
+    // Hàm mở tab mới hiển thị ảnh gốc cỡ lớn
     function viewFullImage(base64Source) {
       const imageWindow = window.open();
       imageWindow.document.write(`
-        <title>Xem ảnh đính kèm bảo trì</title>
+        <title>Xem ảnh gốc</title>
         <body style="margin:0; background:#0e1412; display:flex; justify-content:center; align-items:center; min-height:100vh;">
           <img src="${base64Source}" style="max-width:100%; max-height:100vh; object-fit:contain; box-shadow:0 10px 40px rgba(0,0,0,0.5);">
         </body>
@@ -1052,10 +1075,31 @@
       els.minInput.value = item?.min ?? 0;
       els.priceInput.value = item?.price ?? 0;
       els.locationInput.value = item?.location || "";
+      els.specsInput.value = item?.specs || "";
       els.noteInput.value = item?.note || "";
+      
+      // Đọc trạng thái ảnh linh kiện cũ hoặc reset form trống
+      els.itemImageInput.value = "";
+      if (item && item.image) {
+        els.itemImageDataHidden.value = item.image;
+        els.itemImagePreview.src = item.image;
+        els.itemImagePreviewWrap.style.display = "block";
+      } else {
+        els.itemImageDataHidden.value = "";
+        els.itemImagePreview.src = "";
+        els.itemImagePreviewWrap.style.display = "none";
+      }
+
       els.itemDialog.showModal();
     }
-    function closeItemDialog() { els.itemDialog.close(); els.itemForm.reset(); }
+    
+    function closeItemDialog() { 
+      els.itemDialog.close(); 
+      els.itemForm.reset(); 
+      els.itemImageDataHidden.value = "";
+      els.itemImagePreview.src = "";
+      els.itemImagePreviewWrap.style.display = "none";
+    }
     
     async function saveItem(e) {
       e.preventDefault();
@@ -1064,7 +1108,9 @@
         id, name: els.nameInput.value.trim(), sku: els.skuInput.value.trim().toUpperCase(),
         category: els.categoryInput.value.trim(), supplier: els.supplierInput.value.trim(),
         quantity: Number(els.quantityInput.value), min: Number(els.minInput.value),
-        price: Number(els.priceInput.value), location: els.locationInput.value.trim(), note: els.noteInput.value.trim()
+        price: Number(els.priceInput.value), location: els.locationInput.value.trim(), 
+        specs: els.specsInput.value.trim(), note: els.noteInput.value.trim(),
+        image: els.itemImageDataHidden.value || "" // Gửi dữ liệu Base64 của linh kiện lên DB
       };
       if (items.some(i => i.sku.toLowerCase() === payload.sku.toLowerCase() && i.id !== id)) {
         showToast("Mã linh kiện bị trùng."); return;
@@ -1123,7 +1169,6 @@
       els.faultInput.value = h?.fault || "";
       els.fixInput.value = h?.fix || "";
       
-      // Khởi tạo lại trạng thái input file và hiển thị xem trước ảnh cũ
       els.historyImageInput.value = "";
       if (h && h.image) {
         els.historyImageDataHidden.value = h.image;
@@ -1156,7 +1201,7 @@
         staff: els.staffInput.value.trim(), 
         fault: els.faultInput.value.trim(), 
         fix: els.fixInput.value.trim(),
-        image: els.historyImageDataHidden.value || "" // Gắn chuỗi Base64 hình ảnh vào dữ liệu đồng bộ đám mây
+        image: els.historyImageDataHidden.value || ""
       };
       const idx = repairHistory.findIndex(x => x.id === id);
       if(idx >= 0) { repairHistory[idx] = payload; addAct(`Sửa lịch sử máy: ${payload.machine}`); }
@@ -1254,18 +1299,33 @@
       });
     });
 
-    // Lắng nghe sự kiện chọn file ảnh và chuyển đổi sang chuỗi dữ liệu nén Base64
+    // Lắng nghe sự kiện tải ảnh linh kiện (giới hạn dung lượng < 1.5MB)
+    els.itemImageInput.addEventListener("change", function(e) {
+      const file = e.target.files[0];
+      if (!file) return;
+      if (file.size > 1.5 * 1024 * 1024) {
+        alert("Hình ảnh quá lớn! Vui lòng chọn tệp ảnh dưới 1.5 MB.");
+        els.itemImageInput.value = "";
+        return;
+      }
+      const reader = new FileReader();
+      reader.onload = function(evt) {
+        els.itemImageDataHidden.value = evt.target.result;
+        els.itemImagePreview.src = evt.target.result;
+        els.itemImagePreviewWrap.style.display = "block";
+      };
+      reader.readAsDataURL(file);
+    });
+
+    // Lắng nghe sự kiện chọn file ảnh sửa máy
     els.historyImageInput.addEventListener("change", function(e) {
       const file = e.target.files[0];
       if (!file) return;
-
-      // Giới hạn dung lượng tệp tin (khuyên dùng ảnh dưới 1.5MB để không vượt quá giới hạn chuỗi của Realtime DB)
       if (file.size > 1.5 * 1024 * 1024) {
-        alert("Hình ảnh quá lớn! Vui lòng chọn tệp ảnh dưới 1.5 Megabyte.");
+        alert("Hình ảnh quá lớn! Vui lòng chọn tệp ảnh dưới 1.5 MB.");
         els.historyImageInput.value = "";
         return;
       }
-
       const reader = new FileReader();
       reader.onload = function(evt) {
         els.historyImageDataHidden.value = evt.target.result;
@@ -1289,8 +1349,8 @@
     els.machineForm.addEventListener("submit", saveMachine);
 
     els.exportBtn.addEventListener("click", () => {
-      const h = ["Tên linh kiện", "Mã linh kiện", "Nhóm", "Số lượng còn", "Tồn tối thiểu", "Kệ", "Thiết bị dùng", "Giá tham khảo", "Ghi chú"];
-      const r = items.map(i => [i.name, i.sku, i.category, i.quantity, i.min, i.location, i.supplier, i.price, i.note]);
+      const h = ["Tên linh kiện", "Mã linh kiện", "Nhóm", "Thông số", "Số lượng còn", "Tồn tối thiểu", "Kệ", "Thiết bị dùng", "Giá tham khảo", "Ghi chú"];
+      const r = items.map(i => [i.name, i.sku, i.category, i.specs || '', i.quantity, i.min, i.location, i.supplier, i.price, i.note]);
       downloadCsv(h, r, "kho-linh-kien-ltd");
     });
 
