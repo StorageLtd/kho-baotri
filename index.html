@@ -193,7 +193,30 @@
     .history-tools { display: grid; grid-template-columns: minmax(180px, 1fr) 190px 190px; gap: 10px; padding: 14px 16px; background: #fbfcfa; border-bottom: 1px solid var(--line); }
     .history-table { min-width: 980px; }
     .history-table td { vertical-align: top; }
-    .history-table .text-cell { min-width: 200px; line-height: 1.45; }
+    
+    /* CSS Xử lý thu gọn ô văn bản lịch sử sửa máy */
+    .history-table .text-cell { 
+      max-width: 260px; 
+      min-width: 200px; 
+      line-height: 1.45; 
+      cursor: pointer;
+    }
+    .text-truncated {
+      display: -webkit-box;
+      -webkit-line-clamp: 2;
+      -webkit-box-orient: vertical;  
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: normal;
+    }
+    .text-full {
+      display: block;
+      white-space: pre-wrap;
+      background: var(--panel-soft);
+      padding: 6px 8px;
+      border-radius: 6px;
+      border: 1px dashed var(--line);
+    }
 
     .list { padding: 14px 16px 16px; display: grid; gap: 10px; }
     .alert-item, .activity-item { border: 1px solid var(--line); border-radius: 8px; padding: 12px; display: grid; gap: 5px; background: #fff; }
@@ -243,12 +266,12 @@
   <section class="login-screen">
     <form class="login-panel" id="loginForm" onsubmit="return false;">
       <div class="login-title">
-  <img src="logo.jpg" alt="LTD Logo" style="width: 120px; height: auto; object-fit: contain;">
-  <div>
-    <h1>LTD VIET NAM</h1>
-    <p>Đăng nhập kho linh kiện bảo trì</p>
-  </div>
-</div>
+        <img src="logo.jpg" alt="LTD Logo" style="width: 120px; height: auto; object-fit: contain;">
+        <div>
+          <h1>LTD VIET NAM</h1>
+          <p>Đăng nhập kho linh kiện bảo trì</p>
+        </div>
+      </div>
       <div class="field">
         <label for="usernameInput">Nhân viên</label>
         <input class="input" id="usernameInput" required placeholder="User Name">
@@ -438,6 +461,7 @@
                   <th>Người xử lý</th>
                   <th>Nội dung lỗi</th>
                   <th>Nội dung xử lý</th>
+                  <th>Hình ảnh</th>
                   <th></th>
                 </tr>
               </thead>
@@ -559,6 +583,14 @@
         <div class="field wide">
           <label for="fixInput">Nội dung xử lý lỗi</label>
           <textarea id="fixInput" required></textarea>
+        </div>
+        <div class="field wide">
+          <label for="historyImageInput">Hình ảnh sửa máy đính kèm (nếu có)</label>
+          <input class="input" id="historyImageInput" type="file" accept="image/*">
+          <input type="hidden" id="historyImageDataHidden">
+          <div id="historyImagePreviewWrap" style="margin-top: 10px; display: none;">
+            <img id="historyImagePreview" src="" style="max-width: 140px; max-height: 140px; border-radius: 6px; border: 1px solid var(--line); object-fit: contain;">
+          </div>
         </div>
       </div>
       <div class="modal-foot">
@@ -688,6 +720,11 @@
       staffInput: document.querySelector("#staffInput"),
       faultInput: document.querySelector("#faultInput"),
       fixInput: document.querySelector("#fixInput"),
+      // Khai báo các biến DOM cho phần xử lý ảnh lịch sửa chữa máy
+      historyImageInput: document.querySelector("#historyImageInput"),
+      historyImageDataHidden: document.querySelector("#historyImageDataHidden"),
+      historyImagePreviewWrap: document.querySelector("#historyImagePreviewWrap"),
+      historyImagePreview: document.querySelector("#historyImagePreview"),
 
       machineDialog: document.querySelector("#machineDialog"),
       machineForm: document.querySelector("#machineForm"),
@@ -801,9 +838,7 @@
 
     function unlockApp() { 
       document.body.classList.remove("locked"); 
-      // Chạy render cấu trúc tĩnh trước để tránh màn hình trắng
       render();
-      // Kéo dữ liệu từ đám mây về ngầm
       loadCloudData();
     }
     
@@ -937,7 +972,7 @@
       }).sort((a,b) => new Date(b.faultTime) - new Date(a.faultTime));
 
       if(!rows.length) {
-        els.historyList.innerHTML = `<tr><td colspan="6" class="empty">Không tìm thấy lịch sử phù hợp.</td></tr>`;
+        els.historyList.innerHTML = `<tr><td colspan="7" class="empty">Không tìm thấy lịch sử phù hợp.</td></tr>`;
         return;
       }
 
@@ -945,8 +980,11 @@
         <td><strong>${formatDateDisplay(h.faultTime)}</strong></td>
         <td><strong>${escapeHtml(h.machine)}</strong></td>
         <td><span style="color:var(--brand);font-weight:700;">${escapeHtml(h.staff || "Chưa ghi")}</span></td>
-        <td class="text-cell">${escapeHtml(h.fault)}</td>
-        <td class="text-cell">${escapeHtml(h.fix)}</td>
+        <td class="text-cell" onclick="toggleTextCollapse(this)"><div class="text-truncated">${escapeHtml(h.fault)}</div></td>
+        <td class="text-cell" onclick="toggleTextCollapse(this)"><div class="text-truncated">${escapeHtml(h.fix)}</div></td>
+        <td>
+          ${h.image ? `<img src="${h.image}" style="width:42px; height:42px; object-fit:cover; border-radius:4px; border:1px solid var(--line); cursor:zoom-in;" title="Bấm vào để phóng to ảnh" onclick="viewFullImage('${h.image}')">` : `<span style="color:var(--muted); font-size:12px;">-</span>`}
+        </td>
         <td>
           <div class="row-actions">
             <button class="icon-btn" type="button" onclick="openHistoryDialog('${h.id}')">✎</button>
@@ -954,6 +992,29 @@
           </div>
         </td>
       </tr>`).join("");
+    }
+
+    // Hàm bổ trợ đóng / mở rộng nội dung văn bản khi bấm chuột
+    function toggleTextCollapse(cellElement) {
+      const textContainer = cellElement.querySelector('div');
+      if (textContainer.classList.contains('text-truncated')) {
+        textContainer.classList.remove('text-truncated');
+        textContainer.classList.add('text-full');
+      } else {
+        textContainer.classList.remove('text-full');
+        textContainer.classList.add('text-truncated');
+      }
+    }
+
+    // Hàm bổ trợ mở tab mới hiển thị ảnh gốc cỡ lớn
+    function viewFullImage(base64Source) {
+      const imageWindow = window.open();
+      imageWindow.document.write(`
+        <title>Xem ảnh đính kèm bảo trì</title>
+        <body style="margin:0; background:#0e1412; display:flex; justify-content:center; align-items:center; min-height:100vh;">
+          <img src="${base64Source}" style="max-width:100%; max-height:100vh; object-fit:contain; box-shadow:0 10px 40px rgba(0,0,0,0.5);">
+        </body>
+      `);
     }
 
     function renderAlertsAndActivities() {
@@ -1061,16 +1122,41 @@
       els.staffInput.value = h?.staff || "";
       els.faultInput.value = h?.fault || "";
       els.fixInput.value = h?.fix || "";
+      
+      // Khởi tạo lại trạng thái input file và hiển thị xem trước ảnh cũ
+      els.historyImageInput.value = "";
+      if (h && h.image) {
+        els.historyImageDataHidden.value = h.image;
+        els.historyImagePreview.src = h.image;
+        els.historyImagePreviewWrap.style.display = "block";
+      } else {
+        els.historyImageDataHidden.value = "";
+        els.historyImagePreview.src = "";
+        els.historyImagePreviewWrap.style.display = "none";
+      }
+
       els.historyDialog.showModal();
     }
-    function closeHistoryDialog() { els.historyDialog.close(); els.historyForm.reset(); }
+    
+    function closeHistoryDialog() { 
+      els.historyDialog.close(); 
+      els.historyForm.reset(); 
+      els.historyImageDataHidden.value = "";
+      els.historyImagePreview.src = "";
+      els.historyImagePreviewWrap.style.display = "none";
+    }
     
     async function saveRepairHistory(e) {
       e.preventDefault();
       const id = els.historyId.value || crypto.randomUUID();
       const payload = {
-        id, machine: els.machineInput.value.trim(), faultTime: els.faultTimeInput.value,
-        staff: els.staffInput.value.trim(), fault: els.faultInput.value.trim(), fix: els.fixInput.value.trim()
+        id, 
+        machine: els.machineInput.value.trim(), 
+        faultTime: els.faultTimeInput.value,
+        staff: els.staffInput.value.trim(), 
+        fault: els.faultInput.value.trim(), 
+        fix: els.fixInput.value.trim(),
+        image: els.historyImageDataHidden.value || "" // Gắn chuỗi Base64 hình ảnh vào dữ liệu đồng bộ đám mây
       };
       const idx = repairHistory.findIndex(x => x.id === id);
       if(idx >= 0) { repairHistory[idx] = payload; addAct(`Sửa lịch sử máy: ${payload.machine}`); }
@@ -1157,7 +1243,6 @@
     
     document.querySelector("#logoutBtn").addEventListener("click", logout);
     
-    // Đăng ký sự kiện submit an toàn chặn reload trang
     els.loginForm.addEventListener("submit", login);
     document.querySelector("#submitLoginBtn").addEventListener("click", login);
 
@@ -1167,6 +1252,27 @@
         button.classList.add("active");
         switchPage(button.dataset.page);
       });
+    });
+
+    // Lắng nghe sự kiện chọn file ảnh và chuyển đổi sang chuỗi dữ liệu nén Base64
+    els.historyImageInput.addEventListener("change", function(e) {
+      const file = e.target.files[0];
+      if (!file) return;
+
+      // Giới hạn dung lượng tệp tin (khuyên dùng ảnh dưới 1.5MB để không vượt quá giới hạn chuỗi của Realtime DB)
+      if (file.size > 1.5 * 1024 * 1024) {
+        alert("Hình ảnh quá lớn! Vui lòng chọn tệp ảnh dưới 1.5 Megabyte.");
+        els.historyImageInput.value = "";
+        return;
+      }
+
+      const reader = new FileReader();
+      reader.onload = function(evt) {
+        els.historyImageDataHidden.value = evt.target.result;
+        els.historyImagePreview.src = evt.target.result;
+        els.historyImagePreviewWrap.style.display = "block";
+      };
+      reader.readAsDataURL(file);
     });
 
     els.searchInput.addEventListener("input", render);
@@ -1213,7 +1319,6 @@
       try { if (typeof mySessionId !== "undefined") navigator.sendBeacon(`${DB_URL}/online_users/${mySessionId}.json?x-http-method-override=DELETE`); } catch(e){}
     });
 
-    // Check trạng thái nếu đã đăng nhập trước đó
     if (sessionStorage.getItem(LOGIN_KEY) === "true") { unlockApp(); }
   </script>
 </body>
