@@ -240,22 +240,22 @@
   </style>
 </head>
 <body class="locked">
-  <section class="login-screen" aria-label="Đăng nhập kho bảo trì">
-    <form class="login-panel" id="loginForm">
+  <section class="login-screen">
+    <form class="login-panel" id="loginForm" onsubmit="return false;">
       <div class="login-title">
         <h1>LTD VIET NAM</h1>
         <p style="color: var(--muted); margin: 4px 0 0 0;">Hệ thống quản lý kho bảo trì bảo dưỡng</p>
       </div>
       <div class="field">
         <label for="usernameInput">Nhân viên bảo trì</label>
-        <input class="input" id="usernameInput" autocomplete="username" required placeholder="User Name">
+        <input class="input" id="usernameInput" required placeholder="User Name">
       </div>
       <div class="field">
         <label for="passwordInput">Mật khẩu</label>
-        <input class="input" id="passwordInput" type="password" autocomplete="current-password" required placeholder="Password">
+        <input class="input" id="passwordInput" type="password" required placeholder="Password">
       </div>
-      <div class="login-error" id="loginError" aria-live="polite"></div>
-      <button class="btn primary" type="submit">Đăng nhập</button>
+      <div class="login-error" id="loginError"></div>
+      <button class="btn primary" type="submit" id="submitLoginBtn">Đăng nhập</button>
     </form>
   </section>
 
@@ -294,7 +294,7 @@
       </header>
 
       <section class="content" id="inventoryPage">
-        <div class="stats" id="overview" aria-label="Chỉ số kho">
+        <div class="stats" id="overview">
           <article class="stat">
             <span>Tổng mã linh kiện</span>
             <strong id="statItems">0</strong>
@@ -605,8 +605,8 @@
 
   <script>
     const DB_URL = "https://ltdst-80b3e-default-rtdb.asia-southeast1.firebasedatabase.app";
-    
     const LOGIN_KEY = "ltd-maintenance-login-v1";
+    
     const STAFF_ACCOUNTS = [
       { username: "baotri", password: "LTD@123", name: "Nhân viên bảo trì" },
       { username: "admin", password: "LTD@admin", name: "Quản lý bảo trì" }
@@ -722,10 +722,8 @@
       }
     }
 
-    // Tải dữ liệu ngầm không làm đơ giao diện đăng nhập
     async function loadCloudData() {
-      if(els.resultCount) els.resultCount.textContent = "Đang tải dữ liệu đám mây...";
-      
+      if(els.resultCount) els.resultCount.textContent = "Đang tải dữ liệu...";
       try {
         const [cloudItems, cloudActivities, cloudHistory, cloudMachines] = await Promise.all([
           fbFetch("items"),
@@ -740,68 +738,74 @@
         machines = cloudMachines ? Object.values(cloudMachines) : [];
 
         render();
-        showToast("Đã đồng bộ dữ liệu đám mây thành công.");
+        showToast("Đã đồng bộ dữ liệu đám mây.");
 
         await fbFetch(`online_users/${mySessionId}`, "PUT", { timestamp: Date.now() });
         setInterval(async () => {
-          await fbFetch(`online_users/${mySessionId}`, "PUT", { timestamp: Date.now() });
+          try { await fbFetch(`online_users/${mySessionId}`, "PUT", { timestamp: Date.now() }); } catch(e){}
         }, 15000);
 
         setTimeout(checkOnlineUsers, 500);
         setInterval(checkOnlineUsers, 12000);
       } catch (e) {
-        console.error("Lỗi trong quá trình khởi tạo dữ liệu:", e);
-        showToast("Không thể tải toàn bộ dữ liệu đám mây.");
+        console.error("Lỗi tải data:", e);
+        if(els.resultCount) els.resultCount.textContent = "Không có kết nối đám mây - Chế độ xem tạm.";
       }
     }
 
     async function checkOnlineUsers() {
-      const allSessions = await fbFetch("online_users");
-      if (allSessions) {
-        const now = Date.now();
-        let activeCount = 0;
-        for (const id in allSessions) {
-          if (now - allSessions[id].timestamp < 45000) {
-            activeCount++;
-          } else {
-            fbFetch(`online_users/${id}`, "DELETE");
+      try {
+        const allSessions = await fbFetch("online_users");
+        if (allSessions) {
+          const now = Date.now();
+          let activeCount = 0;
+          for (const id in allSessions) {
+            if (now - allSessions[id].timestamp < 45000) { activeCount++; } 
+            else { fbFetch(`online_users/${id}`, "DELETE"); }
+          }
+          const label = document.querySelector("#onlineCountLabel");
+          if (label) {
+            label.innerHTML = `● Đang truy cập: <span style="font-size:15px; background:#fff; color:#12251f; padding:1px 6px; border-radius:4px; margin:0 2px;">${activeCount}</span> người`;
           }
         }
-        const label = document.querySelector("#onlineCountLabel");
-        if (label) {
-          label.innerHTML = `● Đang truy cập: <span style="font-size:15px; background:#fff; color:#12251f; padding:1px 6px; border-radius:4px; margin:0 2px;">${activeCount}</span> người`;
-        }
-      }
+      } catch(e){}
     }
 
     async function syncNode(nodeName, dataArray) {
-      const obj = {};
-      dataArray.forEach(item => { if(item.id) obj[item.id] = item; });
-      await fbFetch(nodeName, "PUT", obj);
+      try {
+        const obj = {};
+        dataArray.forEach(item => { if(item.id) obj[item.id] = item; });
+        await fbFetch(nodeName, "PUT", obj);
+      } catch(e){}
     }
 
     function login(event) {
-      event.preventDefault();
-      const account = STAFF_ACCOUNTS.find(e => e.username === els.usernameInput.value.trim() && e.password === els.passwordInput.value);
+      if (event) { event.preventDefault(); event.stopPropagation(); }
+      const userVal = els.usernameInput.value.trim();
+      const passVal = els.passwordInput.value;
+      
+      const account = STAFF_ACCOUNTS.find(e => e.username === userVal && e.password === passVal);
       if (!account) {
         els.loginError.textContent = "Sai tài khoản hoặc mật khẩu.";
-        return;
+        return false;
       }
+      
       sessionStorage.setItem(LOGIN_KEY, "true");
       unlockApp();
       showToast(`Xin chào ${account.name}.`);
+      return false;
     }
 
     function unlockApp() { 
       document.body.classList.remove("locked"); 
-      // Gọi tải dữ liệu bất đồng bộ chạy ngầm
+      // Chạy render cấu trúc tĩnh trước để tránh màn hình trắng
+      render();
+      // Kéo dữ liệu từ đám mây về ngầm
       loadCloudData();
     }
     
     function logout() { 
-      if (typeof mySessionId !== "undefined") {
-        fbFetch(`online_users/${mySessionId}`, "DELETE");
-      }
+      try { if (typeof mySessionId !== "undefined") fbFetch(`online_users/${mySessionId}`, "DELETE"); } catch(e){}
       sessionStorage.removeItem(LOGIN_KEY); 
       document.body.classList.add("locked"); 
     }
@@ -1011,11 +1015,9 @@
         addAct(`Thêm linh kiện mới: ${payload.name}`); 
       }
       closeItemDialog(); 
-      showToast("Đang đồng bộ đám mây...");
-      
-      await Promise.all([syncNode("items", items), syncNode("activities", activities)]);
-      showToast("Đã lưu linh kiện lên Firebase."); 
       render();
+      showToast("Đang đồng bộ kho...");
+      await Promise.all([syncNode("items", items), syncNode("activities", activities)]);
     }
 
     async function deleteItem(id) {
@@ -1024,7 +1026,6 @@
       addAct("Xóa một mã linh kiện."); 
       render();
       await Promise.all([fbFetch(`items/${id}`, "DELETE"), syncNode("activities", activities)]);
-      showToast("Đã xóa khỏi Firebase.");
     }
 
     function openMoveDialog(id) {
@@ -1043,11 +1044,9 @@
       item.quantity += (els.moveType.value === "in" ? amt : -amt);
       addAct(`${els.moveType.value === 'in' ? 'Nhập' : 'Xuất'} ${amt} ${item.name}`);
       closeMoveDialog(); 
-      showToast("Đang tải dữ liệu...");
-      
-      await Promise.all([syncNode("items", items), syncNode("activities", activities)]);
-      showToast("Cập nhật kho thành công."); 
       render();
+      showToast("Đang đồng bộ...");
+      await Promise.all([syncNode("items", items), syncNode("activities", activities)]);
     }
 
     function openHistoryDialog(id = "") {
@@ -1075,10 +1074,9 @@
       else { repairHistory.push(payload); addAct(`Ghi nhận sửa máy: ${payload.machine}`); }
       
       closeHistoryDialog();
+      render();
       showToast("Đang đồng bộ...");
       await Promise.all([syncNode("repairHistory", repairHistory), syncNode("activities", activities)]);
-      showToast("Đã lưu lịch sử sửa máy."); 
-      render();
     }
 
     async function deleteHistory(id) {
@@ -1114,10 +1112,9 @@
       else { machines.push(payload); addAct(`Thêm máy mới vào xưởng: ${payload.name}`); }
       
       closeMachineDialog();
-      showToast("Đang đồng bộ...");
-      await Promise.all([syncNode("machines", machines), syncNode("activities", activities)]);
-      showToast("Đã lưu thiết bị máy."); 
       render();
+      showToast("Đang đồng bộ máy...");
+      await Promise.all([syncNode("machines", machines), syncNode("activities", activities)]);
     }
 
     async function deleteMachine(id) {
@@ -1156,7 +1153,10 @@
     document.querySelector("#cancelMachineBtn").addEventListener("click", closeMachineDialog);
     
     document.querySelector("#logoutBtn").addEventListener("click", logout);
+    
+    // Đăng ký sự kiện submit an toàn chặn reload trang
     els.loginForm.addEventListener("submit", login);
+    document.querySelector("#submitLoginBtn").addEventListener("click", login);
 
     document.querySelectorAll(".nav button").forEach(button => {
       button.addEventListener("click", () => {
@@ -1207,11 +1207,10 @@
     }
 
     window.addEventListener("beforeunload", () => {
-      if (typeof mySessionId !== "undefined") {
-        navigator.sendBeacon(`${DB_URL}/online_users/${mySessionId}.json?x-http-method-override=DELETE`);
-      }
+      try { if (typeof mySessionId !== "undefined") navigator.sendBeacon(`${DB_URL}/online_users/${mySessionId}.json?x-http-method-override=DELETE`); } catch(e){}
     });
 
+    // Check trạng thái nếu đã đăng nhập trước đó
     if (sessionStorage.getItem(LOGIN_KEY) === "true") { unlockApp(); }
   </script>
 </body>
