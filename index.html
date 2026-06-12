@@ -780,6 +780,7 @@ async function loadCloudData() {
   // Định kỳ cứ mỗi 10 giây tự động quét cập nhật số người lại một lần
   setInterval(checkOnlineUsers, 10000);
 }
+    async function loadCloudData() {
       if(els.resultCount) els.resultCount.textContent = "Đang tải...";
       
       const [cloudItems, cloudActivities, cloudHistory, cloudMachines] = await Promise.all([
