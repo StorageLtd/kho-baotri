@@ -133,6 +133,7 @@
     .btn.primary { background: var(--brand); border-color: var(--brand); color: #fff; font-weight: 700; }
     .btn.primary:hover { background: var(--brand-strong); }
     .btn:hover { border-color: #adbbb4; }
+    .btn.sm { min-height: 28px; height: 28px; padding: 0 8px; font-size: 12px; border-radius: 6px; }
 
     .content { padding: 24px 28px 36px; display: grid; gap: 22px; }
     .content[hidden] { display: none; }
@@ -190,7 +191,7 @@
     .empty { color: var(--muted); padding: 18px; text-align: center; }
 
     /* CNC Fanuc Live Dashboard Custom Style */
-    .cnc-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(350px, 1fr)); gap: 20px; }
+    .cnc-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(420px, 1fr)); gap: 20px; }
     .cnc-card { background: var(--panel); border: 1px solid var(--line); border-radius: 12px; box-shadow: var(--shadow); overflow: hidden; display: flex; flex-direction: column; }
     .cnc-header { padding: 16px; background: #111827; color: #fff; display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid var(--line); }
     .cnc-header h4 { margin: 0; font-size: 17px; font-weight: 700; letter-spacing: 0.5px; }
@@ -202,7 +203,7 @@
     .cnc-dot.alarm { background: #ef4444; box-shadow: 0 0 10px #ef4444; animation: blink 0.6s infinite alternate; }
     .cnc-dot.idle { background: #f59e0b; box-shadow: 0 0 8px #f59e0b; }
     
-    .cnc-body { padding: 16px; display: grid; gap: 12px; background: #fafafa; }
+    .cnc-body { padding: 16px; display: flex; flex-direction: column; gap: 12px; background: #fafafa; flex-grow: 1; }
     
     /* Màu sắc hiển thị ô trục chính theo yêu cầu */
     .cnc-param-box { border: 1px solid var(--line); border-radius: 8px; padding: 12px 10px; text-align: center; transition: background 0.3s ease; background: #ffffff; }
@@ -220,6 +221,54 @@
     .cnc-alarm-banner { background: #fff1f2; border: 1px solid #fecdd3; border-radius: 8px; padding: 10px; display: flex; flex-direction: column; gap: 3px; }
     .cnc-alarm-banner strong { color: var(--danger); font-size: 13px; display: flex; align-items: center; gap: 5px; }
     .cnc-alarm-banner p { margin: 0; font-size: 12px; color: #9f1239; line-height: 1.4; }
+
+    /* Ô chứa Nhật ký lỗi tích hợp bên trong từng máy */
+    .cnc-card-logs {
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: #ffffff;
+      padding: 10px;
+      margin-top: auto;
+    }
+    .cnc-card-logs-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 6px;
+      border-bottom: 1px solid var(--line);
+      padding-bottom: 4px;
+    }
+    .cnc-card-logs-header span {
+      font-size: 12px;
+      font-weight: 700;
+      color: #374151;
+    }
+    .cnc-logs-list {
+      max-height: 110px;
+      overflow-y: auto;
+      display: flex;
+      flex-direction: column;
+      gap: 5px;
+      padding-right: 2px;
+    }
+    .cnc-log-item {
+      font-size: 11px;
+      line-height: 1.4;
+      padding: 6px;
+      border-radius: 4px;
+      background: #f9fafb;
+      border-left: 3px solid var(--line);
+    }
+    .cnc-log-item.danger {
+      background: #fff5f5;
+      border-left-color: var(--danger);
+      color: #9f1239;
+    }
+    .cnc-log-item.ok {
+      background: #f0fdf4;
+      border-left-color: var(--ok);
+      color: #166534;
+    }
 
     .history-tools { display: grid; grid-template-columns: minmax(200px, 1fr) 150px 150px; gap: 10px; padding: 14px 16px; background: #fbfcfa; border-bottom: 1px solid var(--line); }
 
@@ -331,34 +380,14 @@
         </div>
       </header>
 
+      <!-- TAB MỚI: GIÁM SÁT MÁY CNC TRỰC TIẾP -->
       <section class="content" id="cncMonitorPage">
         <div class="cnc-grid" id="cncCardsContainer">
-          </div>
-
-        <section class="section" style="margin-top: 15px;">
-          <div class="section-head">
-            <h3>Nhật ký phát sinh lỗi hệ thống máy CNC Fanuc</h3>
-            <span class="meta">Lưu vết lỗi lịch sử phục vụ chẩn đoán kỹ thuật từ FOCAS</span>
-          </div>
-          <div class="table-wrap">
-            <table>
-              <thead>
-                <tr>
-                  <th>Thời gian ghi nhận</th>
-                  <th>Tên thiết bị máy</th>
-                  <th>Mã số lỗi (Alarm Code)</th>
-                  <th>Nội dung chi tiết lỗi CNC</th>
-                  <th>Mức độ</th>
-                  <th>Trạng thái hiện tại</th>
-                </tr>
-              </thead>
-              <tbody id="cncAlarmHistoryBody">
-                </tbody>
-            </table>
-          </div>
-        </section>
+          <!-- Dữ liệu card CNC load động từ JS/Firebase -->
+        </div>
       </section>
 
+      <!-- TAB 1: LINH KIỆN & TỔNG QUAN -->
       <section class="content" id="inventoryPage" hidden>
         <div class="stats" id="overview">
           <article class="stat">
@@ -439,6 +468,7 @@
         </div>
       </section>
 
+      <!-- TAB 2: DANH SÁCH MÁY MÓC -->
       <section class="content" id="machinesPage" hidden>
         <section class="section">
           <div class="section-head">
@@ -472,6 +502,7 @@
         </section>
       </section>
 
+      <!-- TAB 3: KẾ HOẠCH JOB BẢO TRÌ MÁY -->
       <section class="content" id="maintenanceJobsPage" hidden>
         <section class="section">
           <div class="section-head">
@@ -506,6 +537,7 @@
         </section>
       </section>
 
+      <!-- TAB 4: LỊCH SỬ SỬA CHỮA -->
       <section class="content" id="historyPage" hidden>
         <section class="section">
           <div class="section-head">
@@ -550,6 +582,7 @@
     </main>
   </div>
 
+  <!-- DIALOG THÊM MÁY GIÁM SÁT CNC -->
   <dialog id="cncMonitorDialog">
     <form id="cncMonitorForm" method="dialog">
       <div class="modal-head">
@@ -584,6 +617,7 @@
     </form>
   </dialog>
 
+  <!-- CÁC DIALOG KHÁC -->
   <dialog id="itemDialog">
     <form id="itemForm" method="dialog">
       <div class="modal-head">
@@ -824,8 +858,6 @@
     let repairHistory = [];
     let machines = [];
     let maintenanceJobs = [];
-    
-    // Mảng dữ liệu máy CNC nhận phản hồi thật từ Gateway IoT
     let cncDevices = [];
     let cncAlarmHistory = [];
 
@@ -869,9 +901,7 @@
       alertList: document.querySelector("#alertList"),
       activityList: document.querySelector("#activityList"),
       cncCardsContainer: document.querySelector("#cncCardsContainer"),
-      cncAlarmHistoryBody: document.querySelector("#cncAlarmHistoryBody"),
       
-      // CNC Monitor Dialog elements
       cncMonitorDialog: document.querySelector("#cncMonitorDialog"),
       cncMonitorForm: document.querySelector("#cncMonitorForm"),
       cncMachineSelect: document.querySelector("#cncMachineSelect"),
@@ -998,14 +1028,12 @@
         setTimeout(checkOnlineUsers, 500);
         setInterval(checkOnlineUsers, 12000);
         
-        // Quét dữ liệu liên tục từ Cloud (Mọi dữ liệu từ Gateway Fanuc đẩy lên sẽ hiển thị ngay lập tức)
         setInterval(fetchRealtimeCncDataOnly, 3000);
       } catch (e) {
         console.error("Lỗi kết nối:", e);
       }
     }
 
-    // Đọc dữ liệu Realtime không chạy giả lập số tự nhảy
     async function fetchRealtimeCncDataOnly() {
       try {
         const cloudCnc = await fbFetch("cncDevices");
@@ -1133,7 +1161,7 @@
       updateMachineSelectOptions();
     }
 
-    // LOGIC CHO TAB CNC MONITOR VỚI MÀU Ô TRỤC CHÍNH ĐỔI THEO YÊU CẦU
+    // LOGIC CHO TAB CNC MONITOR - ĐÃ ĐƯA NHẬT KÝ LỖI VÀO TỪNG Ô MÁY VÀ THÊM NÚT XUẤT EXCEL RIÊNG
     function renderCncMonitor() {
       if (!els.cncCardsContainer) return;
       
@@ -1145,16 +1173,31 @@
       els.cncCardsContainer.innerHTML = cncDevices.map(cnc => {
         let statusText = "Chờ lệnh (IDLE)";
         let dotClass = "idle";
-        let spindleBgClass = "bg-idle"; // Mặc định dừng hiển thị vàng nhạt
+        let spindleBgClass = "bg-idle";
 
         if (cnc.status === "running") {
           statusText = "Đang chạy (RUNNING)";
           dotClass = "running";
-          spindleBgClass = "bg-running"; // Đang chạy hiển thị xanh lá nhạt
+          spindleBgClass = "bg-running";
         } else if (cnc.status === "alarm") {
           statusText = "BÁO LỖI (ALARM)";
           dotClass = "alarm";
-          spindleBgClass = "bg-alarm";   // Bị lỗi hiển thị đỏ nhạt
+          spindleBgClass = "bg-alarm";
+        }
+
+        // Lọc các lỗi phát sinh thuộc riêng máy này
+        const machineAlarms = cncAlarmHistory.filter(al => al.machineName === cnc.name)
+          .sort((a, b) => new Date(b.time) - new Date(a.time));
+
+        let logsHtml = `<div class="empty" style="padding: 10px 0; font-size:11px;">Chưa có ghi nhận lịch sử lỗi.</div>`;
+        if (machineAlarms.length > 0) {
+          logsHtml = machineAlarms.map(al => `
+            <div class="cnc-log-item ${al.status.includes('Đã') ? 'ok' : 'danger'}">
+              <strong style="display:block;">[${new Intl.DateTimeFormat("vi-VN", {timeStyle:"short"}).format(new Date(al.time))}] Mã: ${escapeHtml(al.code)}</strong>
+              <span>${escapeHtml(al.desc)}</span>
+              <div style="font-size:10px; margin-top:2px; font-style:italic; opacity:0.8;">Mức độ: ${escapeHtml(al.severity)} | Trạng thái: ${escapeHtml(al.status)}</div>
+            </div>
+          `).join("");
         }
 
         return `
@@ -1190,10 +1233,25 @@
                 </div>
               ` : `
                 <div style="color: var(--ok); font-size:12px; font-weight:bold; text-align:center; padding:6px; background:#f0fdf4; border-radius:6px; border:1px solid #bbf7d0;">
-                  ✓ Bộ điều khiển Fanuc không có Alarm phát sinh
+                  ✓ Bộ điều khiển Fanuc không có Alarm hiện hành
                 </div>
               `}
               
+              <!-- TÍCH HỢP NHẬT KÝ LỖI RIÊNG CHO TỪNG MÁY THEO YÊU CẦU -->
+              <div class="cnc-card-logs">
+                <div class="cnc-card-logs-header">
+                  <span>📋 Nhật ký lỗi của máy (${machineAlarms.length})</span>
+                  ${machineAlarms.length > 0 ? `
+                    <button class="btn sm" type="button" onclick="exportSingleMachineAlarms('${escapeHtml(cnc.name)}')">
+                      📥 Xuất Excel Máy
+                    </button>
+                  ` : ''}
+                </div>
+                <div class="cnc-logs-list">
+                  ${logsHtml}
+                </div>
+              </div>
+
               <div style="text-align: right; margin-top: 5px;">
                  <button class="icon-btn danger" type="button" title="Hủy theo dõi" onclick="deleteCncMonitor('${cnc.id}')" style="width:28px; height:28px; font-size:12px;">×</button>
               </div>
@@ -1201,22 +1259,31 @@
           </div>
         `;
       }).join("");
-
-      // Render lịch sử lỗi hệ thống CNC
-      const sortedAlarms = [...cncAlarmHistory].sort((a,b) => new Date(b.time) - new Date(a.time));
-      els.cncAlarmHistoryBody.innerHTML = sortedAlarms.map(al => `
-        <tr>
-          <td><small>${new Intl.DateTimeFormat("vi-VN", {dateStyle:"medium", timeStyle:"short"}).format(new Date(al.time))}</small></td>
-          <td><strong>${escapeHtml(al.machineName)}</strong></td>
-          <td><span style="color:var(--danger); font-weight:bold;">${escapeHtml(al.code)}</span></td>
-          <td style="font-size:13px; max-width:300px; white-space:pre-wrap;">${escapeHtml(al.desc)}</td>
-          <td><span class="pill ${al.severity.includes('Nguy') || al.severity.includes('Hối') ? 'danger' : 'warn'}">${escapeHtml(al.severity)}</span></td>
-          <td><span class="pill ${al.status.includes('Đã') ? 'ok' : 'danger'}">${escapeHtml(al.status)}</span></td>
-        </tr>
-      `).join("");
     }
 
-    // DIALOG MỞ THÊM MÁY CNC (LẤY TỪ DANH SÁCH MÁY THEO YÊU CẦU)
+    // HÀM XUẤT LỊCH SỬ LỖI CỦA MỘT MÁY CNC CỤ THỂ RA EXCEL/CSV
+    function exportSingleMachineAlarms(machineName) {
+      const machineAlarms = cncAlarmHistory.filter(al => al.machineName === machineName)
+        .sort((a, b) => new Date(b.time) - new Date(a.time));
+        
+      if(machineAlarms.length === 0) {
+        alert("Máy này hiện tại không có dữ liệu nhật ký lỗi để xuất.");
+        return;
+      }
+      
+      const headers = ["Thời gian ghi nhận", "Tên thiết bị máy", "Mã số lỗi (Alarm Code)", "Nội dung chi tiết lỗi CNC", "Mức độ", "Trạng thái"];
+      const rows = machineAlarms.map(al => [
+        new Intl.DateTimeFormat("vi-VN", {dateStyle:"medium", timeStyle:"short"}).format(new Date(al.time)),
+        al.machineName,
+        al.code,
+        al.desc,
+        al.severity,
+        al.status
+      ]);
+      
+      downloadCsv(headers, rows, `nhat-ky-loi-may-${machineName.toLowerCase().replaceAll(" ", "-")}`);
+    }
+
     function openCncMonitorDialog() {
       if(machines.length === 0) {
         alert("Vui lòng bổ sung danh sách thiết bị máy ở Tab 'Danh sách máy' trước khi thiết lập giám sát CNC!");
@@ -1226,7 +1293,6 @@
         return;
       }
       
-      // Đổ danh sách máy vào dropdown chọn
       els.cncMachineSelect.innerHTML = `<option value="">-- Chọn máy cần cấu hình giám sát --</option>` + 
         machines.map(m => `<option value="${escapeHtml(m.name)}">${escapeHtml(m.name)}</option>`).join("");
       
@@ -1241,7 +1307,6 @@
       const selectedMachineName = els.cncMachineSelect.value;
       if(!selectedMachineName) return;
 
-      // Check trùng
       if(cncDevices.some(d => d.name === selectedMachineName)) {
         alert("Thiết bị máy này đã tồn tại trong danh sách giám sát trực tiếp rồi!");
         return;
@@ -1274,7 +1339,6 @@
       await Promise.all([fbFetch(`cncDevices/${id}`, "DELETE"), syncNode("activities", activities)]);
     }
 
-    // CÁC HÀM RENDER ĐÃ CÓ
     function renderInventoryTable() {
       const term = els.searchInput.value.trim().toLowerCase();
       const cat = els.categoryFilter.value;
@@ -1467,7 +1531,6 @@
       `).join("");
     }
 
-    // LOGIC CHO DIALOGS & SAVE DATA
     function openItemDialog(id = "") {
       const item = items.find(i => i.id === id);
       els.dialogTitle.textContent = item ? "Sửa thông tin linh kiện" : "Thêm linh kiện mới";
@@ -1639,7 +1702,8 @@
       repairHistory.push({
         id: crypto.randomUUID(), machine: j.machineName, faultTime: new Date().toISOString().slice(0,10),
         staff: "Bảo Trì Định Kỳ", fault: `Đến kỳ hạn bảo trì: [${j.jobName}]`,
-        fix: `Đã hoàn thành kiểm tra theo đúng quy trình: \n${j.desc || 'Không có mô tả'}`
+        fix: `Đã hoàn thành kiểm tra theo đúng quy trình: 
+${j.desc || 'Không có mô tả'}`
       });
 
       currentNextDate.setMonth(currentNextDate.getMonth() + Number(j.period));
@@ -1707,7 +1771,6 @@
       return String(v??'').replaceAll("&","&amp;").replaceAll("<","&lt;").replaceAll(">","&gt;").replaceAll('"',"&quot;").replaceAll("'","&#039;");
     }
 
-    // EVENT LISTENERS
     els.addCncMonitorBtn.addEventListener("click", openCncMonitorDialog);
     document.querySelector("#closeCncDialog").addEventListener("click", () => els.cncMonitorDialog.close());
     document.querySelector("#cancelCncBtn").addEventListener("click", () => els.cncMonitorDialog.close());
@@ -1780,7 +1843,6 @@
       reader.readAsDataURL(file);
     });
 
-    // CSV EXPORTS
     els.exportBtn.addEventListener("click", () => {
       const h = ["Tên linh kiện", "Mã", "Nhóm", "Thông số", "Còn lại", "Tối thiểu", "Kệ", "Thiết bị dùng", "Giá"];
       const r = items.map(i => [i.name, i.sku, i.category, i.specs || '', i.quantity, i.min, i.location, i.supplier, i.price]);
@@ -1803,8 +1865,9 @@
     });
 
     function downloadCsv(headers, rows, filename) {
-      const csv = [headers, ...rows].map(row => row.map(c => `"${String(c??'').replaceAll('"','""')}"`).join(",")).join("\n");
-      const blob = new Blob(["\ufeff" + csv], { type: "text/csv;charset=utf-8" });
+      const csv = [headers, ...rows].map(row => row.map(c => `"${String(c??'').replaceAll('"','""')}"`).join(",")).join("
+");
+      const blob = new Blob(["﻿" + csv], { type: "text/csv;charset=utf-8" });
       const url = URL.createObjectURL(blob);
       const link = document.createElement("a");
       link.href = url; link.download = `${filename}-${new Date().toISOString().slice(0,10)}.csv`;
