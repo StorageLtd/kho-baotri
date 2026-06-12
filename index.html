@@ -285,6 +285,7 @@
         </div>
         <div class="actions">
           <button class="btn" id="exportBtn" type="button">Xuất Linh Kiện CSV</button>
+          <button class="btn" id="exportMachineBtn" type="button" style="display:none;">Xuất Máy Excel (CSV)</button>
           <button class="btn" id="exportHistoryBtn" type="button" style="display:none;">Xuất Lịch Sử CSV</button>
           <button class="btn" id="logoutBtn" type="button">Đăng xuất</button>
           <button class="btn primary" id="addBtn" type="button">Thêm linh kiện</button>
@@ -369,6 +370,7 @@
         </div>
       </section>
 
+      <!-- MACHINES PAGE -->
       <section class="content" id="machinesPage" hidden>
         <section class="section">
           <div class="section-head">
@@ -402,6 +404,7 @@
         </section>
       </section>
 
+      <!-- REPAIR HISTORY PAGE -->
       <section class="content" id="historyPage" hidden>
         <section class="section">
           <div class="section-head">
@@ -445,6 +448,7 @@
     </main>
   </div>
 
+  <!-- MODALS / DIALOGS -->
   <dialog id="itemDialog">
     <form id="itemForm" method="dialog">
       <div class="modal-head">
@@ -602,6 +606,7 @@
 
   <div class="toast" id="toast" role="status" aria-live="polite"></div>
 
+  <!-- FIREBASE DATA SYNCHRONIZATION -->
   <script>
     const DB_URL = "https://ltdst-80b3e-default-rtdb.asia-southeast1.firebasedatabase.app";
     
@@ -633,6 +638,7 @@
       addBtn: document.querySelector("#addBtn"),
       addMachineMainBtn: document.querySelector("#addMachineMainBtn"),
       exportBtn: document.querySelector("#exportBtn"),
+      exportMachineBtn: document.querySelector("#exportMachineBtn"),
       exportHistoryBtn: document.querySelector("#exportHistoryBtn"),
       statItems: document.querySelector("#statItems"),
       statUnits: document.querySelector("#statUnits"),
@@ -806,6 +812,7 @@
       els.addBtn.style.display = (pageId === "inventoryPage") ? "inline-flex" : "none";
       els.addMachineMainBtn.style.display = (pageId === "machinesPage") ? "inline-flex" : "none";
       els.exportBtn.style.display = (pageId === "inventoryPage") ? "inline-flex" : "none";
+      els.exportMachineBtn.style.display = (pageId === "machinesPage") ? "inline-flex" : "none";
       els.exportHistoryBtn.style.display = (pageId === "historyPage") ? "inline-flex" : "none";
 
       if(pageId === "inventoryPage") {
@@ -1171,6 +1178,12 @@
       downloadCsv(h, r, "kho-linh-kien-ltd");
     });
 
+    els.exportMachineBtn.addEventListener("click", () => {
+      const h = ["Tên máy thiết bị", "Ngày lắp đặt", "Hạn bảo hành", "Công ty cung cấp", "Số điện thoại"];
+      const r = machines.map(m => [m.name, formatDateDisplay(m.setupDate), formatDateDisplay(m.warranty), m.vendor, m.phone]);
+      downloadCsv(h, r, "danh-sach-may-ltd");
+    });
+
     els.exportHistoryBtn.addEventListener("click", () => {
       const h = ["Ngày lỗi", "Tên máy lỗi", "Người xử lý", "Nội dung lỗi", "Nội dung xử lý"];
       const r = repairHistory.map(x => [formatDateDisplay(x.faultTime), x.machine, x.staff, x.fault, x.fix]);
@@ -1178,15 +1191,15 @@
     });
 
     function downloadCsv(headers, rows, filename) {
-      const csv = [headers, ...rows].map(row => row.map(c => `"${String(c??'').replaceAll('"','""')}"`).join(",")).join("\n");
-      const blob = new Blob(["\ufeff" + csv], { type: "text/csv;charset=utf-8" });
+      const csv = [headers, ...rows].map(row => row.map(c => `"${String(c??'').replaceAll('"','""')}"`).join(",")).join("
+");
+      const blob = new Blob(["﻿" + csv], { type: "text/csv;charset=utf-8" });
       const url = URL.createObjectURL(blob);
       const link = document.createElement("a");
       link.href = url; link.download = `${filename}-${new Date().toISOString().slice(0,10)}.csv`;
       link.click(); URL.revokeObjectURL(url);
     }
 
-    // Khi tắt tab hoặc đóng trình duyệt, lập tức thông báo để Firebase xóa phiên hoạt động ngay
     window.addEventListener("beforeunload", () => {
       if (typeof mySessionId !== "undefined") {
         navigator.sendBeacon(`${DB_URL}/online_users/${mySessionId}.json?x-http-method-override=DELETE`);
