@@ -272,9 +272,10 @@
         <button type="button" data-page="historyPage">Lịch sử sửa máy</button>
       </nav>
       <div class="sidebar-footer">
-        <strong id="todayLabel"></strong>
-        <div style="color: #6ee7b7; font-weight: bold; margin-top: 4px;">● Hệ thống đám mây (Firebase)</div>
-      </div>
+  <strong id="todayLabel"></strong>
+  <div style="color: #e76eb1; font-weight: bold; margin-top: 4px;" id="onlineCountLabel">● Đang truy cập: 1 người</div>
+  <div style="color: #a7f3d0; font-size: 12px; margin-top: 2px;">● Đám mây (Firebase) đã kết nối</div>
+</div>
     </aside>
 
     <main>
@@ -716,22 +717,70 @@
       }
     }
 
-    async function loadCloudData() {
-      if(els.resultCount) els.resultCount.textContent = "Đang tải...";
+   // Biến lưu trữ ID phiên truy cập này để tránh tự đếm trùng chính mình
+const mySessionId = crypto.randomUUID();
+
+async function loadCloudData() {
+  if(els.resultCount) els.resultCount.textContent = "Đang tải...";
+  
+  const [cloudItems, cloudActivities, cloudHistory, cloudMachines] = await Promise.all([
+    fbFetch("items"),
+    fbFetch("activities"),
+    fbFetch("repairHistory"),
+    fbFetch("machines")
+  ]);
+
+  items = cloudItems ? Object.values(cloudItems) : [];
+  activities = cloudActivities ? Object.values(cloudActivities) : [{ at: new Date().toISOString(), text: "Kết nối đám mây trống." }];
+  repairHistory = cloudHistory ? Object.values(cloudHistory) : [];
+  machines = cloudMachines ? Object.values(cloudMachines) : [];
+
+  render();
+
+  // BẮT ĐẦU ĐOẠN MÃ ĐĂNG KÝ VÀ THEO DÕI SỐ NGƯỜI ĐANG TRUY CẬP
+  // 1. Khai báo phiên làm việc hiện tại lên đám mây
+  await fbFetch(`online_users/${mySessionId}`, "PUT", { timestamp: Date.now() });
+
+  // 2. Cứ mỗi 10 giây cập nhật lại thời gian sống một lần để hệ thống biết vẫn đang xem trang
+  setInterval(async () => {
+    await fbFetch(`online_users/${mySessionId}`, "PUT", { timestamp: Date.now() });
+  }, 10000);
+
+  // 3. Cứ mỗi 12 giây quét cơ sở dữ liệu để đếm xem có bao nhiêu người vừa hoạt động trong vòng 30 giây qua
+  setInterval(async () => {
+    const allSessions = await fbFetch("online_users");
+    if (allSessions) {
+      const now = Date.now();
+      let activeCount = 0;
       
-      const [cloudItems, cloudActivities, cloudHistory, cloudMachines] = await Promise.all([
-        fbFetch("items"),
-        fbFetch("activities"),
-        fbFetch("repairHistory"),
-        fbFetch("machines")
-      ]);
+      // Duyệt qua các tài khoản/thiết bị đang mở web
+      for (const id in allSessions) {
+        if (now - allSessions[id].timestamp < 30000) { // Nếu hoạt động cách đây chưa quá 30 giây
+          activeCount++;
+        } else {
+          // Xóa những phiên cũ không còn online nữa để dọn rác dữ liệu
+          fbFetch(`online_users/${id}`, "DELETE");
+        }
+      }
+      
+      // Cập nhật số liệu ra giao diện
+      const label = document.querySelector("#onlineCountLabel");
+      if (label) {
+        label.innerHTML = `● Đang truy cập: <span style="font-size:15px; background:#fff; color:#12251f; padding:1px 6px; border-radius:4px; margin:0 2px;">${activeCount}</span> người`;
+      }
+    }
+  }, 12000);
 
-      items = cloudItems ? Object.values(cloudItems) : [];
-      activities = cloudActivities ? Object.values(cloudActivities) : [{ at: new Date().toISOString(), text: "Kết nối đám mây trống." }];
-      repairHistory = cloudHistory ? Object.values(cloudHistory) : [];
-      machines = cloudMachines ? Object.values(cloudMachines) : [];
-
-      render();
+  // Chạy đếm lần đầu ngay khi tải xong
+  setTimeout(async () => {
+    const allSessions = await fbFetch("online_users");
+    if (allSessions) {
+      const activeCount = Object.keys(allSessions).length;
+      const label = document.querySelector("#onlineCountLabel");
+      if (label) label.innerHTML = `● Đang truy cập: <span style="font-size:15px; background:#fff; color:#12251f; padding:1px 6px; border-radius:4px; margin:0 2px;">${activeCount}</span> người`;
+    }
+  }, 1500);
+}
     }
 
     async function syncNode(nodeName, dataArray) {
