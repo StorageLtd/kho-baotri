@@ -194,7 +194,6 @@
     .history-table { min-width: 980px; }
     .history-table td { vertical-align: top; }
     
-    /* CSS Xử lý thu gọn ô văn bản */
     .text-cell { 
       max-width: 200px; 
       min-width: 120px; 
@@ -421,6 +420,8 @@
                   <th>Tên máy thiết bị</th>
                   <th>Ngày lắp đặt</th>
                   <th>Hạn bảo hành</th>
+                  <th>Chu kỳ bảo trì</th>
+                  <th>Ngày bảo trì tới</th>
                   <th>Công ty cung cấp</th>
                   <th>Số điện thoại</th>
                   <th></th>
@@ -636,6 +637,17 @@
           <input class="input" id="mWarrantyInput" type="date" required>
         </div>
         <div class="field">
+          <label for="mMaintenancePeriodInput">Chu kỳ bảo trì (Tháng)</label>
+          <select id="mMaintenancePeriodInput" class="input">
+            <option value="0">Không bảo trì định kỳ</option>
+            <option value="1">1 Tháng</option>
+            <option value="2">2 Tháng</option>
+            <option value="3">3 Tháng (Qúy)</option>
+            <option value="6">6 Tháng</option>
+            <option value="12">12 Tháng (Năm)</option>
+          </select>
+        </div>
+        <div class="field">
           <label for="mVendorInput">Công ty cung cấp</label>
           <input class="input" id="mVendorInput" required>
         </div>
@@ -752,6 +764,7 @@
       mName: document.querySelector("#mNameInput"),
       mSetupDate: document.querySelector("#mSetupDateInput"),
       mWarranty: document.querySelector("#mWarrantyInput"),
+      mMaintenancePeriod: document.querySelector("#mMaintenancePeriodInput"),
       mVendor: document.querySelector("#mVendorInput"),
       mPhone: document.querySelector("#mPhoneInput"),
 
@@ -897,6 +910,15 @@
       return "ok";
     }
 
+    // Hàm tính Ngày Bảo trì tiếp theo từ Ngày lắp đặt + số tháng chu kỳ
+    function calculateNextMaintenance(setupDateStr, periodMonths) {
+      if (!setupDateStr || !periodMonths || periodMonths <= 0) return "";
+      const d = new Date(setupDateStr);
+      if (isNaN(d.getTime())) return "";
+      d.setMonth(d.getMonth() + Number(periodMonths));
+      return d.toISOString().slice(0, 10);
+    }
+
     function render() {
       const current = els.categoryFilter.value || "all";
       const categories = [...new Set(items.map(i => i.category))].sort((a, b) => a.localeCompare(b, "vi"));
@@ -965,23 +987,40 @@
       }).sort((a,b) => a.name.localeCompare(b.name, "vi"));
 
       if(!rows.length) {
-        els.machineListBody.innerHTML = `<tr><td colspan="6" class="empty">Không tìm thấy máy thiết bị nào.</td></tr>`;
+        els.machineListBody.innerHTML = `<tr><td colspan="8" class="empty">Không tìm thấy máy thiết bị nào.</td></tr>`;
         return;
       }
 
-      els.machineListBody.innerHTML = rows.map(m => `<tr>
-        <td><strong>${escapeHtml(m.name)}</strong></td>
-        <td>${formatDateDisplay(m.setupDate)}</td>
-        <td><strong>${formatDateDisplay(m.warranty)}</strong></td>
-        <td>${escapeHtml(m.vendor)}</td>
-        <td><a href="tel:${m.phone}">${escapeHtml(m.phone)}</a></td>
-        <td>
-          <div class="row-actions">
-            <button class="icon-btn" type="button" onclick="openMachineDialog('${m.id}')">✎</button>
-            <button class="icon-btn danger" type="button" onclick="deleteMachine('${m.id}')">×</button>
-          </div>
-        </td>
-      </tr>`).join("");
+      const todayStr = new Date().toISOString().slice(0, 10);
+
+      els.machineListBody.innerHTML = rows.map(m => {
+        const p = m.period ? Number(m.period) : 0;
+        const nextMaint = calculateNextMaintenance(m.setupDate, p);
+        
+        let maintCell = `<span style="color:var(--muted);">-</span>`;
+        if (nextMaint) {
+          const isOverdue = nextMaint <= todayStr;
+          maintCell = isOverdue 
+            ? `<strong style="color:var(--danger); animation: rise 1s infinite alternate;">⚠️ Đến hạn: ${formatDateDisplay(nextMaint)}</strong>`
+            : `<span style="color:var(--ok); font-weight:600;">${formatDateDisplay(nextMaint)}</span>`;
+        }
+
+        return `<tr>
+          <td><strong>${escapeHtml(m.name)}</strong></td>
+          <td>${formatDateDisplay(m.setupDate)}</td>
+          <td><strong>${formatDateDisplay(m.warranty)}</strong></td>
+          <td>${p > 0 ? `${p} tháng` : 'Chưa cài'}</td>
+          <td>${maintCell}</td>
+          <td>${escapeHtml(m.vendor)}</td>
+          <td><a href="tel:${m.phone}">${escapeHtml(m.phone)}</a></td>
+          <td>
+            <div class="row-actions">
+              <button class="icon-btn" type="button" onclick="openMachineDialog('${m.id}')">✎</button>
+              <button class="icon-btn danger" type="button" onclick="deleteMachine('${m.id}')">×</button>
+            </div>
+          </td>
+        </tr>`;
+      }).join("");
     }
 
     function renderHistoryTable() {
@@ -1040,19 +1079,40 @@
     }
 
     function renderAlertsAndActivities() {
+      let alertHtml = "";
+      const todayStr = new Date().toISOString().slice(0, 10);
+
+      // 1. Quét Cảnh báo Bảo trì máy móc nhà xưởng trước
+      machines.forEach(m => {
+        const p = m.period ? Number(m.period) : 0;
+        const nextMaint = calculateNextMaintenance(m.setupDate, p);
+        if (nextMaint && nextMaint <= todayStr) {
+          alertHtml += `
+            <div class="alert-item" style="border-left: 4px solid var(--danger); background: #fff5f5;">
+              <strong style="color: var(--danger);">🚨 HẠN BẢO TRÌ MÁY</strong>
+              <div style="font-weight:bold; margin-top:2px;">${escapeHtml(m.name)}</div>
+              <div class="meta">Đã đến chu kỳ bảo trì định kỳ (${p} tháng). Ngày đến hạn: ${formatDateDisplay(nextMaint)}.</div>
+            </div>
+          `;
+        }
+      });
+
+      // 2. Tiếp tục Quét cảnh báo Linh kiện sắp hết kho
       const alerts = items.filter(i => itemStatus(i) !== "ok").sort((a,b)=>a.quantity-b.quantity);
-      els.alertList.innerHTML = alerts.length ? alerts.map(i => {
+      alerts.forEach(i => {
         const currentStat = itemStatus(i);
         const badgeCls = currentStat === 'low' ? 'warn' : 'danger';
         const badgeText = currentStat === 'low' ? 'Sắp hết' : 'Hết linh kiện';
-        return `
+        alertHtml += `
           <div class="alert-item">
             <strong>${escapeHtml(i.name)}</strong>
             <span class="pill ${badgeCls}">${badgeText}</span>
             <div class="meta">Còn ${i.quantity} / Tối thiểu ${i.min}. Cần mua: ${Math.max(i.min-i.quantity, 0)}.</div>
           </div>
         `;
-      }).join("") : `<div class="empty">Không có cảnh báo tồn.</div>`;
+      });
+
+      els.alertList.innerHTML = alertHtml ? alertHtml : `<div class="empty">Không có cảnh báo tồn hoặc lịch bảo trì.</div>`;
 
       els.activityList.innerHTML = activities.slice(0,5).map(a => `
         <div class="activity-item">
@@ -1226,6 +1286,7 @@
       els.mName.value = m?.name || "";
       els.mSetupDate.value = m?.setupDate || new Date().toISOString().slice(0,10);
       els.mWarranty.value = m?.warranty || new Date().toISOString().slice(0,10);
+      els.mMaintenancePeriod.value = m?.period || "0";
       els.mVendor.value = m?.vendor || "";
       els.mPhone.value = m?.phone || "";
       els.machineDialog.showModal();
@@ -1237,7 +1298,8 @@
       const id = els.mId.value || crypto.randomUUID();
       const payload = {
         id, name: els.mName.value.trim(), setupDate: els.mSetupDate.value,
-        warranty: els.mWarranty.value, vendor: els.mVendor.value.trim(), phone: els.mPhone.value.trim()
+        warranty: els.mWarranty.value, period: els.mMaintenancePeriod.value,
+        vendor: els.mVendor.value.trim(), phone: els.mPhone.value.trim()
       };
       const idx = machines.findIndex(x => x.id === id);
       if(idx >= 0) { machines[idx] = payload; addAct(`Cập nhật máy: ${payload.name}`); }
@@ -1351,8 +1413,8 @@
     });
 
     els.exportMachineBtn.addEventListener("click", () => {
-      const h = ["Tên máy thiết bị", "Ngày lắp đặt", "Hạn bảo hành", "Công ty cung cấp", "Số điện thoại"];
-      const r = machines.map(m => [m.name, formatDateDisplay(m.setupDate), formatDateDisplay(m.warranty), m.vendor, m.phone]);
+      const h = ["Tên máy thiết bị", "Ngày lắp đặt", "Hạn bảo hành", "Chu kỳ bảo trì (tháng)", "Công ty cung cấp", "Số điện thoại"];
+      const r = machines.map(m => [m.name, formatDateDisplay(m.setupDate), formatDateDisplay(m.warranty), m.period || 0, m.vendor, m.phone]);
       downloadCsv(h, r, "danh-sach-may-ltd");
     });
 
