@@ -173,7 +173,7 @@
     .input:focus, select:focus, textarea:focus { border-color: var(--brand); box-shadow: 0 0 0 3px rgba(22, 102, 77, .15); }
 
     .table-wrap { overflow: auto; }
-    table { width: 100%; border-collapse: collapse; min-width: 820px; }
+    table { width: 100%; border-collapse: collapse; min-width: 900px; }
     th, td { padding: 13px 16px; border-bottom: 1px solid var(--line); text-align: left; vertical-align: middle; }
     th { background: #fbfcfa; color: var(--muted); font-size: 12px; text-transform: uppercase; letter-spacing: .04em; position: sticky; top: 0; z-index: 1; }
     tbody tr:hover { background: #f8faf8; }
@@ -196,8 +196,8 @@
     
     /* CSS Xử lý thu gọn ô văn bản */
     .text-cell { 
-      max-width: 240px; 
-      min-width: 150px; 
+      max-width: 200px; 
+      min-width: 120px; 
       line-height: 1.45; 
       cursor: pointer;
     }
@@ -376,6 +376,7 @@
                     <th>Kệ</th>
                     <th>Thiết bị</th>
                     <th>Hình ảnh</th>
+                    <th>Ghi chú</th>
                     <th>Trạng thái</th>
                     <th></th>
                   </tr>
@@ -717,7 +718,6 @@
       locationInput: document.querySelector("#locationInput"),
       specsInput: document.querySelector("#specsInput"),
       noteInput: document.querySelector("#noteInput"),
-      // Khai báo các thành phần DOM xử lý tải ảnh linh kiện
       itemImageInput: document.querySelector("#itemImageInput"),
       itemImageDataHidden: document.querySelector("#itemImageDataHidden"),
       itemImagePreviewWrap: document.querySelector("#itemImagePreviewWrap"),
@@ -920,13 +920,13 @@
       const stat = els.statusFilter.value;
 
       const rows = items.filter(i => {
-        const h = [i.name, i.sku, i.supplier, i.location, i.specs || ''].join(" ").toLowerCase();
+        const h = [i.name, i.sku, i.supplier, i.location, i.specs || '', i.note || ''].join(" ").toLowerCase();
         return (!term || h.includes(term)) && (cat === "all" || i.category === cat) && (stat === "all" || itemStatus(i) === stat);
       }).sort((a, b) => a.name.localeCompare(b.name, "vi"));
 
       els.resultCount.textContent = `${rows.length} linh kiện`;
       if (!rows.length) {
-        els.inventoryBody.innerHTML = `<tr><td colspan="10" class="empty">Không có linh kiện phù hợp.</td></tr>`;
+        els.inventoryBody.innerHTML = `<tr><td colspan="11" class="empty">Không có linh kiện phù hợp.</td></tr>`;
         return;
       }
 
@@ -943,8 +943,9 @@
           <td>${escapeHtml(item.location || "Chưa gán")}</td>
           <td>${escapeHtml(item.supplier)}</td>
           <td>
-            ${item.image ? `<img src="${item.image}" style="width:42px; height:42px; object-fit:cover; border-radius:4px; border:1px solid var(--line); cursor:zoom-in;" title="Bấm vào để phóng to ảnh linh kiện" onclick="viewFullImage('${item.image}')">` : `<span style="color:var(--muted); font-size:12px;">-</span>`}
+            ${item.image ? `<img src="${item.image}" style="width:42px; height:42px; object-fit:cover; border-radius:4px; border:1px solid var(--line); cursor:zoom-in;" title="Bấm vào để phóng to" onclick="viewFullImage('${item.image}')">` : `<span style="color:var(--muted); font-size:12px;">-</span>`}
           </td>
+          <td class="text-cell" onclick="toggleTextCollapse(this)"><div class="text-truncated">${escapeHtml(item.note || "-")}</div></td>
           <td><span class="pill ${cls}">${lbl}</span></td>
           <td>
             <div class="row-actions">
@@ -1017,7 +1018,6 @@
       </tr>`).join("");
     }
 
-    // Hàm đóng / mở rộng nội dung văn bản khi bấm chuột
     function toggleTextCollapse(cellElement) {
       const textContainer = cellElement.querySelector('div');
       if (textContainer && textContainer.classList.contains('text-truncated')) {
@@ -1029,7 +1029,6 @@
       }
     }
 
-    // Hàm mở tab mới hiển thị ảnh gốc cỡ lớn
     function viewFullImage(base64Source) {
       const imageWindow = window.open();
       imageWindow.document.write(`
@@ -1078,7 +1077,6 @@
       els.specsInput.value = item?.specs || "";
       els.noteInput.value = item?.note || "";
       
-      // Đọc trạng thái ảnh linh kiện cũ hoặc reset form trống
       els.itemImageInput.value = "";
       if (item && item.image) {
         els.itemImageDataHidden.value = item.image;
@@ -1110,7 +1108,7 @@
         quantity: Number(els.quantityInput.value), min: Number(els.minInput.value),
         price: Number(els.priceInput.value), location: els.locationInput.value.trim(), 
         specs: els.specsInput.value.trim(), note: els.noteInput.value.trim(),
-        image: els.itemImageDataHidden.value || "" // Gửi dữ liệu Base64 của linh kiện lên DB
+        image: els.itemImageDataHidden.value || "" 
       };
       if (items.some(i => i.sku.toLowerCase() === payload.sku.toLowerCase() && i.id !== id)) {
         showToast("Mã linh kiện bị trùng."); return;
@@ -1299,7 +1297,6 @@
       });
     });
 
-    // Lắng nghe sự kiện tải ảnh linh kiện (giới hạn dung lượng < 1.5MB)
     els.itemImageInput.addEventListener("change", function(e) {
       const file = e.target.files[0];
       if (!file) return;
@@ -1317,7 +1314,6 @@
       reader.readAsDataURL(file);
     });
 
-    // Lắng nghe sự kiện chọn file ảnh sửa máy
     els.historyImageInput.addEventListener("change", function(e) {
       const file = e.target.files[0];
       if (!file) return;
