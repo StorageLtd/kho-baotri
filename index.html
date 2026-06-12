@@ -60,6 +60,15 @@
       padding: 0 6px;
     }
 
+    /* Định dạng cho hình ảnh logo hiển thị đẹp và cân đối */
+    .brand img {
+      max-width: 100%;
+      height: auto;
+      max-height: 50px;
+      object-fit: contain;
+      display: block;
+    }
+
     .brand h1 {
       font-size: 18px;
       line-height: 1.15;
@@ -253,7 +262,7 @@
   <div class="app">
     <aside class="sidebar">
       <div class="brand">
-        <h1>LTD VIET NAM</h1>
+        <img src="logo.jpg" alt="LTD VIET NAM Logo">
       </div>
       <nav class="nav" aria-label="Chức năng">
         <button class="active" type="button" data-page="inventoryPage">Tổng quan</button>
@@ -601,7 +610,6 @@
       { username: "admin", password: "LTD@admin", name: "Quản lý bảo trì" }
     ];
 
-    // Mảng dữ liệu sạch - nạp trực tiếp từ đám mây (không chứa bất kì logic sinh dữ liệu mẫu nào)
     let items = [];
     let activities = [];
     let repairHistory = [];
@@ -707,7 +715,6 @@
       }
     }
 
-    // TẢI DỮ LIỆU THỰC TẾ TỪ FIREBASE
     async function loadCloudData() {
       if(els.resultCount) els.resultCount.textContent = "Đang tải...";
       
