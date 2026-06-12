@@ -717,10 +717,69 @@
         return null;
       }
     }
+// Kiểm tra xem tab này đã có mã định danh chưa, nếu chưa thì tạo mới (F5 sẽ KHÔNG bị đổi mã)
+if (!sessionStorage.getItem("ltd_user_session_id")) {
+  sessionStorage.setItem("ltd_user_session_id", crypto.randomUUID());
+}
+const mySessionId = sessionStorage.getItem("ltd_user_session_id");
 
-    // Biến định danh phiên làm việc ngẫu nhiên độc lập
-    const mySessionId = crypto.randomUUID();
+async function loadCloudData() {
+  if(els.resultCount) els.resultCount.textContent = "Đang tải...";
+  
+  const [cloudItems, cloudActivities, cloudHistory, cloudMachines] = await Promise.all([
+    fbFetch("items"),
+    fbFetch("activities"),
+    fbFetch("repairHistory"),
+    fbFetch("machines")
+  ]);
 
+  items = cloudItems ? Object.values(cloudItems) : [];
+  activities = cloudActivities ? Object.values(cloudActivities) : [{ at: new Date().toISOString(), text: "Kết nối đám mây trống." }];
+  repairHistory = cloudHistory ? Object.values(cloudHistory) : [];
+  machines = cloudMachines ? Object.values(cloudMachines) : [];
+
+  render();
+
+  // --- LOGIC XỬ LÝ SỐ NGƯỜI TRUY CẬP ĐỒNG BỘ (ĐÃ SỬA LỖI F5) ---
+  // 1. Cập nhật trạng thái hoạt động của mình lên Firebase ngay lập tức
+  await fbFetch(`online_users/${mySessionId}`, "PUT", { timestamp: Date.now() });
+
+  // 2. Định kỳ cứ 10 giây báo hiệu máy còn đang mở tab hoạt động
+  setInterval(async () => {
+    await fbFetch(`online_users/${mySessionId}`, "PUT", { timestamp: Date.now() });
+  }, 10000);
+
+  // 3. Hàm quét tổng số phiên và dọn dẹp các máy đã tắt web
+  async function checkOnlineUsers() {
+    const allSessions = await fbFetch("online_users");
+    if (allSessions) {
+      const now = Date.now();
+      let activeCount = 0;
+      
+      for (const id in allSessions) {
+        // Nếu máy đó hoạt động cách đây không quá 30 giây thì tính là đang online
+        if (now - allSessions[id].timestamp < 30000) {
+          activeCount++;
+        } else {
+          // Nếu quá 30 giây không phản hồi (đã tắt tab, tắt máy), xóa khỏi Firebase để dọn rác
+          fbFetch(`online_users/${id}`, "DELETE");
+        }
+      }
+      
+      // Hiển thị con số chính xác ra màn hình
+      const label = document.querySelector("#onlineCountLabel");
+      if (label) {
+        label.innerHTML = `● Đang truy cập: <span style="font-size:15px; background:#fff; color:#12251f; padding:1px 6px; border-radius:4px; margin:0 2px;">${activeCount}</span> người`;
+      }
+    }
+  }
+
+  // Chạy quét ngay lập tức lần đầu khi vừa tải xong trang
+  setTimeout(checkOnlineUsers, 1000);
+
+  // Định kỳ cứ mỗi 10 giây tự động quét cập nhật số người lại một lần
+  setInterval(checkOnlineUsers, 10000);
+}
     async function loadCloudData() {
       if(els.resultCount) els.resultCount.textContent = "Đang tải...";
       
