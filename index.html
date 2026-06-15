@@ -2260,7 +2260,13 @@
           <td style="font-size:13px;"><div class="clickable-truncate" onclick="this.classList.toggle('expanded')" title="Nhấp để thu phóng">${escapeHtml(h.fault)}</div></td>
           <td style="font-size:13px;"><div class="clickable-truncate" onclick="this.classList.toggle('expanded')" title="Nhấp để thu phóng">${escapeHtml(h.fix)}</div></td>
           <td>
-            <img src="${displayImage}" style="width:42px; height:42px; object-fit:cover; border-radius:6px; cursor:zoom-in; border:1px solid var(--line)" onclick="openImageViewer('${displayImage}')" title="Xem ảnh">
+            <img 
+  src="${displayImage}" 
+  onerror="this.onerror=null; this.src='đường_dẫn_tới_ảnh_mặc_định.png';" 
+  style="..." 
+  onclick="..." 
+  ... 
+>
           </td>
           <td>
             <div class="row-actions">
