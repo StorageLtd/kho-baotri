@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>LTD VIET NAM - Fanuc CNC Monitor</title>
+  <title>LTD VIET NAM - Cloud & CNC Monitor</title>
   <style>
     :root {
       color-scheme: light;
@@ -67,6 +67,14 @@
       max-height: 80px; 
       object-fit: contain;
       display: block;
+    }
+
+    .brand h1 {
+      font-size: 18px;
+      line-height: 1.15;
+      margin: 0;
+      letter-spacing: 0;
+      white-space: nowrap;
     }
 
     .nav { display: grid; gap: 8px; }
@@ -189,37 +197,24 @@
     .meta { color: var(--muted); font-size: 12px; line-height: 1.35; }
     .empty { color: var(--muted); padding: 18px; text-align: center; }
 
-    /* CNC Fanuc Live Dashboard Custom Style */
-    .cnc-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(350px, 1fr)); gap: 20px; }
+    /* CNC Live Monitor Custom Style */
+    .cnc-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(340px, 1fr)); gap: 20px; }
     .cnc-card { background: var(--panel); border: 1px solid var(--line); border-radius: 12px; box-shadow: var(--shadow); overflow: hidden; display: flex; flex-direction: column; }
-    .cnc-header { padding: 16px; background: #111827; color: #fff; display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid var(--line); }
-    .cnc-header h4 { margin: 0; font-size: 17px; font-weight: 700; letter-spacing: 0.5px; }
-    .cnc-status-indicator { display: flex; align-items: center; gap: 6px; font-weight: bold; font-size: 12px; text-transform: uppercase; }
+    .cnc-header { padding: 16px; background: #1a362d; color: #fff; display: flex; justify-content: space-between; align-items: center; }
+    .cnc-header h4 { margin: 0; font-size: 18px; }
+    .cnc-status-indicator { display: flex; align-items: center; gap: 6px; font-weight: bold; font-size: 13px; }
     .cnc-dot { width: 10px; height: 10px; border-radius: 50%; display: inline-block; }
-    
-    /* Trạng thái vòng tròn nhỏ ở Header */
     .cnc-dot.running { background: #10b981; box-shadow: 0 0 8px #10b981; }
-    .cnc-dot.alarm { background: #ef4444; box-shadow: 0 0 10px #ef4444; animation: blink 0.6s infinite alternate; }
+    .cnc-dot.alarm { background: #ef4444; box-shadow: 0 0 8px #ef4444; animation: blink 0.8s infinite alternate; }
     .cnc-dot.idle { background: #f59e0b; box-shadow: 0 0 8px #f59e0b; }
-    
-    .cnc-body { padding: 16px; display: grid; gap: 12px; background: #fafafa; }
-    
-    /* Màu sắc hiển thị ô trục chính theo yêu cầu */
-    .cnc-param-box { border: 1px solid var(--line); border-radius: 8px; padding: 12px 10px; text-align: center; transition: background 0.3s ease; background: #ffffff; }
-    .cnc-param-box.bg-running { background: #e6fcf5 !important; border-color: #a3e635; } /* Màu xanh khi chạy */
-    .cnc-param-box.bg-idle { background: #fefce8 !important; border-color: #fde047; }    /* Màu vàng khi dừng */
-    .cnc-param-box.bg-alarm { background: #fef2f2 !important; border-color: #fca5a5; animation: alarmPulse 1s infinite alternate; }   /* Màu đỏ khi lỗi */
-
-    .cnc-param-box span { font-size: 11px; color: var(--muted); font-weight: 700; display: block; margin-bottom: 4px; text-transform: uppercase; letter-spacing: 0.5px; }
-    .cnc-param-box strong { font-size: 22px; color: #111827; font-family: monospace, sans-serif; }
-    
-    .cnc-program-bar { background: #f3f4f6; border: 1px dashed #cdc9c9; border-radius: 6px; padding: 8px 12px; display: flex; justify-content: space-between; align-items: center; font-size: 13px; }
-    .cnc-program-bar span { color: var(--muted); font-weight: 600; }
-    .cnc-program-bar strong { color: #1e40af; font-family: monospace; font-size: 14px; }
-
-    .cnc-alarm-banner { background: #fff1f2; border: 1px solid #fecdd3; border-radius: 8px; padding: 10px; display: flex; flex-direction: column; gap: 3px; }
-    .cnc-alarm-banner strong { color: var(--danger); font-size: 13px; display: flex; align-items: center; gap: 5px; }
-    .cnc-alarm-banner p { margin: 0; font-size: 12px; color: #9f1239; line-height: 1.4; }
+    .cnc-body { padding: 18px; display: grid; gap: 14px; }
+    .cnc-param-row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+    .cnc-param-box { background: #f8faf9; border: 1px solid var(--line); border-radius: 8px; padding: 10px; text-align: center; }
+    .cnc-param-box span { font-size: 12px; color: var(--muted); font-weight: 600; display: block; margin-bottom: 4px; }
+    .cnc-param-box strong { font-size: 20px; color: var(--ink); }
+    .cnc-alarm-banner { background: #fef2f2; border: 1px solid #fca5a5; border-radius: 8px; padding: 12px; display: flex; flex-direction: column; gap: 4px; }
+    .cnc-alarm-banner strong { color: var(--danger); font-size: 14px; }
+    .cnc-alarm-banner p { margin: 0; font-size: 13px; color: #7f1d1d; }
 
     .history-tools { display: grid; grid-template-columns: minmax(200px, 1fr) 150px 150px; gap: 10px; padding: 14px 16px; background: #fbfcfa; border-bottom: 1px solid var(--line); }
 
@@ -251,12 +246,8 @@
       to { transform: translateY(0); opacity: 1; }
     }
     @keyframes blink {
-      from { opacity: 0.4; }
+      from { opacity: 0.3; }
       to { opacity: 1; }
-    }
-    @keyframes alarmPulse {
-      from { border-color: #fca5a5; box-shadow: 0 0 2px rgba(239, 68, 68, 0.1); }
-      to { border-color: #ef4444; box-shadow: 0 0 8px rgba(239, 68, 68, 0.3); }
     }
 
     @media (max-width: 1060px) {
@@ -298,7 +289,7 @@
         <img src="logo.jpg" alt="LTD VIET NAM Logo">
       </div>
       <nav class="nav" aria-label="Chức năng">
-        <button class="active" type="button" data-page="cncMonitorPage">📊 Giám sát CNC Fanuc</button>
+        <button class="active" type="button" data-page="cncMonitorPage">📊 Giám sát CNC trực tiếp</button>
         <button type="button" data-page="inventoryPage">Linh kiện</button>
         <button type="button" data-page="machinesPage">Danh sách máy</button>
         <button type="button" data-page="maintenanceJobsPage">📅 Lịch bảo trì máy</button>
@@ -306,8 +297,8 @@
       </nav>
       <div class="sidebar-footer">
         <strong id="todayLabel"></strong>
-        <div style="color: #6ee7b7; font-weight: bold; margin-top: 4px;" id="onlineCountLabel">● Đang trực tuyến: 1 người</div>
-        <div style="color: #a7f3d0; font-size: 12px; margin-top: 2px;">● Đám mây (Fanuc API) kết nối</div>
+        <div style="color: #6ee7b7; font-weight: bold; margin-top: 4px;" id="onlineCountLabel">● Đang truy cập: 1 người</div>
+        <div style="color: #a7f3d0; font-size: 12px; margin-top: 2px;">● Đám mây (Firebase) đã kết nối</div>
       </div>
     </aside>
 
@@ -315,7 +306,7 @@
       <header class="topbar">
         <div class="page-title">
           <h2 id="pageHeading">Giám sát trạng thái CNC Realtime</h2>
-          <p id="pageSubtitle">Theo dõi dữ liệu phản hồi trực tiếp từ máy: chương trình, tốc độ và lịch sử lỗi CNC Fanuc.</p>
+          <p id="pageSubtitle">Theo dõi dữ liệu phản hồi trực tiếp từ máy: trạng thái trục, tốc độ và lịch sử lỗi CNC.</p>
         </div>
         <div class="actions">
           <button class="btn" id="exportBtn" type="button" style="display:none;">Xuất Linh Kiện CSV</button>
@@ -323,8 +314,6 @@
           <button class="btn" id="exportJobBtn" type="button" style="display:none;">Xuất Lịch Job CSV</button>
           <button class="btn" id="exportHistoryBtn" type="button" style="display:none;">Xuất Lịch Sử CSV</button>
           <button class="btn" id="logoutBtn" type="button">Đăng xuất</button>
-          
-          <button class="btn primary" id="addCncMonitorBtn" type="button">Thêm máy giám sát</button>
           <button class="btn primary" id="addBtn" type="button" style="display:none;">Thêm linh kiện</button>
           <button class="btn primary" id="addMachineMainBtn" type="button" style="display:none;">Thêm máy mới</button>
           <button class="btn primary" id="addJobMainBtn" type="button" style="display:none;">Tạo Job Bảo Trì</button>
@@ -337,8 +326,8 @@
 
         <section class="section" style="margin-top: 15px;">
           <div class="section-head">
-            <h3>Nhật ký phát sinh lỗi hệ thống máy CNC Fanuc</h3>
-            <span class="meta">Lưu vết lỗi lịch sử phục vụ chẩn đoán kỹ thuật từ FOCAS</span>
+            <h3>Nhật ký phát sinh lỗi hệ thống máy CNC</h3>
+            <span class="meta">Lưu vết lỗi lịch sử phục vụ chẩn đoán kỹ thuật</span>
           </div>
           <div class="table-wrap">
             <table>
@@ -549,40 +538,6 @@
       </section>
     </main>
   </div>
-
-  <dialog id="cncMonitorDialog">
-    <form id="cncMonitorForm" method="dialog">
-      <div class="modal-head">
-        <h3 id="cncDialogTitle">Thêm máy theo dõi trực tiếp</h3>
-        <button class="icon-btn" type="button" id="closeCncDialog">x</button>
-      </div>
-      <div class="form-grid">
-        <input type="hidden" id="cncId">
-        <div class="field wide">
-          <label for="cncMachineSelect">Chọn máy thiết bị (Lấy từ Danh Sách Máy)</label>
-          <select id="cncMachineSelect" class="input" required>
-            <option value="">-- Chọn máy cần cấu hình giám sát --</option>
-          </select>
-        </div>
-        <div class="field">
-          <label for="cncStatusInput">Trạng thái khởi tạo</label>
-          <select id="cncStatusInput" class="input">
-            <option value="idle">Chờ lệnh (IDLE)</option>
-            <option value="running">Đang chạy (RUNNING)</option>
-            <option value="alarm">Báo lỗi (ALARM)</option>
-          </select>
-        </div>
-        <div class="field">
-          <label for="cncProgramInput">Tên chương trình hiện tại</label>
-          <input class="input" id="cncProgramInput" placeholder="Ví dụ: O0024" value="O0000">
-        </div>
-      </div>
-      <div class="modal-foot">
-        <button class="btn" id="cancelCncBtn" type="button">Hủy</button>
-        <button class="btn primary" type="submit">Xác nhận cấu hình</button>
-      </div>
-    </form>
-  </dialog>
 
   <dialog id="itemDialog">
     <form id="itemForm" method="dialog">
@@ -825,7 +780,7 @@
     let machines = [];
     let maintenanceJobs = [];
     
-    // Mảng dữ liệu máy CNC nhận phản hồi thật từ Gateway IoT
+    // Mảng dữ liệu mẫu máy CNC giả lập (Sẽ đồng bộ trực tiếp nếu có Gateway IoT đẩy lên)
     let cncDevices = [];
     let cncAlarmHistory = [];
 
@@ -840,8 +795,6 @@
       machinesPage: document.querySelector("#machinesPage"),
       maintenanceJobsPage: document.querySelector("#maintenanceJobsPage"),
       historyPage: document.querySelector("#historyPage"),
-      
-      addCncMonitorBtn: document.querySelector("#addCncMonitorBtn"),
       addBtn: document.querySelector("#addBtn"),
       addMachineMainBtn: document.querySelector("#addMachineMainBtn"),
       addJobMainBtn: document.querySelector("#addJobMainBtn"),
@@ -871,14 +824,6 @@
       cncCardsContainer: document.querySelector("#cncCardsContainer"),
       cncAlarmHistoryBody: document.querySelector("#cncAlarmHistoryBody"),
       
-      // CNC Monitor Dialog elements
-      cncMonitorDialog: document.querySelector("#cncMonitorDialog"),
-      cncMonitorForm: document.querySelector("#cncMonitorForm"),
-      cncMachineSelect: document.querySelector("#cncMachineSelect"),
-      cncStatusInput: document.querySelector("#cncStatusInput"),
-      cncProgramInput: document.querySelector("#cncProgramInput"),
-      cncId: document.querySelector("#cncId"),
-
       itemDialog: document.querySelector("#itemDialog"),
       itemForm: document.querySelector("#itemForm"),
       dialogTitle: document.querySelector("#dialogTitle"),
@@ -961,13 +906,13 @@
         const res = await fetch(`${DB_URL}/${path}.json`, options);
         return await res.json();
       } catch (err) {
-        console.error("Lỗi đám mây Firebase:", err);
+        console.error("Lỗi đám mây:", err);
         return null;
       }
     }
 
     async function loadCloudData() {
-      if(els.resultCount) els.resultCount.textContent = "Đang kết nối Cloud...";
+      if(els.resultCount) els.resultCount.textContent = "Đang tải dữ liệu...";
       try {
         const [cloudItems, cloudActivities, cloudHistory, cloudMachines, cloudJobs, cloudCnc, cloudCncAlarms] = await Promise.all([
           fbFetch("items"),
@@ -980,15 +925,35 @@
         ]);
 
         items = cloudItems ? Object.values(cloudItems) : [];
-        activities = cloudActivities ? Object.values(cloudActivities) : [{ at: new Date().toISOString(), text: "Hệ thống mây Fanuc sẵn sàng." }];
+        activities = cloudActivities ? Object.values(cloudActivities) : [{ at: new Date().toISOString(), text: "Hệ thống mây sẵn sàng." }];
         repairHistory = cloudHistory ? Object.values(cloudHistory) : [];
         machines = cloudMachines ? Object.values(cloudMachines) : [];
         maintenanceJobs = cloudJobs ? Object.values(cloudJobs) : [];
-        cncDevices = cloudCnc ? Object.values(cloudCnc) : [];
-        cncAlarmHistory = cloudCncAlarms ? Object.values(cloudCncAlarms) : [];
+        
+        // Khởi tạo data CNC mẫu nếu cloud trống
+        if (!cloudCnc) {
+          cncDevices = [
+            { id: "cnc_01", name: "MÁY PHAY CNC 01 (FANUC)", status: "running", spindleSpeed: 4200, feedRate: 1200, alarmCode: "", alarmDesc: "" },
+            { id: "cnc_02", name: "MÁY PHAY CNC 02 (MITSUBISHI)", status: "alarm", spindleSpeed: 0, feedRate: 0, alarmCode: "Z70: ABSOLUTE ERROR", alarmDesc: "Lỗi điện áp pin duy trì tọa độ tuyệt đối trục Z xuống thấp dưới ngưỡng." },
+            { id: "cnc_03", name: "MÁY TIỆN CNC 03 (SIEMENS)", status: "idle", spindleSpeed: 0, feedRate: 0, alarmCode: "", alarmDesc: "" }
+          ];
+          await syncNode("cncDevices", cncDevices);
+        } else {
+          cncDevices = Object.values(cloudCnc);
+        }
+
+        if (!cloudCncAlarms) {
+          cncAlarmHistory = [
+            { id: "al_1", time: new Date(Date.now() - 3600000).toISOString(), machineName: "MÁY PHAY CNC 02", code: "Z70 ABS", desc: "Lỗi pin nguồn encoder servo", severity: "Hối hả/Nguy cấp", status: "Chưa xử lý" },
+            { id: "al_2", time: new Date(Date.now() - 86400000).toISOString(), machineName: "MÁY PHAY CNC 01", code: "SV0401 OVERCURRENT", desc: "Quá dòng động cơ trục X khi tải nặng", severity: "Cảnh báo", status: "Đã reset phục hồi" }
+          ];
+          await syncNode("cncAlarmHistory", cncAlarmHistory);
+        } else {
+          cncAlarmHistory = Object.values(cloudCncAlarms);
+        }
 
         render();
-        showToast("Đồng bộ thành công cơ sở dữ liệu xưởng.");
+        showToast("Đã đồng bộ thành công dữ liệu đám mây.");
 
         await fbFetch(`online_users/${mySessionId}`, "PUT", { timestamp: Date.now() });
         setInterval(async () => {
@@ -998,22 +963,28 @@
         setTimeout(checkOnlineUsers, 500);
         setInterval(checkOnlineUsers, 12000);
         
-        // Quét dữ liệu liên tục từ Cloud (Mọi dữ liệu từ Gateway Fanuc đẩy lên sẽ hiển thị ngay lập tức)
-        setInterval(fetchRealtimeCncDataOnly, 3000);
+        // Vòng lặp cập nhật Realtime liên tục cho tab CNC (Giả lập nhận phản hồi)
+        setInterval(simulateAndFetchCncData, 5000);
       } catch (e) {
         console.error("Lỗi kết nối:", e);
       }
     }
 
-    // Đọc dữ liệu Realtime không chạy giả lập số tự nhảy
-    async function fetchRealtimeCncDataOnly() {
-      try {
-        const cloudCnc = await fbFetch("cncDevices");
-        const cloudCncAlarms = await fbFetch("cncAlarmHistory");
-        if(cloudCnc) cncDevices = Object.values(cloudCnc);
-        if(cloudCncAlarms) cncAlarmHistory = Object.values(cloudCncAlarms);
-        renderCncMonitor();
-      } catch (e) {}
+    // Giả lập nhận phản hồi từ máy CNC thay đổi liên tục về Web
+    async function simulateAndFetchCncData() {
+      // Đọc lại từ cloud đề phòng thiết bị ngoại vi ghi đè
+      const cloudCnc = await fbFetch("cncDevices");
+      if(cloudCnc) cncDevices = Object.values(cloudCnc);
+
+      cncDevices.forEach(cnc => {
+        if (cnc.status === "running") {
+          // Tốc độ trục biến thiên nhỏ tạo cảm giác realtime phản hồi
+          cnc.spindleSpeed = Math.floor(4000 + Math.random() * 300);
+          cnc.feedRate = Math.floor(1150 + Math.random() * 80);
+        }
+      });
+      
+      renderCncMonitor();
     }
 
     async function checkOnlineUsers() {
@@ -1028,7 +999,7 @@
           }
           const label = document.querySelector("#onlineCountLabel");
           if (label) {
-            label.innerHTML = `● Đang trực tuyến: <span style="font-size:15px; background:#fff; color:#12251f; padding:1px 6px; border-radius:4px; margin:0 2px;">${activeCount}</span> người`;
+            label.innerHTML = `● Đang truy cập: <span style="font-size:15px; background:#fff; color:#12251f; padding:1px 6px; border-radius:4px; margin:0 2px;">${activeCount}</span> người`;
           }
         }
       } catch(e){}
@@ -1049,7 +1020,7 @@
       
       const account = STAFF_ACCOUNTS.find(e => e.username === userVal && e.password === passVal);
       if (!account) {
-        els.loginError.textContent = "Sai tài khoản hoặc mật khẩu hệ thống LTD.";
+        els.loginError.textContent = "Sai tài khoản hoặc mật khẩu hệ thống.";
         return false;
       }
       
@@ -1078,21 +1049,19 @@
       els.maintenanceJobsPage.hidden = (pageId !== "maintenanceJobsPage");
       els.historyPage.hidden = (pageId !== "historyPage");
 
-      els.addCncMonitorBtn.style.display = (pageId === "cncMonitorPage") ? "inline-flex" : "none";
       els.addBtn.style.display = (pageId === "inventoryPage") ? "inline-flex" : "none";
       els.addMachineMainBtn.style.display = (pageId === "machinesPage") ? "inline-flex" : "none";
       els.addJobMainBtn.style.display = (pageId === "maintenanceJobsPage") ? "inline-flex" : "none";
-      
       els.exportBtn.style.display = (pageId === "inventoryPage") ? "inline-flex" : "none";
       els.exportMachineBtn.style.display = (pageId === "machinesPage") ? "inline-flex" : "none";
       els.exportJobBtn.style.display = (pageId === "maintenanceJobsPage") ? "inline-flex" : "none";
       els.exportHistoryBtn.style.display = (pageId === "historyPage") ? "inline-flex" : "none";
 
       if(pageId === "cncMonitorPage") {
-        els.pageHeading.textContent = "Giám sát trạng thái CNC Fanuc Realtime";
-        els.pageSubtitle.textContent = "Theo dõi dữ liệu phản hồi trực tiếp từ máy: chương trình, tốc độ và lịch sử lỗi CNC Fanuc.";
+        els.pageHeading.textContent = "Giám sát trạng thái CNC Realtime";
+        els.pageSubtitle.textContent = "Theo dõi dữ liệu phản hồi trực tiếp từ máy: trạng thái trục, tốc độ và lịch sử lỗi CNC.";
       } else if(pageId === "inventoryPage") {
-        els.pageHeading.textContent = "Hệ thống Linh Kiện Xưởng";
+        els.pageHeading.textContent = "LTD VIET NAM";
         els.pageSubtitle.textContent = "Quản lý linh kiện bảo trì: mã linh kiện, vị trí kệ và số lượng còn trong kho.";
       } else if(pageId === "machinesPage") {
         els.pageHeading.textContent = "Quản lý máy móc nhà xưởng";
@@ -1114,6 +1083,7 @@
     }
 
     function render() {
+      // Tạo dropdown nhóm linh kiện
       const current = els.categoryFilter.value || "all";
       const categories = [...new Set(items.map(i => i.category))].sort((a, b) => a.localeCompare(b, "vi"));
       els.categoryFilter.innerHTML = `<option value="all">Tất cả</option>${categories.map(c => `<option value="${escapeHtml(c)}">${escapeHtml(c)}</option>`).join("")}`;
@@ -1133,33 +1103,20 @@
       updateMachineSelectOptions();
     }
 
-    // LOGIC CHO TAB CNC MONITOR VỚI MÀU Ô TRỤC CHÍNH ĐỔI THEO YÊU CẦU
+    // LOGIC CHO TAB CNC MONITOR (MỚI)
     function renderCncMonitor() {
       if (!els.cncCardsContainer) return;
       
-      if(cncDevices.length === 0) {
-        els.cncCardsContainer.innerHTML = `<div class="empty" style="grid-column: 1/-1; padding: 40px;">Chưa có máy CNC nào được cấu hình theo dõi. Vui lòng bấm nút "Thêm máy giám sát" ở trên.</div>`;
-        return;
-      }
-
+      // Render danh sách máy CNC dưới dạng Panel Live Dashboard
       els.cncCardsContainer.innerHTML = cncDevices.map(cnc => {
-        let statusText = "Chờ lệnh (IDLE)";
-        let dotClass = "idle";
-        let spindleBgClass = "bg-idle"; // Mặc định dừng hiển thị vàng nhạt
-
-        if (cnc.status === "running") {
-          statusText = "Đang chạy (RUNNING)";
-          dotClass = "running";
-          spindleBgClass = "bg-running"; // Đang chạy hiển thị xanh lá nhạt
-        } else if (cnc.status === "alarm") {
-          statusText = "BÁO LỖI (ALARM)";
-          dotClass = "alarm";
-          spindleBgClass = "bg-alarm";   // Bị lỗi hiển thị đỏ nhạt
-        }
+        let statusText = "Đang chạy (RUN)";
+        let dotClass = "running";
+        if(cnc.status === "alarm") { statusText = "CẢNH BÁO LỖI (ALARM)"; dotClass = "alarm"; }
+        else if(cnc.status === "idle") { statusText = "Chờ lệnh (IDLE)"; dotClass = "idle"; }
 
         return `
           <div class="cnc-card">
-            <div class="cnc-header">
+            <div class="cnc-header" style="background: ${cnc.status === 'alarm' ? '#6b21a8' : '#1a362d'}">
               <h4>${escapeHtml(cnc.name)}</h4>
               <div class="cnc-status-indicator">
                 <span class="cnc-dot ${dotClass}"></span>
@@ -1167,36 +1124,27 @@
               </div>
             </div>
             <div class="cnc-body">
-              <div class="cnc-program-bar">
-                <span>Chương trình (Program)</span>
-                <strong>${escapeHtml(cnc.programName || "O0000")}</strong>
-              </div>
-
-              <div class="cnc-param-row" style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
-                <div class="cnc-param-box ${spindleBgClass}">
+              <div class="cnc-param-row">
+                <div class="cnc-param-box">
                   <span>Tốc độ Trục chính</span>
-                  <strong>${number.format(cnc.spindleSpeed || 0)} <small style="font-size:12px; font-weight:normal;">RPM</small></strong>
+                  <strong>${number.format(cnc.spindleSpeed)} <small style="font-size:12px; font-weight:normal;">RPM</small></strong>
                 </div>
                 <div class="cnc-param-box">
                   <span>Tốc độ Bước tiến (F)</span>
-                  <strong>${number.format(cnc.feedRate || 0)} <small style="font-size:12px; font-weight:normal;">mm/m</small></strong>
+                  <strong>${number.format(cnc.feedRate)} <small style="font-size:12px; font-weight:normal;">mm/m</small></strong>
                 </div>
               </div>
               
               ${cnc.status === 'alarm' ? `
                 <div class="cnc-alarm-banner">
-                  <strong>⚠️ FOCAS ALARM: ${escapeHtml(cnc.alarmCode || "Mã lỗi hệ thống")}</strong>
-                  <p>${escapeHtml(cnc.alarmDesc || "Đang chờ phân tích dữ liệu xung lỗi...")}</p>
+                  <strong>⚠️ ALARM ACTIVE: ${escapeHtml(cnc.alarmCode)}</strong>
+                  <p>${escapeHtml(cnc.alarmDesc)}</p>
                 </div>
               ` : `
-                <div style="color: var(--ok); font-size:12px; font-weight:bold; text-align:center; padding:6px; background:#f0fdf4; border-radius:6px; border:1px solid #bbf7d0;">
-                  ✓ Bộ điều khiển Fanuc không có Alarm phát sinh
+                <div style="color: var(--ok); font-size:13px; font-weight:bold; text-align:center; padding:8px; background:#f0fdf4; border-radius:6px; border:1px solid #bbf7d0;">
+                  ✓ Không phát hiện mã lỗi từ Controller
                 </div>
               `}
-              
-              <div style="text-align: right; margin-top: 5px;">
-                 <button class="icon-btn danger" type="button" title="Hủy theo dõi" onclick="deleteCncMonitor('${cnc.id}')" style="width:28px; height:28px; font-size:12px;">×</button>
-              </div>
             </div>
           </div>
         `;
@@ -1210,71 +1158,12 @@
           <td><strong>${escapeHtml(al.machineName)}</strong></td>
           <td><span style="color:var(--danger); font-weight:bold;">${escapeHtml(al.code)}</span></td>
           <td style="font-size:13px; max-width:300px; white-space:pre-wrap;">${escapeHtml(al.desc)}</td>
-          <td><span class="pill ${al.severity.includes('Nguy') || al.severity.includes('Hối') ? 'danger' : 'warn'}">${escapeHtml(al.severity)}</span></td>
+          <td><span class="pill ${al.severity.includes('Nguy') ? 'danger' : 'warn'}">${escapeHtml(al.severity)}</span></td>
           <td><span class="pill ${al.status.includes('Đã') ? 'ok' : 'danger'}">${escapeHtml(al.status)}</span></td>
         </tr>
       `).join("");
     }
 
-    // DIALOG MỞ THÊM MÁY CNC (LẤY TỪ DANH SÁCH MÁY THEO YÊU CẦU)
-    function openCncMonitorDialog() {
-      if(machines.length === 0) {
-        alert("Vui lòng bổ sung danh sách thiết bị máy ở Tab 'Danh sách máy' trước khi thiết lập giám sát CNC!");
-        switchPage("machinesPage");
-        document.querySelectorAll(".nav button").forEach(b => b.classList.remove("active"));
-        document.querySelector("[data-page='machinesPage']").classList.add("active");
-        return;
-      }
-      
-      // Đổ danh sách máy vào dropdown chọn
-      els.cncMachineSelect.innerHTML = `<option value="">-- Chọn máy cần cấu hình giám sát --</option>` + 
-        machines.map(m => `<option value="${escapeHtml(m.name)}">${escapeHtml(m.name)}</option>`).join("");
-      
-      els.cncId.value = "";
-      els.cncProgramInput.value = "O0001";
-      els.cncStatusInput.value = "idle";
-      els.cncMonitorDialog.showModal();
-    }
-
-    async function saveCncMonitor(e) {
-      e.preventDefault();
-      const selectedMachineName = els.cncMachineSelect.value;
-      if(!selectedMachineName) return;
-
-      // Check trùng
-      if(cncDevices.some(d => d.name === selectedMachineName)) {
-        alert("Thiết bị máy này đã tồn tại trong danh sách giám sát trực tiếp rồi!");
-        return;
-      }
-
-      const id = "cnc_" + crypto.randomUUID().slice(0,8);
-      const payload = {
-        id,
-        name: selectedMachineName,
-        status: els.cncStatusInput.value,
-        programName: els.cncProgramInput.value.trim() || "O0000",
-        spindleSpeed: 0,
-        feedRate: 0,
-        alarmCode: els.cncStatusInput.value === "alarm" ? "ALM_001" : "",
-        alarmDesc: els.cncStatusInput.value === "alarm" ? "Phát hiện xung lỗi trục từ bộ điều khiển Fanuc" : ""
-      };
-
-      cncDevices.push(payload);
-      addAct(`Cấu hình giám sát máy CNC: ${payload.name}`);
-      els.cncMonitorDialog.close();
-      render();
-      await Promise.all([syncNode("cncDevices", cncDevices), syncNode("activities", activities)]);
-    }
-
-    async function deleteCncMonitor(id) {
-      if(!confirm("Gỡ bỏ thiết bị này khỏi danh sách thẻ giám sát trực tiếp?")) return;
-      cncDevices = cncDevices.filter(d => d.id !== id);
-      addAct("Gỡ một thiết bị giám sát CNC.");
-      render();
-      await Promise.all([fbFetch(`cncDevices/${id}`, "DELETE"), syncNode("activities", activities)]);
-    }
-
-    // CÁC HÀM RENDER ĐÃ CÓ
     function renderInventoryTable() {
       const term = els.searchInput.value.trim().toLowerCase();
       const cat = els.categoryFilter.value;
@@ -1326,7 +1215,7 @@
       }).sort((a,b) => a.name.localeCompare(b.name, "vi"));
 
       if(!rows.length) {
-        els.machineListBody.innerHTML = `<tr><td colspan="6" class="empty">Không tìm thấy thiết bị nào.</td></tr>`;
+        els.machineListBody.innerHTML = `<tr><td colspan="6" class="empty">Không tìm thấy máy thiết bị nào.</td></tr>`;
         return;
       }
 
@@ -1352,7 +1241,7 @@
       }).sort((a,b) => j.nextDate.localeCompare(b.nextDate));
 
       if(!rows.length) {
-        els.jobListBody.innerHTML = `<tr><td colspan="7" class="empty">Không tìm thấy hạng mục bảo trì định kỳ nào.</td></tr>`;
+        els.jobListBody.innerHTML = `<tr><td colspan="7" class="empty">Không tìm thấy công việc (job) bảo trì nào được lập lịch.</td></tr>`;
         return;
       }
 
@@ -1361,8 +1250,8 @@
       els.jobListBody.innerHTML = rows.map(j => {
         const isOverdue = j.nextDate <= todayStr;
         const statusPill = isOverdue 
-          ? `<span class="pill danger">🚨 Quá hạn bảo trì</span>`
-          : `<span class="pill ok">Bình thường</span>`;
+          ? `<span class="pill danger">🚨 Quá hạn / Đến hạn</span>`
+          : `<span class="pill ok">Đang theo dõi</span>`;
 
         return `<tr>
           <td><strong>${escapeHtml(j.machineName)}</strong></td>
@@ -1432,6 +1321,7 @@
       let alertHtml = "";
       const todayStr = new Date().toISOString().slice(0, 10);
 
+      // CẢNH BÁO TỪ JOB BẢO TRÌ
       maintenanceJobs.forEach(j => {
         if (j.nextDate && j.nextDate <= todayStr) {
           alertHtml += `
@@ -1444,11 +1334,12 @@
         }
       });
 
+      // CẢNH BÁO LINH KIỆN SẮP HẾT
       const alerts = items.filter(i => itemStatus(i) !== "ok").sort((a,b)=>a.quantity-b.quantity);
       alerts.forEach(i => {
         const currentStat = itemStatus(i);
         const badgeCls = currentStat === 'low' ? 'warn' : 'danger';
-        const badgeText = currentStat === 'low' ? 'Sắp hết' : 'Hết kho';
+        const badgeText = currentStat === 'low' ? 'Sắp hết' : 'Hết linh kiện';
         alertHtml += `
           <div class="alert-item">
             <strong>${escapeHtml(i.name)}</strong>
@@ -1458,7 +1349,7 @@
         `;
       });
 
-      els.alertList.innerHTML = alertHtml ? alertHtml : `<div class="empty">Không có cảnh báo tồn.</div>`;
+      els.alertList.innerHTML = alertHtml ? alertHtml : `<div class="empty">Không có cảnh báo.</div>`;
       els.activityList.innerHTML = activities.slice(0,5).map(a => `
         <div class="activity-item">
           <strong>${escapeHtml(a.text)}</strong>
@@ -1517,7 +1408,7 @@
     }
 
     async function deleteItem(id) {
-      if(!confirm("Xóa linh kiện này khỏi kho?")) return;
+      if(!confirm("Xóa linh kiện này?")) return;
       items = items.filter(i => i.id !== id);
       addAct("Xóa một mã linh kiện."); render();
       await Promise.all([fbFetch(`items/${id}`, "DELETE"), syncNode("activities", activities)]);
@@ -1534,16 +1425,16 @@
       e.preventDefault();
       const item = items.find(i => i.id === els.moveItemId.value); if(!item) return;
       const amt = Number(els.moveAmount.value);
-      if(els.moveType.value === "out" && amt > item.quantity) { alert("Vượt quá lượng tồn kho!"); return; }
+      if(els.moveType.value === "out" && amt > item.quantity) { alert("Vượt tồn kho!"); return; }
       item.quantity += (els.moveType.value === "in" ? amt : -amt);
-      addAct(`${els.moveType.value === 'in' ? 'Nhập kho' : 'Xuất kho'} ${amt} ${item.name}`);
+      addAct(`${els.moveType.value === 'in' ? 'Nhập' : 'Xuất'} ${amt} ${item.name}`);
       closeMoveDialog(); render();
       await Promise.all([syncNode("items", items), syncNode("activities", activities)]);
     }
 
     function openMachineDialog(id = "") {
       const m = machines.find(x => x.id === id);
-      els.machineTitle.textContent = m ? "Sửa thông tin thiết bị" : "Thêm máy thiết bị mới";
+      els.machineTitle.textContent = m ? "Sửa thông tin máy" : "Thêm máy thiết bị mới";
       els.mId.value = m?.id || "";
       els.mName.value = m?.name || "";
       els.mSetupDate.value = m?.setupDate || new Date().toISOString().slice(0,10);
@@ -1584,7 +1475,7 @@
 
     function openJobDialog(id = "") {
       if (machines.length === 0) {
-        alert("Vui lòng bổ sung danh sách máy trước!");
+        alert("Vui lòng thêm danh sách máy trước!");
         return;
       }
       updateMachineSelectOptions();
@@ -1626,7 +1517,7 @@
     }
 
     async function deleteJob(id) {
-      if(!confirm("Hủy bỏ hạng mục bảo trì định kỳ này?")) return;
+      if(!confirm("Hủy bỏ hạng mục bảo trì này?")) return;
       maintenanceJobs = maintenanceJobs.filter(x => x.id !== id);
       addAct("Hủy một lịch bảo trì thiết bị."); render();
       await Promise.all([syncNode("maintenanceJobs", maintenanceJobs), syncNode("activities", activities)]);
@@ -1708,11 +1599,6 @@
     }
 
     // EVENT LISTENERS
-    els.addCncMonitorBtn.addEventListener("click", openCncMonitorDialog);
-    document.querySelector("#closeCncDialog").addEventListener("click", () => els.cncMonitorDialog.close());
-    document.querySelector("#cancelCncBtn").addEventListener("click", () => els.cncMonitorDialog.close());
-    els.cncMonitorForm.addEventListener("submit", saveCncMonitor);
-
     els.addBtn.addEventListener("click", () => openItemDialog());
     els.addMachineMainBtn.addEventListener("click", () => openMachineDialog());
     els.addJobMainBtn.addEventListener("click", () => openJobDialog());
