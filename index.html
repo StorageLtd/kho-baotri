@@ -234,24 +234,23 @@
       .workspace { grid-template-columns: 1fr; }
     }
   
-.text-preview{
-  max-width:260px;
-  white-space:nowrap;
-  overflow:hidden;
-  text-overflow:ellipsis;
-  display:inline-block;
-  vertical-align:middle;
-}
-.view-btn{
-  margin-left:6px;
-  padding:2px 8px;
-  border:1px solid #ccc;
-  border-radius:4px;
-  cursor:pointer;
-  background:#f5f5f5;
-}
-
-</style>
+    /* CSS MỚI: TÍNH NĂNG ẨN BỚT CHỮ, NHẤN ĐỂ MỞ RỘNG ĐỌC */
+    .clickable-truncate {
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      cursor: pointer;
+      max-width: 180px;
+      display: block;
+      transition: max-width 0.15s ease;
+    }
+    .clickable-truncate.expanded {
+      white-space: normal;
+      overflow: visible;
+      text-overflow: clip;
+      max-width: 100% !important;
+    }
+  </style>
 </head>
 <body class="locked">
   <section class="login-screen">
@@ -469,18 +468,18 @@
             </div>
             <button class="btn primary" id="addHistoryBtn" type="button">Thêm lịch sử</button>
           </div>
-          <div class="history-tools" style="display: grid; grid-template-columns: 1fr; gap: 14px; padding: 14px 16px; background: #fbfcfa; border-bottom: 1px solid var(--line);">
-            <div class="field" style="display: flex; flex-direction: column; gap: 4px;">
-              <label for="historySearchInput" style="font-weight: 600; font-size: 13px; color: var(--ink);">Tìm nhanh thiết bị hoặc nội dung</label>
-              <input class="input" id="historySearchInput" type="search" placeholder="Tên máy, nội dung lỗi..." style="width: 100%; height: 38px;">
+          <div class="history-tools">
+            <div class="field">
+              <label for="historySearchInput">Tìm nhanh</label>
+              <input class="input" id="historySearchInput" type="search" placeholder="Tên máy, nội dung lỗi...">
             </div>
-            <div class="field" style="display: flex; flex-direction: column; gap: 4px;">
-              <label for="historyFromInput" style="font-weight: 600; font-size: 13px; color: var(--ink);">Từ ngày phát sinh sự cố</label>
-              <input class="input" id="historyFromInput" type="date" style="width: 100%; height: 38px;">
+            <div class="field">
+              <label for="historyFromInput">Từ ngày</label>
+              <input class="input" id="historyFromInput" type="date">
             </div>
-            <div class="field" style="display: flex; flex-direction: column; gap: 4px;">
-              <label for="historyToInput" style="font-weight: 600; font-size: 13px; color: var(--ink);">Đến ngày phát sinh sự cố</label>
-              <input class="input" id="historyToInput" type="date" style="width: 100%; height: 38px;">
+            <div class="field">
+              <label for="historyToInput">Đến ngày</label>
+              <input class="input" id="historyToInput" type="date">
             </div>
           </div>
           <div class="table-wrap">
@@ -1034,15 +1033,15 @@
         return `<tr>
           <td><strong>${escapeHtml(item.name)}</strong><div class="sku">${escapeHtml(item.sku)}</div></td>
           <td>${escapeHtml(item.category)}</td>
-          <td style="font-size:13px; color:var(--muted); max-width:180px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; cursor:pointer;" onclick="showFullText('Thông số kỹ thuật', \`${item.specs || '-'}\`)">${escapeHtml(item.specs || "-")}</td>
+          <td style="font-size:13px; color:var(--muted);"><div class="clickable-truncate" onclick="this.classList.toggle('expanded')">${escapeHtml(item.specs || "-")}</div></td>
           <td><strong>${number.format(item.quantity)}</strong></td>
           <td>${number.format(item.min)}</td>
           <td>${escapeHtml(item.location || "-")}</td>
-          <td style="max-width:150px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; cursor:pointer;" onclick="showFullText('Nhà cung cấp', \`${item.supplier || '-'}\`)">${escapeHtml(item.supplier)}</td>
+          <td><div class="clickable-truncate" onclick="this.classList.toggle('expanded')">${escapeHtml(item.supplier || "-")}</div></td>
           <td>
             ${item.image ? `<img src="${item.image}" style="width:42px; height:42px; object-fit:cover; border-radius:4px; border:1px solid var(--line); cursor:zoom-in;" onclick="viewFullImage('${item.image}')">` : `-`}
           </td>
-          <td style="font-size:13px; color:var(--muted); max-width:180px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; cursor:pointer;" onclick="showFullText('Ghi chú linh kiện', \`${item.note || '-'}\`)">${escapeHtml(item.note || "-")}</td>
+          <td style="font-size:13px; color:var(--muted);"><div class="clickable-truncate" onclick="this.classList.toggle('expanded')">${escapeHtml(item.note || "-")}</div></td>
           <td><span class="pill ${cls}">${lbl}</span></td>
           <td>
             <div class="row-actions">
@@ -1106,7 +1105,7 @@
           <td><span style="color:var(--brand); font-weight:700;">📌 ${escapeHtml(j.jobName)}</span></td>
           <td>${j.period} tháng</td>
           <td><strong style="color: ${isOverdue ? 'var(--danger)' : 'var(--ok)'}">${formatDateDisplay(j.nextDate)}</strong></td>
-          <td style="font-size:13px; max-width:220px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; color:var(--muted); cursor:pointer;" onclick="showFullText('Quy trình bảo trì', \`${j.desc || '-'}\`)">${escapeHtml(j.desc || "-")}</td>
+          <td style="font-size:13px; max-width:250px; color:var(--muted);"><div class="clickable-truncate" onclick="this.classList.toggle('expanded')">${escapeHtml(j.desc || "-")}</div></td>
           <td>${statusPill}</td>
           <td>
             <div class="row-actions">
@@ -1139,8 +1138,8 @@
         <td><strong>${formatDateDisplay(h.faultTime)}</strong></td>
         <td><strong>${escapeHtml(h.machine)}</strong></td>
         <td><span style="color:var(--brand);font-weight:700;">${escapeHtml(h.staff)}</span></td>
-        <td style="font-size:13px; max-width:200px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; cursor:pointer;" onclick="showFullText('Nội dung lỗi máy', \`${h.fault || '-'}\`)">${escapeHtml(h.fault)}</td>
-        <td style="font-size:13px; max-width:200px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; cursor:pointer;" onclick="showFullText('Biện pháp khắc phục', \`${h.fix || '-'}\`)">${escapeHtml(h.fix)}</td>
+        <td style="font-size:13px;"><div class="clickable-truncate" onclick="this.classList.toggle('expanded')">${escapeHtml(h.fault)}</div></td>
+        <td style="font-size:13px;"><div class="clickable-truncate" onclick="this.classList.toggle('expanded')">${escapeHtml(h.fix)}</div></td>
         <td>
           ${h.image ? `<img src="${h.image}" style="width:42px; height:42px; object-fit:cover; border-radius:4px; cursor:zoom-in;" onclick="viewFullImage('${h.image}')">` : `-`}
         </td>
@@ -1162,41 +1161,7 @@
 
     function viewFullImage(source) {
       const w = window.open();
-      w.document.write(`<body style="margin:0; background:#000; display:flex; justify-content:center; align-items:center; min-height:100vh;"><img src="${source}" style="max-width:100%; max-height:100vh;">
-<script>
-function showFullText(txt){
-  const w = window.open('', '_blank', 'width=900,height=700');
-  w.document.write('<html><head><title>Chi tiết nội dung</title></head><body style="font-family:Arial;padding:20px;white-space:pre-wrap;">'+String(txt).replace(/</g,'&lt;').replace(/>/g,'&gt;')+'
-  <!-- HỘP THOẠI HIỂN THỊ NỘI DUNG DÀI -->
-  <dialog id="textDetailDialog" style="border: none; border-radius: 8px; box-shadow: var(--shadow); width: 100%; max-width: 500px; padding: 0;">
-    <div class="modal-head" style="display: flex; justify-content: space-between; align-items: center; padding: 14px 16px; border-bottom: 1px solid var(--line); background: var(--panel-soft);">
-      <h3 id="textDetailTitle" style="margin: 0; font-size: 16px; color: var(--brand);">Chi tiết nội dung</h3>
-      <button class="icon-btn" type="button" onclick="document.getElementById('textDetailDialog').close()" style="border: none; background: none; font-size: 18px; cursor: pointer; color: var(--muted);">×</button>
-    </div>
-    <div id="textDetailContent" style="padding: 20px; font-size: 14px; line-height: 1.6; white-space: pre-wrap; max-height: 60vh; overflow-y: auto; color: var(--ink);"></div>
-    <div class="modal-foot" style="padding: 12px 16px; border-top: 1px solid var(--line); display: flex; justify-content: flex-end; background: var(--panel-soft);">
-      <button class="btn primary" type="button" onclick="document.getElementById('textDetailDialog').close()" style="background: var(--brand); color: #fff; border: none; padding: 6px 16px; border-radius: 4px; cursor: pointer; font-weight: 500;">Đóng</button>
-    </div>
-  </dialog>
-
-</body></html>');
-}
-</script>
-
-
-  <!-- HỘP THOẠI HIỂN THỊ NỘI DUNG DÀI -->
-  <dialog id="textDetailDialog" style="border: none; border-radius: 8px; box-shadow: var(--shadow); width: 100%; max-width: 500px; padding: 0;">
-    <div class="modal-head" style="display: flex; justify-content: space-between; align-items: center; padding: 14px 16px; border-bottom: 1px solid var(--line); background: var(--panel-soft);">
-      <h3 id="textDetailTitle" style="margin: 0; font-size: 16px; color: var(--brand);">Chi tiết nội dung</h3>
-      <button class="icon-btn" type="button" onclick="document.getElementById('textDetailDialog').close()" style="border: none; background: none; font-size: 18px; cursor: pointer; color: var(--muted);">×</button>
-    </div>
-    <div id="textDetailContent" style="padding: 20px; font-size: 14px; line-height: 1.6; white-space: pre-wrap; max-height: 60vh; overflow-y: auto; color: var(--ink);"></div>
-    <div class="modal-foot" style="padding: 12px 16px; border-top: 1px solid var(--line); display: flex; justify-content: flex-end; background: var(--panel-soft);">
-      <button class="btn primary" type="button" onclick="document.getElementById('textDetailDialog').close()" style="background: var(--brand); color: #fff; border: none; padding: 6px 16px; border-radius: 4px; cursor: pointer; font-weight: 500;">Đóng</button>
-    </div>
-  </dialog>
-
-</body>`);
+      w.document.write(`<body style="margin:0; background:#000; display:flex; justify-content:center; align-items:center; min-height:100vh;"><img src="${source}" style="max-width:100%; max-height:100vh;"></body>`);
     }
 
     function renderAlertsAndActivities() {
@@ -1611,18 +1576,5 @@ function showFullText(txt){
 
     if (sessionStorage.getItem(LOGIN_KEY) === "true") { unlockApp(); }
   </script>
-
-  <!-- HỘP THOẠI HIỂN THỊ NỘI DUNG DÀI -->
-  <dialog id="textDetailDialog" style="border: none; border-radius: 8px; box-shadow: var(--shadow); width: 100%; max-width: 500px; padding: 0;">
-    <div class="modal-head" style="display: flex; justify-content: space-between; align-items: center; padding: 14px 16px; border-bottom: 1px solid var(--line); background: var(--panel-soft);">
-      <h3 id="textDetailTitle" style="margin: 0; font-size: 16px; color: var(--brand);">Chi tiết nội dung</h3>
-      <button class="icon-btn" type="button" onclick="document.getElementById('textDetailDialog').close()" style="border: none; background: none; font-size: 18px; cursor: pointer; color: var(--muted);">×</button>
-    </div>
-    <div id="textDetailContent" style="padding: 20px; font-size: 14px; line-height: 1.6; white-space: pre-wrap; max-height: 60vh; overflow-y: auto; color: var(--ink);"></div>
-    <div class="modal-foot" style="padding: 12px 16px; border-top: 1px solid var(--line); display: flex; justify-content: flex-end; background: var(--panel-soft);">
-      <button class="btn primary" type="button" onclick="document.getElementById('textDetailDialog').close()" style="background: var(--brand); color: #fff; border: none; padding: 6px 16px; border-radius: 4px; cursor: pointer; font-weight: 500;">Đóng</button>
-    </div>
-  </dialog>
-
 </body>
 </html>
