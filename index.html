@@ -2253,20 +2253,24 @@
         const placeholderImg = `data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="40" height="40" viewBox="0 0 24 24" fill="%23cbd5e1"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-6h2v6zm0-8h-2V7h2v2z"/></svg>`;
         const displayImage = h.image ? h.image : placeholderImg;
 
-        return `<tr>
+       // 1. Tạo biến hiển thị an toàn (xử lý nếu displayImage rỗng)
+const imgUrl = displayImage && displayImage.trim() !== "" ? displayImage : "path/to/default-image.png";
+
+// 2. Escape nội dung cho thuộc tính HTML (đặc biệt là dấu nháy đơn)
+const safeImgUrlForClick = imgUrl.replace(/'/g, "\\'"); 
+
+return `<tr>
           <td><strong>${formatDateDisplay(h.faultTime)}</strong></td>
           <td><strong style="color: #0f241d;">${escapeHtml(h.machine)}</strong></td>
           <td><span style="color:var(--brand);font-weight:700;">👷 ${escapeHtml(h.staff)}</span></td>
           <td style="font-size:13px;"><div class="clickable-truncate" onclick="this.classList.toggle('expanded')" title="Nhấp để thu phóng">${escapeHtml(h.fault)}</div></td>
           <td style="font-size:13px;"><div class="clickable-truncate" onclick="this.classList.toggle('expanded')" title="Nhấp để thu phóng">${escapeHtml(h.fix)}</div></td>
           <td>
-            <img 
-  src="${displayImage}" 
-  onerror="this.onerror=null; this.src='đường_dẫn_tới_ảnh_mặc_định.png';" 
-  style="..." 
-  onclick="..." 
-  ... 
->
+            <img src="${imgUrl}" 
+                 style="width:42px; height:42px; object-fit:cover; border-radius:6px; cursor:zoom-in; border:1px solid var(--line)" 
+                 onclick="openImageViewer('${safeImgUrlForClick}')" 
+                 title="Xem ảnh"
+                 onerror="this.style.display='none'">
           </td>
           <td>
             <div class="row-actions">
