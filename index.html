@@ -233,7 +233,25 @@
       .sidebar-footer { display: none; }
       .workspace { grid-template-columns: 1fr; }
     }
-  </style>
+  
+.text-preview{
+  max-width:260px;
+  white-space:nowrap;
+  overflow:hidden;
+  text-overflow:ellipsis;
+  display:inline-block;
+  vertical-align:middle;
+}
+.view-btn{
+  margin-left:6px;
+  padding:2px 8px;
+  border:1px solid #ccc;
+  border-radius:4px;
+  cursor:pointer;
+  background:#f5f5f5;
+}
+
+</style>
 </head>
 <body class="locked">
   <section class="login-screen">
@@ -1144,7 +1162,15 @@
 
     function viewFullImage(source) {
       const w = window.open();
-      w.document.write(`<body style="margin:0; background:#000; display:flex; justify-content:center; align-items:center; min-height:100vh;"><img src="${source}" style="max-width:100%; max-height:100vh;"></body>`);
+      w.document.write(`<body style="margin:0; background:#000; display:flex; justify-content:center; align-items:center; min-height:100vh;"><img src="${source}" style="max-width:100%; max-height:100vh;">
+<script>
+function showFullText(txt){
+  const w = window.open('', '_blank', 'width=900,height=700');
+  w.document.write('<html><head><title>Chi tiết nội dung</title></head><body style="font-family:Arial;padding:20px;white-space:pre-wrap;">'+String(txt).replace(/</g,'&lt;').replace(/>/g,'&gt;')+'</body></html>');
+}
+</script>
+
+</body>`);
     }
 
     function renderAlertsAndActivities() {
