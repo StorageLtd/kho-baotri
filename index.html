@@ -469,18 +469,20 @@
             <button class="btn primary" id="addHistoryBtn" type="button">Thêm lịch sử</button>
           </div>
           <div class="history-tools">
+           <div style="display: grid; grid-template-columns: 1fr; gap: 14px; padding: 14px 16px; background: #fbfcfa; border-bottom: 1px solid var(--line);">
             <div class="field">
-              <label for="historySearchInput">Tìm nhanh</label>
+              <label for="historySearchInput">Tìm nhanh thiết bị hoặc nội dung</label>
               <input class="input" id="historySearchInput" type="search" placeholder="Tên máy, nội dung lỗi...">
             </div>
             <div class="field">
-              <label for="historyFromInput">Từ ngày</label>
+              <label for="historyFromInput">Từ ngày phát sinh sự cố</label>
               <input class="input" id="historyFromInput" type="date">
             </div>
             <div class="field">
-              <label for="historyToInput">Đến ngày</label>
+              <label for="historyToInput">Đến ngày phát sinh sự cố</label>
               <input class="input" id="historyToInput" type="date">
             </div>
+          </div>
           </div>
           <div class="table-wrap">
             <table>
@@ -1163,6 +1165,11 @@
       const w = window.open();
       w.document.write(`<body style="margin:0; background:#000; display:flex; justify-content:center; align-items:center; min-height:100vh;"><img src="${source}" style="max-width:100%; max-height:100vh;"></body>`);
     }
+    function showFullText(title, text) {
+      document.getElementById("textDetailTitle").textContent = title;
+      document.getElementById("textDetailContent").textContent = text;
+      document.getElementById("textDetailDialog").showModal();
+    }
 
     function renderAlertsAndActivities() {
       let alertHtml = "";
@@ -1576,5 +1583,15 @@
 
     if (sessionStorage.getItem(LOGIN_KEY) === "true") { unlockApp(); }
   </script>
+  <dialog id="textDetailDialog">
+    <div class="modal-head">
+      <h3 id="textDetailTitle">Chi tiết nội dung</h3>
+      <button class="icon-btn" type="button" onclick="document.getElementById('textDetailDialog').close()">x</button>
+    </div>
+    <div class="dlg-body" id="textDetailContent" style="padding: 20px; font-size: 14px; line-height: 1.6; white-space: pre-wrap; max-height: 60vh; overflow-y: auto;"></div>
+    <div class="modal-foot">
+      <button class="btn primary" type="button" onclick="document.getElementById('textDetailDialog').close()">Đóng</button>
+    </div>
+  </dialog>
 </body>
 </html>
