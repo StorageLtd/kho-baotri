@@ -234,24 +234,23 @@
       .workspace { grid-template-columns: 1fr; }
     }
   
-.text-preview{
-  max-width:260px;
-  white-space:nowrap;
-  overflow:hidden;
-  text-overflow:ellipsis;
-  display:inline-block;
-  vertical-align:middle;
-}
-.view-btn{
-  margin-left:6px;
-  padding:2px 8px;
-  border:1px solid #ccc;
-  border-radius:4px;
-  cursor:pointer;
-  background:#f5f5f5;
-}
-
-</style>
+    /* CSS MỚI: TÍNH NĂNG ẨN BỚT CHỮ, NHẤN ĐỂ MỞ RỘNG ĐỌC */
+    .clickable-truncate {
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      cursor: pointer;
+      max-width: 180px;
+      display: block;
+      transition: max-width 0.15s ease;
+    }
+    .clickable-truncate.expanded {
+      white-space: normal;
+      overflow: visible;
+      text-overflow: clip;
+      max-width: 100% !important;
+    }
+  </style>
 </head>
 <body class="locked">
   <section class="login-screen">
@@ -1034,15 +1033,15 @@
         return `<tr>
           <td><strong>${escapeHtml(item.name)}</strong><div class="sku">${escapeHtml(item.sku)}</div></td>
           <td>${escapeHtml(item.category)}</td>
-          <td style="font-size:13px; color:var(--muted);">${escapeHtml(item.specs || "-")}</td>
+          <td style="font-size:13px; color:var(--muted);"><div class="clickable-truncate" onclick="this.classList.toggle('expanded')">${escapeHtml(item.specs || "-")}</div></td>
           <td><strong>${number.format(item.quantity)}</strong></td>
           <td>${number.format(item.min)}</td>
           <td>${escapeHtml(item.location || "-")}</td>
-          <td>${escapeHtml(item.supplier)}</td>
+          <td><div class="clickable-truncate" onclick="this.classList.toggle('expanded')">${escapeHtml(item.supplier || "-")}</div></td>
           <td>
             ${item.image ? `<img src="${item.image}" style="width:42px; height:42px; object-fit:cover; border-radius:4px; border:1px solid var(--line); cursor:zoom-in;" onclick="viewFullImage('${item.image}')">` : `-`}
           </td>
-          <td style="font-size:13px; color:var(--muted);">${escapeHtml(item.note || "-")}</td>
+          <td style="font-size:13px; color:var(--muted);"><div class="clickable-truncate" onclick="this.classList.toggle('expanded')">${escapeHtml(item.note || "-")}</div></td>
           <td><span class="pill ${cls}">${lbl}</span></td>
           <td>
             <div class="row-actions">
@@ -1106,7 +1105,7 @@
           <td><span style="color:var(--brand); font-weight:700;">📌 ${escapeHtml(j.jobName)}</span></td>
           <td>${j.period} tháng</td>
           <td><strong style="color: ${isOverdue ? 'var(--danger)' : 'var(--ok)'}">${formatDateDisplay(j.nextDate)}</strong></td>
-          <td style="font-size:13px; max-width:250px; white-space:pre-wrap; color:var(--muted);">${escapeHtml(j.desc || "-")}</td>
+          <td style="font-size:13px; max-width:250px; color:var(--muted);"><div class="clickable-truncate" onclick="this.classList.toggle('expanded')">${escapeHtml(j.desc || "-")}</div></td>
           <td>${statusPill}</td>
           <td>
             <div class="row-actions">
@@ -1139,8 +1138,8 @@
         <td><strong>${formatDateDisplay(h.faultTime)}</strong></td>
         <td><strong>${escapeHtml(h.machine)}</strong></td>
         <td><span style="color:var(--brand);font-weight:700;">${escapeHtml(h.staff)}</span></td>
-        <td style="font-size:13px;">${escapeHtml(h.fault)}</td>
-        <td style="font-size:13px;">${escapeHtml(h.fix)}</td>
+        <td style="font-size:13px;"><div class="clickable-truncate" onclick="this.classList.toggle('expanded')">${escapeHtml(h.fault)}</div></td>
+        <td style="font-size:13px;"><div class="clickable-truncate" onclick="this.classList.toggle('expanded')">${escapeHtml(h.fix)}</div></td>
         <td>
           ${h.image ? `<img src="${h.image}" style="width:42px; height:42px; object-fit:cover; border-radius:4px; cursor:zoom-in;" onclick="viewFullImage('${h.image}')">` : `-`}
         </td>
@@ -1162,15 +1161,7 @@
 
     function viewFullImage(source) {
       const w = window.open();
-      w.document.write(`<body style="margin:0; background:#000; display:flex; justify-content:center; align-items:center; min-height:100vh;"><img src="${source}" style="max-width:100%; max-height:100vh;">
-<script>
-function showFullText(txt){
-  const w = window.open('', '_blank', 'width=900,height=700');
-  w.document.write('<html><head><title>Chi tiết nội dung</title></head><body style="font-family:Arial;padding:20px;white-space:pre-wrap;">'+String(txt).replace(/</g,'&lt;').replace(/>/g,'&gt;')+'</body></html>');
-}
-</script>
-
-</body>`);
+      w.document.write(`<body style="margin:0; background:#000; display:flex; justify-content:center; align-items:center; min-height:100vh;"><img src="${source}" style="max-width:100%; max-height:100vh;"></body>`);
     }
 
     function renderAlertsAndActivities() {
@@ -1495,8 +1486,10 @@ function showFullText(txt){
     document.querySelector("#cancelJobBtn").addEventListener("click", closeJobDialog);
     
     document.querySelector("#logoutBtn").addEventListener("click", logout);
-    els.loginForm.addEventListener("submit", login);
-    document.querySelector("#submitLoginBtn").addEventListener("click", login);
+    els.loginForm.addEventListener("submit", function(e) {
+      e.preventDefault();
+      login(e);
+    });
 
     document.querySelectorAll(".nav button").forEach(button => {
       button.addEventListener("click", () => {
