@@ -733,7 +733,11 @@
       .filters, .history-tools { grid-template-columns: 1fr; }
       .cnc-grid { grid-template-columns: 1fr; }
     }
-  </style>
+  
+.cnc-history-box{margin-top:12px;padding:10px;border-top:1px solid var(--line);background:#fafbfa;border-radius:8px}
+.cnc-history-box h4{margin:0 0 8px 0;font-size:13px}
+.cnc-history-item{font-size:12px;padding:4px 0;border-bottom:1px dashed #ddd}
+</style>
 </head>
 <body class="locked">
   <!-- Screen Đăng Nhập -->
@@ -947,10 +951,10 @@
           <div style="display: flex; flex-direction: column; gap: 24px;">
             <section class="section">
               <div class="section-head">
-                <h3>Bảng điều khiển & Giám sát CNC (Thời gian thực)</h3>
+                <h3>Dashboard CNC Fanuc - Giám sát sản xuất</h3>
                 <div class="row-actions">
                   <button class="btn primary" id="addCncBtn" type="button">Thêm máy CNC mới</button>
-                  <button class="btn" id="triggerSimulateAlarmBtn" type="button" style="background: var(--danger-light); color: var(--danger); border-color: var(--danger)">Giả lập Alarm ngẫu nhiên</button>
+                  
                 </div>
               </div>
               <div style="padding: 16px 20px; background: #fbfcfa; border-bottom: 1px solid var(--line); display: flex; gap: 12px; align-items: center;">
@@ -968,7 +972,7 @@
             <!-- Lịch sử lỗi của máy CNC liên kết kho -->
             <section class="section">
               <div class="section-head">
-                <h3>Thống kê lịch sử Alarm & Linh kiện khắc phục trong kho LTD</h3>
+                <h3>Phân tích Alarm và Lịch sử sự cố</h3>
                 <span class="meta" id="cncAlarmCount">0 sự cố</span>
               </div>
               <div class="table-wrap">
@@ -1224,12 +1228,7 @@
             <option value="Fanuc 0i-D">Fanuc Series 0i-MODEL D</option>
           </select>
         </div>
-        <div class="field">
-          <label for="cncLocationInput">Vị trí trong xưởng</label>
-          <input class="input" id="cncLocationInput" placeholder="Ví dụ: Khu A - Máy 3">
-        </div>
-      </div>
-      <div class="modal-foot">
+        </div><div class="modal-foot">
         <button class="btn" id="cancelCncBtn" type="button">Hủy</button>
         <button class="btn primary" type="submit">Lưu thông tin</button>
       </div>
