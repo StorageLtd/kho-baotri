@@ -740,7 +740,10 @@
   <section class="login-screen">
     <form class="login-panel" id="loginForm" onsubmit="return false;">
       <div class="login-title">
-        <img src="logo.jpg" alt="LTD Logo" style="width: 200px; height: auto; object-fit: contain;">
+        <div class="login-logo-container">
+          <svg style="width: 60px; height: 60px; fill: var(--brand);" viewBox="0 0 24 24">
+            <path d="M19.14,12.94c0.04-0.3,0.06-0.61,0.06-0.94c0-0.32-0.02-0.64-0.07-0.94l2.03-1.58c0.18-0.14,0.23-0.41,0.12-0.61 l-1.92-3.32c-0.12-0.22-0.37-0.29-0.59-0.22l-2.39,0.96c-0.5-0.38-1.03-0.7-1.62-0.94L14.4,2.81c-0.04-0.24-0.24-0.41-0.48-0.41 h-3.84c-0.24,0-0.43,0.17-0.47,0.41L9.25,5.35C8.66,5.59,8.12,5.92,7.63,6.29L5.24,5.33c-0.22-0.08-0.47,0-0.59,0.22L2.74,8.87 C2.62,9.08,2.66,9.34,2.86,9.48l2.03,1.58C4.84,11.36,4.8,11.69,4.8,12c0,0.31,0.04,0.64,0.07,0.94l-2.03,1.58 c-0.18,0.14-0.23,0.41-0.12,0.61l1.92,3.32c0.12,0.22,0.37,0.29,0.59,0.22l2.39-0.96c0.5,0.38,1.03,0.7,1.62,0.94l0.36,2.54 c0.05,0.24,0.24,0.41,0.48,0.41h3.84c0.24,0,0.44-0.17,0.47-0.41l0.36-2.54c0.59-0.24,1.13-0.56,1.62-0.94l2.39,0.96 c0.22,0.08,0.47,0,0.59-0.22l1.92-3.32c0.12-0.22,0.07-0.47-0.12-0.61L19.14,12.94z M12,15.6c-1.98,0-3.6-1.62-3.6-3.6 s1.62-3.6,3.6-3.6s3.6,1.62,3.6,3.6S13.98,15.6,12,15.6z"/>
+          </svg>
         </div>
         <div>
           <h1>LTD VIET NAM</h1>
@@ -750,7 +753,7 @@
       
       <div class="field">
         <label for="usernameInput">Tài khoản nhân viên</label>
-        <input class="input" id="usernameInput" required placeholder="Nhập tài khoản" autocomplete="username">
+        <input class="input" id="usernameInput" required placeholder="Nhập tài khoản (ví dụ: baotri, admin)" autocomplete="username">
       </div>
       
       <div class="field">
@@ -771,12 +774,13 @@
     <aside class="sidebar">
       <div class="brand">
         <div class="brand-logo-container">
-          <img src="logo.jpg" alt="LTD VIET NAM Logo" style="max-height: 100px;">
+          <svg style="width: 32px; height: 32px; fill: var(--brand);" viewBox="0 0 24 24">
             <path d="M19.14,12.94c0.04-0.3,0.06-0.61,0.06-0.94c0-0.32-0.02-0.64-0.07-0.94l2.03-1.58c0.18-0.14,0.23-0.41,0.12-0.61 l-1.92-3.32c-0.12-0.22-0.37-0.29-0.59-0.22l-2.39,0.96c-0.5-0.38-1.03-0.7-1.62-0.94L14.4,2.81c-0.04-0.24-0.24-0.41-0.48-0.41 h-3.84c-0.24,0-0.43,0.17-0.47,0.41L9.25,5.35C8.66,5.59,8.12,5.92,7.63,6.29L5.24,5.33c-0.22-0.08-0.47,0-0.59,0.22L2.74,8.87 C2.62,9.08,2.66,9.34,2.86,9.48l2.03,1.58C4.84,11.36,4.8,11.69,4.8,12c0,0.31,0.04,0.64,0.07,0.94l-2.03,1.58 c-0.18,0.14-0.23,0.41-0.12,0.61l1.92,3.32c0.12,0.22,0.37,0.29,0.59,0.22l2.39-0.96c0.5,0.38,1.03,0.7,1.62,0.94l0.36,2.54c0.05,0.24,0.24,0.41,0.48,0.41h3.84c0.24,0,0.44-0.17,0.47-0.41l0.36-2.54c0.59-0.24,1.13-0.56,1.62-0.94l2.39,0.96c0.22,0.08,0.47,0,0.59-0.22l1.92-3.32c0.12-0.22,0.07-0.47-0.12-0.61L19.14,12.94z M12,15.6c-1.98,0-3.6-1.62-3.6-3.6s1.62-3.6,3.6-3.6s3.6,1.62,3.6,3.6S13.98,15.6,12,15.6z"/>
           </svg>
         </div>
         <div class="brand-text">
           <h1>LTD VIET NAM</h1>
+          <span>Cloud System</span>
         </div>
       </div>
       
@@ -821,7 +825,7 @@
       <header class="topbar">
         <div class="page-title">
           <h2 id="pageHeading">LTD VIET NAM</h2>
-          <p id="pageSubtitle">Quản lý linh kiện bảo trì</p>
+          <p id="pageSubtitle">Quản lý linh kiện bảo trì: mã linh kiện, vị trí kệ và số lượng còn trong kho.</p>
         </div>
         <div class="actions">
           <button class="btn" id="exportBtn" type="button">Xuất Linh Kiện CSV</button>
@@ -849,7 +853,7 @@
             <strong id="statUnits">0</strong>
           </article>
           <article class="stat">
-            <span>Vị trí kệ</span>
+            <span>Vị trí kệ chứa</span>
             <strong id="statValue">0</strong>
           </article>
           <article class="stat low-warning">
@@ -1068,7 +1072,7 @@
                   <th>Ngày bảo trì dự kiến tiếp theo</th>
                   <th>Mô tả chi tiết kỹ thuật</th>
                   <th>Trạng thái</th>
-                  <th style="width:100px; text-align: right;">Thao tác</th>
+                  <th style="width:140px; text-align: right;">Thao tác</th>
                 </tr>
               </thead>
               <tbody id="jobListBody"></tbody>
@@ -1111,7 +1115,7 @@
                   <th>Mô tả lỗi sự cố</th>
                   <th>Phương án khắc phục</th>
                   <th>Hình ảnh thực tế</th>
-                  <th style="width:80px; text-align: right;">Thao tác</th>
+                  <th style="width:100px; text-align: right;">Thao tác</th>
                 </tr>
               </thead>
               <tbody id="historyList"></tbody>
@@ -1818,6 +1822,7 @@
           <td><span style="background: #f0f4f1; padding: 4px 8px; border-radius: var(--radius-sm); font-weight: bold; font-size: 13px;">${escapeHtml(item.location || "-")}</span></td>
           <td><div class="clickable-truncate" onclick="this.classList.toggle('expanded')" title="Nhấp để thu phóng">${escapeHtml(item.supplier || "-")}</div></td>
           <td>
+            <img src="${displayImage}" style="width:42px; height:42px; object-fit:cover; border-radius:6px; border:1px solid var(--line); cursor:zoom-in; transition: transform 0.2s;" onclick="openImageViewer('${displayImage}')" title="Xem ảnh lớn">
           </td>
           <td style="font-size:13px; color:var(--muted);"><div class="clickable-truncate" onclick="this.classList.toggle('expanded')" title="Nhấp để thu phóng">${escapeHtml(item.note || "-")}</div></td>
           <td><span class="pill ${cls}">${lbl}</span></td>
@@ -2744,25 +2749,6 @@
       link.href = url; link.download = `${filename}-${new Date().toISOString().slice(0,10)}.csv`;
       link.click(); URL.revokeObjectURL(url);
     }
-    function showImage(imageUrl) {
-    const dialog = document.getElementById('imageViewerDialog');
-    const imgElement = dialog.querySelector('img');
-
-    // KIỂM TRA: Nếu không có URL ảnh hợp lệ, không hiển thị hoặc đóng dialog
-    if (!imageUrl || imageUrl === "") {
-        console.log("Chưa có ảnh để hiển thị.");
-        return; 
-    }
-
-    imgElement.src = imageUrl;
-    dialog.showModal();
-}
-
-// Khi đóng dialog, hãy xóa src để tránh lưu lại ảnh cũ
-document.getElementById('imageViewerDialog').addEventListener('close', () => {
-    const imgElement = document.getElementById('imageViewerDialog').querySelector('img');
-    imgElement.src = ""; // Xóa src khi đóng để không bị hiển thị code lỗi
-});
 
     // Giải phóng kết nối online khi đóng/chuyển trang
     window.addEventListener("beforeunload", () => {
