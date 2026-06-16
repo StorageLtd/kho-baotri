@@ -2745,6 +2745,25 @@
       link.href = url; link.download = `${filename}-${new Date().toISOString().slice(0,10)}.csv`;
       link.click(); URL.revokeObjectURL(url);
     }
+    function showImage(imageUrl) {
+    const dialog = document.getElementById('imageViewerDialog');
+    const imgElement = dialog.querySelector('img');
+
+    // KIỂM TRA: Nếu không có URL ảnh hợp lệ, không hiển thị hoặc đóng dialog
+    if (!imageUrl || imageUrl === "") {
+        console.log("Chưa có ảnh để hiển thị.");
+        return; 
+    }
+
+    imgElement.src = imageUrl;
+    dialog.showModal();
+}
+
+// Khi đóng dialog, hãy xóa src để tránh lưu lại ảnh cũ
+document.getElementById('imageViewerDialog').addEventListener('close', () => {
+    const imgElement = document.getElementById('imageViewerDialog').querySelector('img');
+    imgElement.src = ""; // Xóa src khi đóng để không bị hiển thị code lỗi
+});
 
     // Giải phóng kết nối online khi đóng/chuyển trang
     window.addEventListener("beforeunload", () => {
