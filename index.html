@@ -342,7 +342,78 @@
     /* Modern Responsive Table */
     .table-wrap { overflow: auto; width: 100%; }
     table { width: 100%; border-collapse: collapse; min-width: 960px; }
-    th, td { padding: 14px 18px; border-bottom: 1px solid var(--line); text-align: left; vertical-align: middle; }
+    th, td { padding: 12px 14px; border-bottom: 1px solid var(--line); text-align: left; vertical-align: middle; }
+    
+    table.data-table {
+      table-layout: fixed;
+    }
+    table.data-table th,
+    table.data-table td {
+      overflow: hidden;
+      max-width: 0;
+    }
+    table.data-table .col-text { width: 12%; }
+    table.data-table .col-text-wide { width: 16%; }
+    table.data-table .col-img { width: 72px; }
+    table.data-table .col-actions { width: 120px; }
+    table.data-table .col-status { width: 110px; }
+
+    .cell-ellipsis {
+      display: block;
+      width: 100%;
+      min-width: 0;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      cursor: pointer;
+      background: transparent;
+      border: 0;
+      padding: 0;
+      margin: 0;
+      color: inherit;
+      font: inherit;
+      text-align: left;
+      line-height: 1.45;
+    }
+    .cell-ellipsis:hover {
+      color: var(--brand);
+    }
+    .cell-ellipsis.static {
+      cursor: default;
+      color: var(--muted);
+    }
+    .cell-ellipsis.static:hover {
+      color: var(--muted);
+    }
+
+    .table-thumb {
+      width: 42px;
+      height: 42px;
+      object-fit: cover;
+      border-radius: 6px;
+      border: 1px solid var(--line);
+      cursor: zoom-in;
+      display: block;
+      transition: transform 0.2s;
+    }
+    .table-thumb:hover {
+      transform: scale(1.05);
+    }
+
+    #textViewerDialog {
+      width: min(640px, calc(100vw - 32px));
+    }
+    #textViewerBody {
+      padding: 24px;
+      max-height: 60vh;
+      overflow-y: auto;
+      line-height: 1.65;
+      font-size: 14px;
+      white-space: pre-wrap;
+      word-break: break-word;
+      color: var(--ink);
+      background: #fff;
+    }
     
     th { 
       background: #fafbfa; 
@@ -564,32 +635,6 @@
     @keyframes dialogZoom {
       from { transform: scale(0.95); opacity: 0; }
       to { transform: scale(1); opacity: 1; }
-    }
-
-    /* Expand / Truncate feature */
-    .clickable-truncate {
-      white-space: nowrap;
-      overflow: hidden;
-      text-overflow: ellipsis;
-      cursor: pointer;
-      max-width: 180px;
-      display: block;
-      transition: all 0.15s ease;
-      background: rgba(0,0,0,0.02);
-      padding: 4px 8px;
-      border-radius: 4px;
-    }
-    .clickable-truncate:hover {
-      background: rgba(0,0,0,0.05);
-      color: var(--brand);
-    }
-    .clickable-truncate.expanded {
-      white-space: normal;
-      overflow: visible;
-      text-overflow: clip;
-      max-width: 100% !important;
-      background: rgba(17, 94, 70, 0.04);
-      border-left: 2px solid var(--brand);
     }
 
     /* Fullscreen Image Preview Dialog */
@@ -847,6 +892,7 @@
           <button class="btn" id="exportBtn" type="button">Xuất Linh Kiện CSV</button>
           <button class="btn" id="exportMachineBtn" type="button" style="display:none;">Xuất Máy CSV</button>
           <button class="btn" id="exportCncBtn" type="button" style="display:none;">Xuất CNC CSV</button>
+          <button class="btn" id="exportCncAlarmBtn" type="button" style="display:none;">Xuất Lịch Sử Alarm Excel</button>
           <button class="btn" id="exportJobBtn" type="button" style="display:none;">Xuất Lịch Job CSV</button>
           <button class="btn" id="exportHistoryBtn" type="button" style="display:none;">Xuất Lịch Sử CSV</button>
           <button class="btn danger-btn" id="logoutBtn" type="button">Đăng xuất</button>
@@ -938,20 +984,20 @@
               </div>
             </div>
             <div class="table-wrap">
-              <table>
+              <table class="data-table">
                 <thead>
                   <tr>
                     <th>Linh kiện</th>
                     <th>Nhóm</th>
-                    <th>Thông số kỹ thuật</th>
+                    <th class="col-text-wide">Thông số kỹ thuật</th>
                     <th>Số lượng</th>
                     <th>Tối thiểu</th>
                     <th>Vị trí Kệ</th>
-                    <th>Thiết bị dùng</th>
-                    <th>Hình ảnh</th>
-                    <th>Ghi chú</th>
-                    <th>Trạng thái</th>
-                    <th style="width: 130px; text-align: right;">Thao tác</th>
+                    <th class="col-text">Thiết bị dùng</th>
+                    <th class="col-img">Hình ảnh</th>
+                    <th class="col-text-wide">Ghi chú</th>
+                    <th class="col-status">Trạng thái</th>
+                    <th class="col-actions" style="text-align: right;">Thao tác</th>
                   </tr>
                 </thead>
                 <tbody id="inventoryBody"></tbody>
@@ -1006,19 +1052,22 @@
             <section class="section">
               <div class="section-head">
                 <h3>Thống kê lịch sử Alarm & Linh kiện khắc phục trong kho LTD</h3>
-                <span class="meta" id="cncAlarmCount">0 sự cố</span>
+                <div class="row-actions">
+                  <button class="btn" id="exportCncAlarmSectionBtn" type="button">Xuất Excel Alarm</button>
+                  <span class="meta" id="cncAlarmCount">0 sự cố</span>
+                </div>
               </div>
               <div class="table-wrap">
-                <table>
+                <table class="data-table">
                   <thead>
                     <tr>
                       <th>Thời gian phát hiện</th>
                       <th>Tên máy CNC</th>
                       <th>Mã Alarm (Hệ Fanuc 0i-F)</th>
-                      <th>Mô tả chi tiết lỗi</th>
+                      <th class="col-text-wide">Mô tả chi tiết lỗi</th>
                       <th>Nhóm Linh kiện liên đới</th>
-                      <th>Trạng thái tồn kho thực tế (LTD)</th>
-                      <th>Thao tác xử lý</th>
+                      <th class="col-text">Trạng thái tồn kho thực tế (LTD)</th>
+                      <th class="col-actions" style="text-align: right;">Thao tác xử lý</th>
                     </tr>
                   </thead>
                   <tbody id="cncAlarmHistoryBody">
@@ -1100,16 +1149,16 @@
             </div>
           </div>
           <div class="table-wrap">
-            <table>
+            <table class="data-table">
               <thead>
                 <tr>
                   <th>Tên thiết bị máy</th>
                   <th>Hạng mục / Công việc bảo trì (Job)</th>
                   <th>Chu kỳ lặp</th>
                   <th>Ngày bảo trì dự kiến tiếp theo</th>
-                  <th>Mô tả chi tiết kỹ thuật</th>
-                  <th>Trạng thái</th>
-                  <th style="width:140px; text-align: right;">Thao tác</th>
+                  <th class="col-text-wide">Mô tả chi tiết kỹ thuật</th>
+                  <th class="col-status">Trạng thái</th>
+                  <th class="col-actions" style="text-align: right;">Thao tác</th>
                 </tr>
               </thead>
               <tbody id="jobListBody"></tbody>
@@ -1143,16 +1192,16 @@
             </div>
           </div>
           <div class="table-wrap">
-            <table>
+            <table class="data-table">
               <thead>
                 <tr>
                   <th>Ngày xảy ra</th>
                   <th>Thiết bị máy lỗi</th>
                   <th>Kỹ sư xử lý</th>
-                  <th>Mô tả lỗi sự cố</th>
-                  <th>Phương án khắc phục</th>
-                  <th>Hình ảnh thực tế</th>
-                  <th style="width:100px; text-align: right;">Thao tác</th>
+                  <th class="col-text-wide">Mô tả lỗi sự cố</th>
+                  <th class="col-text-wide">Phương án khắc phục</th>
+                  <th class="col-img">Hình ảnh thực tế</th>
+                  <th class="col-actions" style="text-align: right;">Thao tác</th>
                 </tr>
               </thead>
               <tbody id="historyList"></tbody>
@@ -1481,6 +1530,19 @@
     </div>
   </dialog>
 
+  <dialog id="textViewerDialog">
+    <div class="modal-head">
+      <h3 id="textViewerTitle">Chi tiết nội dung</h3>
+      <button class="icon-btn" type="button" id="closeTextViewerBtn">
+        <svg viewBox="0 0 24 24"><path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+      </button>
+    </div>
+    <div id="textViewerBody"></div>
+    <div class="modal-foot">
+      <button class="btn" type="button" id="closeTextViewerFootBtn">Đóng</button>
+    </div>
+  </dialog>
+
   <div class="toast" id="toast" role="status" aria-live="polite"></div>
 
   <script>
@@ -1532,6 +1594,7 @@
       exportBtn: document.querySelector("#exportBtn"),
       exportMachineBtn: document.querySelector("#exportMachineBtn"),
       exportCncBtn: document.querySelector("#exportCncBtn"), // NÚT MỚI
+      exportCncAlarmBtn: document.querySelector("#exportCncAlarmBtn"),
       exportJobBtn: document.querySelector("#exportJobBtn"),
       exportHistoryBtn: document.querySelector("#exportHistoryBtn"),
       statItems: document.querySelector("#statItems"),
@@ -1869,6 +1932,7 @@
       els.addJobMainBtn.style.display = (pageId === "maintenanceJobsPage") ? "inline-flex" : "none";
       els.exportBtn.style.display = (pageId === "inventoryPage") ? "inline-flex" : "none";
       els.exportCncBtn.style.display = (pageId === "cncMonitoringPage") ? "inline-flex" : "none";
+      els.exportCncAlarmBtn.style.display = (pageId === "cncMonitoringPage") ? "inline-flex" : "none";
       els.exportMachineBtn.style.display = (pageId === "machinesPage") ? "inline-flex" : "none";
       els.exportJobBtn.style.display = (pageId === "maintenanceJobsPage") ? "inline-flex" : "none";
       els.exportHistoryBtn.style.display = (pageId === "historyPage") ? "inline-flex" : "none";
@@ -1928,6 +1992,30 @@
       updateMachineSelectOptions();
     }
 
+    const textViewerCache = new Map();
+    const PLACEHOLDER_IMG = `data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="40" height="40" viewBox="0 0 24 24" fill="%23cbd5e1"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-6h2v6zm0-8h-2V7h2v2z"/></svg>`;
+
+    function textEllipsisCell(text, title = "Chi tiết nội dung") {
+      const val = String(text ?? "").trim();
+      if (!val || val === "-") return `<span class="cell-ellipsis static">-</span>`;
+      const key = crypto.randomUUID();
+      textViewerCache.set(key, { title, body: val });
+      return `<button type="button" class="cell-ellipsis" data-text-key="${key}" title="Nhấp để xem đầy đủ">${escapeHtml(val)}</button>`;
+    }
+
+    function imageThumbCell(imageSrc, entityId, type = "item") {
+      const src = imageSrc || PLACEHOLDER_IMG;
+      return `<img src="${src}" class="table-thumb" data-img-entity="${escapeHtml(entityId)}" data-img-type="${escapeHtml(type)}" alt="Ảnh sản phẩm" title="Xem ảnh lớn">`;
+    }
+
+    function getAlarmKeyword(alarmCode) {
+      const code = String(alarmCode || "");
+      if (code.includes("SV")) return "Servo";
+      if (code.includes("SP")) return "Spindle";
+      if (code.includes("OT")) return "Cảm biến";
+      return "Nguồn";
+    }
+
     function updateOverviewQuickStats() {
       const todayStr = new Date().toISOString().slice(0, 10);
       const overviewCncTotal = document.querySelector("#overviewCncTotal");
@@ -1966,21 +2054,19 @@
         const lbl = { ok: "Đủ dùng", low: "Sắp hết", out: "Hết linh kiện" }[s];
         const cls = { ok: "ok", low: "warn", out: "danger" }[s];
         
-        const placeholderImg = `data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="40" height="40" viewBox="0 0 24 24" fill="%23cbd5e1"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-6h2v6zm0-8h-2V7h2v2z"/></svg>`;
+        const placeholderImg = PLACEHOLDER_IMG;
         const displayImage = item.image ? item.image : placeholderImg;
 
         return `<tr>
           <td><strong style="color: #0f241d;">${escapeHtml(item.name)}</strong><br><div class="sku">${escapeHtml(item.sku)}</div></td>
           <td><span style="font-weight: 500">${escapeHtml(item.category)}</span></td>
-          <td style="font-size:13px; color:var(--muted);"><div class="clickable-truncate" onclick="this.classList.toggle('expanded')" title="Nhấp để thu phóng">${escapeHtml(item.specs || "-")}</div></td>
+          <td class="col-text-wide" style="font-size:13px; color:var(--muted);">${textEllipsisCell(item.specs, "Thông số kỹ thuật")}</td>
           <td><strong>${number.format(item.quantity)}</strong></td>
           <td>${number.format(item.min)}</td>
           <td><span style="background: #f0f4f1; padding: 4px 8px; border-radius: var(--radius-sm); font-weight: bold; font-size: 13px;">${escapeHtml(item.location || "-")}</span></td>
-          <td><div class="clickable-truncate" onclick="this.classList.toggle('expanded')" title="Nhấp để thu phóng">${escapeHtml(item.supplier || "-")}</div></td>
-          <td>
-            <img src="${displayImage}" style="width:42px; height:42px; object-fit:cover; border-radius:6px; border:1px solid var(--line); cursor:zoom-in; transition: transform 0.2s;" onclick="openImageViewer('${displayImage}')" title="Xem ảnh lớn">
-          </td>
-          <td style="font-size:13px; color:var(--muted);"><div class="clickable-truncate" onclick="this.classList.toggle('expanded')" title="Nhấp để thu phóng">${escapeHtml(item.note || "-")}</div></td>
+          <td class="col-text">${textEllipsisCell(item.supplier, "Thiết bị dùng")}</td>
+          <td class="col-img">${imageThumbCell(displayImage, item.id, "item")}</td>
+          <td class="col-text-wide" style="font-size:13px; color:var(--muted);">${textEllipsisCell(item.note, "Ghi chú linh kiện")}</td>
           <td><span class="pill ${cls}">${lbl}</span></td>
           <td>
             <div class="row-actions">
@@ -2162,11 +2248,7 @@
         let matchedPartInfo = "-";
         
         // Quét kho LTD xem có linh kiện khắc phục không
-        let keyword = "";
-        if (a.alarmCode.includes("SV")) keyword = "Servo";
-        else if (a.alarmCode.includes("SP")) keyword = "Spindle";
-        else if (a.alarmCode.includes("OT")) keyword = "Cảm biến";
-        else keyword = "Nguồn";
+        let keyword = getAlarmKeyword(a.alarmCode);
 
         const matchedPart = items.find(i => i.name.toLowerCase().includes(keyword.toLowerCase()));
         if (matchedPart) {
@@ -2183,7 +2265,7 @@
             <td><strong>${formatDateDisplay(a.timestamp)}</strong><div style="font-size:11px; color:var(--muted)">${new Date(a.timestamp).toLocaleTimeString("vi-VN")}</div></td>
             <td><strong>${escapeHtml(a.cncName)}</strong></td>
             <td><span class="pill danger" style="font-size:11px; font-family:monospace">${escapeHtml(a.alarmCode)}</span></td>
-            <td><div class="clickable-truncate" onclick="this.classList.toggle('expanded')" title="Xem chi tiết">${escapeHtml(a.description)}</div></td>
+            <td class="col-text-wide">${textEllipsisCell(a.description, "Mô tả chi tiết lỗi CNC")}</td>
             <td><strong>${keyword}</strong></td>
             <td>${matchedPartInfo}</td>
             <td>
@@ -2233,7 +2315,7 @@
               <div class="meta">${new Date(a.timestamp).toLocaleTimeString("vi-VN")}</div>
             </td>
             <td><span class="pill danger" style="font-size:11px; font-family:monospace">${escapeHtml(a.alarmCode)}</span></td>
-            <td><div class="clickable-truncate" onclick="this.classList.toggle('expanded')" title="Xem chi tiết">${escapeHtml(a.description)}</div></td>
+            <td class="col-text-wide">${textEllipsisCell(a.description, "Mô tả chi tiết lỗi CNC")}</td>
             <td>${statusPill}</td>
           </tr>
         `;
@@ -2367,7 +2449,7 @@
           <td><span style="color:var(--brand); font-weight:700;">📌 ${escapeHtml(j.jobName)}</span></td>
           <td><strong style="background: #edf6f2; padding: 4px 8px; border-radius:4px; color:var(--brand);">${j.period} Tháng</strong></td>
           <td><strong style="color: ${isOverdue ? 'var(--danger)' : 'var(--ok)'}; font-size: 14px;">${formatDateDisplay(j.nextDate)}</strong></td>
-          <td style="font-size:13px; max-width:250px; color:var(--muted);"><div class="clickable-truncate" onclick="this.classList.toggle('expanded')" title="Nhấp để thu phóng">${escapeHtml(j.desc || "-")}</div></td>
+          <td class="col-text-wide" style="font-size:13px; color:var(--muted);">${textEllipsisCell(j.desc, "Mô tả chi tiết kỹ thuật Job")}</td>
           <td>${statusPill}</td>
           <td>
             <div class="row-actions">
@@ -2397,18 +2479,16 @@
       }
 
       els.historyList.innerHTML = rows.map(h => {
-        const placeholderImg = `data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="40" height="40" viewBox="0 0 24 24" fill="%23cbd5e1"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-6h2v6zm0-8h-2V7h2v2z"/></svg>`;
+        const placeholderImg = PLACEHOLDER_IMG;
         const displayImage = h.image ? h.image : placeholderImg;
 
         return `<tr>
           <td><strong>${formatDateDisplay(h.faultTime)}</strong></td>
           <td><strong style="color: #0f241d;">${escapeHtml(h.machine)}</strong></td>
           <td><span style="color:var(--brand);font-weight:700;">👷 ${escapeHtml(h.staff)}</span></td>
-          <td style="font-size:13px;"><div class="clickable-truncate" onclick="this.classList.toggle('expanded')" title="Nhấp để thu phóng">${escapeHtml(h.fault)}</div></td>
-          <td style="font-size:13px;"><div class="clickable-truncate" onclick="this.classList.toggle('expanded')" title="Nhấp để thu phóng">${escapeHtml(h.fix)}</div></td>
-          <td>
-            <img src="${displayImage}" style="width:42px; height:42px; object-fit:cover; border-radius:6px; cursor:zoom-in; border:1px solid var(--line)" onclick="openImageViewer('${displayImage}')" title="Xem ảnh">
-          </td>
+          <td class="col-text-wide" style="font-size:13px;">${textEllipsisCell(h.fault, "Mô tả lỗi sự cố")}</td>
+          <td class="col-text-wide" style="font-size:13px;">${textEllipsisCell(h.fix, "Phương án khắc phục")}</td>
+          <td class="col-img">${imageThumbCell(displayImage, h.id, "history")}</td>
           <td>
             <div class="row-actions">
               <button class="icon-btn" type="button" onclick="openHistoryDialog('${h.id}')" title="Sửa lịch sử">${editIcon}</button>
@@ -2426,16 +2506,56 @@
       els.jMachineSelect.value = currentSelection;
     }
 
-    // Modal phóng to xem ảnh nội bộ
+    // Modal phóng to xem ảnh & nội dung dài
     const imageViewerDialog = document.querySelector("#imageViewerDialog");
     const fullSizeImage = document.querySelector("#fullSizeImage");
+    const textViewerDialog = document.querySelector("#textViewerDialog");
+    const textViewerTitle = document.querySelector("#textViewerTitle");
+    const textViewerBody = document.querySelector("#textViewerBody");
+
     function openImageViewer(src) {
-      fullSizeImage.src = src;
+      fullSizeImage.src = src || PLACEHOLDER_IMG;
       imageViewerDialog.showModal();
     }
+
+    function openTextViewer(title, body) {
+      textViewerTitle.textContent = title || "Chi tiết nội dung";
+      textViewerBody.textContent = body || "-";
+      textViewerDialog.showModal();
+    }
+
+    function closeTextViewer() {
+      textViewerDialog.close();
+    }
+
+    document.addEventListener("click", (e) => {
+      const textBtn = e.target.closest("[data-text-key]");
+      if (textBtn) {
+        const data = textViewerCache.get(textBtn.dataset.textKey);
+        if (data) openTextViewer(data.title, data.body);
+        return;
+      }
+      const thumb = e.target.closest(".table-thumb[data-img-entity]");
+      if (thumb) {
+        const id = thumb.dataset.imgEntity;
+        const type = thumb.dataset.imgType;
+        let src = thumb.getAttribute("src");
+        if (type === "item") {
+          const item = items.find(i => i.id === id);
+          if (item?.image) src = item.image;
+        } else if (type === "history") {
+          const h = repairHistory.find(x => x.id === id);
+          if (h?.image) src = h.image;
+        }
+        openImageViewer(src);
+      }
+    });
+
     document.querySelector("#closeImageViewerBtn").addEventListener("click", () => {
       imageViewerDialog.close();
     });
+    document.querySelector("#closeTextViewerBtn").addEventListener("click", closeTextViewer);
+    document.querySelector("#closeTextViewerFootBtn").addEventListener("click", closeTextViewer);
 
     function renderAlertsAndActivities() {
       let alertHtml = "";
@@ -2876,6 +2996,38 @@
       const r = cncs.map(c => [c.name, c.ip, c.port, c.model, c.location, c.status, c.activeProgram]);
       downloadCsv(h, r, "danh-sach-may-cnc-ltd");
     });
+
+    function exportCncAlarmExcel() {
+      const alarmList = [...cncAlarmHistory].sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
+      const h = ["Thời gian phát hiện", "Tên máy CNC", "Mã Alarm", "Mô tả chi tiết lỗi", "Nhóm linh kiện", "Trạng thái", "Thời gian xử lý", "Linh kiện kho LTD", "Tồn kho LTD"];
+      const r = alarmList.map(a => {
+        const keyword = getAlarmKeyword(a.alarmCode);
+        const matchedPart = items.find(i => i.name.toLowerCase().includes(keyword.toLowerCase()));
+        const stockLabel = matchedPart
+          ? (matchedPart.quantity > 0 ? `Còn ${matchedPart.quantity} (Kệ ${matchedPart.location || "-"})` : "Hết hàng")
+          : "Chưa có trong kho";
+        const timeStr = `${formatDateDisplay(a.timestamp)} ${new Date(a.timestamp).toLocaleTimeString("vi-VN")}`;
+        const resolvedStr = a.resolvedAt
+          ? `${formatDateDisplay(a.resolvedAt)} ${new Date(a.resolvedAt).toLocaleTimeString("vi-VN")}`
+          : "";
+        return [
+          timeStr,
+          a.cncName,
+          a.alarmCode,
+          a.description,
+          keyword,
+          a.resolvedAt ? "Đã xử lý" : "Đang lỗi",
+          resolvedStr,
+          matchedPart ? matchedPart.name : "—",
+          stockLabel
+        ];
+      });
+      downloadExcel(h, r, "lich-su-alarm-cnc-ltd");
+      showToast("Đã xuất file Excel lịch sử Alarm CNC.");
+    }
+
+    els.exportCncAlarmBtn.addEventListener("click", exportCncAlarmExcel);
+    document.querySelector("#exportCncAlarmSectionBtn").addEventListener("click", exportCncAlarmExcel);
     els.exportJobBtn.addEventListener("click", () => {
       const h = ["Tên máy xưởng", "Tên Job bảo trì", "Chu kỳ (tháng)", "Ngày đến hạn tiếp theo", "Mô tả chi tiết"];
       const r = maintenanceJobs.map(j => [j.machineName, j.jobName, j.period, formatDateDisplay(j.nextDate), j.desc]);
@@ -2894,6 +3046,24 @@
       const link = document.createElement("a");
       link.href = url; link.download = `${filename}-${new Date().toISOString().slice(0,10)}.csv`;
       link.click(); URL.revokeObjectURL(url);
+    }
+
+    function downloadExcel(headers, rows, filename) {
+      const esc = (v) => String(v ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+      let html = "<html><head><meta charset=\"UTF-8\"></head><body><table border=\"1\"><thead><tr>";
+      html += headers.map(h => `<th>${esc(h)}</th>`).join("");
+      html += "</tr></thead><tbody>";
+      rows.forEach(row => {
+        html += "<tr>" + row.map(c => `<td>${esc(c)}</td>`).join("") + "</tr>";
+      });
+      html += "</tbody></table></body></html>";
+      const blob = new Blob(["\ufeff" + html], { type: "application/vnd.ms-excel;charset=utf-8" });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = `${filename}-${new Date().toISOString().slice(0, 10)}.xls`;
+      link.click();
+      URL.revokeObjectURL(url);
     }
 
     // Giải phóng kết nối online khi đóng/chuyển trang
