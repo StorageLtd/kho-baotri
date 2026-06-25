@@ -733,6 +733,7 @@
       .filters, .history-tools { grid-template-columns: 1fr; }
       .cnc-grid { grid-template-columns: 1fr; }
     }
+    
   </style>
 </head>
 <body class="locked">
@@ -1219,10 +1220,7 @@
             <option value="Fanuc 0i-D">Fanuc Series 0i-MODEL D</option>
           </select>
         </div>
-        <div class="field">
-          <label for="cncLocationInput">Vị trí trong xưởng</label>
-          <input class="input" id="cncLocationInput" placeholder="Ví dụ: Khu A - Máy 3">
-        </div>
+
       </div>
       <div class="modal-foot">
         <button class="btn" id="cancelCncBtn" type="button">Hủy</button>
@@ -1913,10 +1911,7 @@
               
               <span class="cnc-label">Tốc độ ăn dao (Feedrate):</span>
               <span class="cnc-value">${c.feedrate} mm/min (Ovr: ${c.override}%)</span>
-              
-              <span class="cnc-label">Vị trí nhà xưởng:</span>
-              <span class="cnc-value">${escapeHtml(c.location)}</span>
-            </div>
+      
 
             ${c.status === "alarm" ? `
               <div class="cnc-alarm-banner">
@@ -2035,16 +2030,42 @@
         `;
       }).join("");
     }
+// Sửa hàm để lọc theo machineId
+function autoCreateRepairHistoryFromCncAlarm(alarmId, machineId) {
+    const a = cncAlarmHistory.find(x => x.id === alarmId);
+    if (!a) return;
 
-    // TỰ ĐỘNG CHUYỂN ALARM CNC THÀNH NHẬT KÝ SỬA CHỮA KHẮC PHỤC SỰ CỐ
-    function autoCreateRepairHistoryFromCncAlarm(alarmId) {
-      const a = cncAlarmHistory.find(x => x.id === alarmId);
-      if(!a) return;
+    // 1. Chuyển sang trang lịch sử
+    switchPage("historyPage"); 
+    
+    // 2. Cập nhật UI menu
+    document.querySelectorAll(".nav button").forEach(entry => entry.classList.remove("active"));
+    document.querySelector('[data-page="historyPage"]').classList.add("active");
 
-      switchPage("historyPage");
-      document.querySelectorAll(".nav button").forEach(entry => entry.classList.remove("active"));
-      document.querySelector('[data-page="historyPage"]').classList.add("active");
+    // 3. LỌC LỊCH SỬ CỦA TỪNG MÁY
+    // Giả sử bạn có một biến global là 'repairHistoryData' chứa tất cả lịch sử
+    const machineSpecificHistory = repairHistoryData.filter(item => item.machineId === machineId);
+    
+    // 4. Gọi hàm render lại bảng lịch sử với dữ liệu đã lọc
+    renderHistoryTable(machineSpecificHistory);
+    
+    // 5. Cập nhật tiêu đề để người dùng biết đang xem máy nào
+    document.getElementById('pageHeading').textContent = `Lịch sử sự cố: Máy ${machineId}`;
+}
+function renderHistoryTable(data) {
+    const tbody = document.querySelector('#historyTableBody'); // Đảm bảo ID này có trong HTML
+    tbody.innerHTML = ''; // Xóa dữ liệu cũ
 
+    data.forEach(item => {
+        const row = `<tr>
+            <td>${item.date}</td>
+            <td>${item.machineName}</td>
+            <td>${item.issue}</td>
+            <td>${item.status}</td>
+        </tr>`;
+        tbody.innerHTML += row;
+    });
+}
       // Mở dialog sửa chữa, điền sẵn thông tin sự cố kết nối
       openHistoryDialog();
       els.machineInput.value = a.cncName;
