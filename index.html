@@ -507,6 +507,51 @@
       flex-wrap: nowrap;
     }
 
+
+    /* Hard guard against broken image markup expanding table rows */
+    table.data-table {
+      table-layout: fixed;
+    }
+
+    table.data-table th,
+    table.data-table td {
+      overflow: hidden !important;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      vertical-align: middle;
+    }
+
+    table.data-table tbody tr {
+      height: 64px;
+      max-height: 64px;
+    }
+
+    table.data-table .col-img {
+      width: 72px !important;
+      min-width: 72px;
+      max-width: 72px;
+      padding-left: 10px;
+      padding-right: 10px;
+      overflow: hidden !important;
+      white-space: nowrap;
+      text-align: center;
+    }
+
+    table.data-table .col-img img,
+    table.data-table .table-thumb {
+      width: 44px !important;
+      height: 44px !important;
+      max-width: 44px !important;
+      max-height: 44px !important;
+      object-fit: cover;
+      overflow: hidden;
+    }
+
+    .thumb-fallback {
+      background: #eef4f0;
+      object-fit: contain !important;
+    }
+
     #textViewerDialog {
       width: min(640px, calc(100vw - 32px));
     }
@@ -2100,7 +2145,7 @@
     }
 
     const textViewerCache = new Map();
-    const PLACEHOLDER_IMG = `data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="40" height="40" viewBox="0 0 24 24" fill="%23cbd5e1"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-6h2v6zm0-8h-2V7h2v2z"/></svg>`;
+    const PLACEHOLDER_IMG = `data:image/svg+xml,%3Csvg xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22 width%3D%2244%22 height%3D%2244%22 viewBox%3D%220 0 44 44%22%3E%3Crect width%3D%2244%22 height%3D%2244%22 rx%3D%226%22 fill%3D%22%23eef4f0%22%2F%3E%3Cpath d%3D%22M12 30l7-8 5 5 4-5 6 8H12z%22 fill%3D%22%2390a49a%22%2F%3E%3Ccircle cx%3D%2217%22 cy%3D%2216%22 r%3D%223%22 fill%3D%22%2390a49a%22%2F%3E%3C%2Fsvg%3E`;
 
     function textEllipsisCell(text, title = "Chi tiết nội dung", extraClass = "") {
       const val = String(text ?? "").trim();
@@ -2112,8 +2157,11 @@
     }
 
     function imageThumbCell(imageSrc, entityId, type = "item") {
-      const src = imageSrc || PLACEHOLDER_IMG;
-      return `<img src="${src}" class="table-thumb" data-img-entity="${escapeHtml(entityId)}" data-img-type="${escapeHtml(type)}" alt="Ảnh sản phẩm" title="Xem ảnh lớn">`;
+      const raw = String(imageSrc || "").trim();
+      const isSafeImage = raw && !/[<>"'\s]/.test(raw) && /^(data:image\/|https?:\/\/|\.\/|\.\.\/|[\w\-.\/]+\.(png|jpe?g|gif|webp|svg)(\?.*)?$)/i.test(raw);
+      const src = isSafeImage ? raw : PLACEHOLDER_IMG;
+      const fallbackClass = isSafeImage ? "" : " thumb-fallback";
+      return `<img src="${escapeHtml(src)}" class="table-thumb${fallbackClass}" data-img-entity="${escapeHtml(entityId)}" data-img-type="${escapeHtml(type)}" alt="Ảnh sản phẩm" title="Xem ảnh lớn">`;
     }
 
     function getAlarmKeyword(alarmCode) {
