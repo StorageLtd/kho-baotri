@@ -400,6 +400,113 @@
       transform: scale(1.05);
     }
 
+
+    /* Compact table rows for inventory, maintenance jobs, and repair history */
+    table.data-table th,
+    table.data-table td {
+      padding: 9px 12px;
+      line-height: 1.35;
+    }
+
+    table.data-table tbody tr {
+      height: 58px;
+    }
+
+    table.data-table td > strong,
+    table.data-table td > span,
+    table.data-table td > div:not(.row-actions) {
+      max-width: 100%;
+    }
+
+    .cell-ellipsis {
+      max-width: 100%;
+      min-height: 22px;
+      border-radius: 6px;
+      padding: 2px 0;
+    }
+
+    .cell-ellipsis:hover {
+      background: var(--brand-light);
+      padding-left: 6px;
+      padding-right: 6px;
+    }
+
+    .cell-ellipsis.strong-text {
+      font-weight: 800;
+      color: #0f241d;
+    }
+
+    .cell-ellipsis.brand-text-cell {
+      font-weight: 800;
+      color: var(--brand);
+    }
+
+    .cell-ellipsis.muted-text-cell {
+      color: var(--muted);
+      font-size: 13px;
+    }
+
+    .table-thumb {
+      width: 40px !important;
+      height: 40px !important;
+      max-width: 40px;
+      max-height: 40px;
+      object-fit: cover;
+    }
+
+    .col-img {
+      text-align: center;
+    }
+
+    .col-img .table-thumb {
+      margin: 0 auto;
+    }
+
+
+    /* Fixed column widths for compact operational tables */
+    .inventory-table { min-width: 1120px; }
+    .jobs-table { min-width: 1080px; }
+    .history-table { min-width: 1120px; }
+
+    .inventory-table th:nth-child(1), .inventory-table td:nth-child(1) { width: 15%; }
+    .inventory-table th:nth-child(2), .inventory-table td:nth-child(2) { width: 9%; }
+    .inventory-table th:nth-child(3), .inventory-table td:nth-child(3) { width: 15%; }
+    .inventory-table th:nth-child(4), .inventory-table td:nth-child(4) { width: 8%; }
+    .inventory-table th:nth-child(5), .inventory-table td:nth-child(5) { width: 8%; }
+    .inventory-table th:nth-child(6), .inventory-table td:nth-child(6) { width: 10%; }
+    .inventory-table th:nth-child(7), .inventory-table td:nth-child(7) { width: 12%; }
+    .inventory-table th:nth-child(8), .inventory-table td:nth-child(8) { width: 70px; }
+    .inventory-table th:nth-child(9), .inventory-table td:nth-child(9) { width: 12%; }
+    .inventory-table th:nth-child(10), .inventory-table td:nth-child(10) { width: 112px; }
+    .inventory-table th:nth-child(11), .inventory-table td:nth-child(11) { width: 126px; }
+
+    .jobs-table th:nth-child(1), .jobs-table td:nth-child(1) { width: 18%; }
+    .jobs-table th:nth-child(2), .jobs-table td:nth-child(2) { width: 20%; }
+    .jobs-table th:nth-child(3), .jobs-table td:nth-child(3) { width: 90px; }
+    .jobs-table th:nth-child(4), .jobs-table td:nth-child(4) { width: 150px; }
+    .jobs-table th:nth-child(5), .jobs-table td:nth-child(5) { width: 22%; }
+    .jobs-table th:nth-child(6), .jobs-table td:nth-child(6) { width: 130px; }
+    .jobs-table th:nth-child(7), .jobs-table td:nth-child(7) { width: 136px; }
+
+    .history-table th:nth-child(1), .history-table td:nth-child(1) { width: 130px; }
+    .history-table th:nth-child(2), .history-table td:nth-child(2) { width: 22%; }
+    .history-table th:nth-child(3), .history-table td:nth-child(3) { width: 18%; }
+    .history-table th:nth-child(4), .history-table td:nth-child(4) { width: 18%; }
+    .history-table th:nth-child(5), .history-table td:nth-child(5) { width: 18%; }
+    .history-table th:nth-child(6), .history-table td:nth-child(6) { width: 80px; }
+    .history-table th:nth-child(7), .history-table td:nth-child(7) { width: 104px; }
+
+    .jobs-table .pill,
+    .inventory-table .pill {
+      max-width: 100%;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .row-actions {
+      flex-wrap: nowrap;
+    }
+
     #textViewerDialog {
       width: min(640px, calc(100vw - 32px));
     }
@@ -984,7 +1091,7 @@
               </div>
             </div>
             <div class="table-wrap">
-              <table class="data-table">
+              <table class="data-table inventory-table">
                 <thead>
                   <tr>
                     <th>Linh kiện</th>
@@ -1149,7 +1256,7 @@
             </div>
           </div>
           <div class="table-wrap">
-            <table class="data-table">
+            <table class="data-table jobs-table">
               <thead>
                 <tr>
                   <th>Tên thiết bị máy</th>
@@ -1192,7 +1299,7 @@
             </div>
           </div>
           <div class="table-wrap">
-            <table class="data-table">
+            <table class="data-table history-table">
               <thead>
                 <tr>
                   <th>Ngày xảy ra</th>
@@ -1995,12 +2102,13 @@
     const textViewerCache = new Map();
     const PLACEHOLDER_IMG = `data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="40" height="40" viewBox="0 0 24 24" fill="%23cbd5e1"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-6h2v6zm0-8h-2V7h2v2z"/></svg>`;
 
-    function textEllipsisCell(text, title = "Chi tiết nội dung") {
+    function textEllipsisCell(text, title = "Chi tiết nội dung", extraClass = "") {
       const val = String(text ?? "").trim();
+      const cls = extraClass ? `cell-ellipsis ${extraClass}` : "cell-ellipsis";
       if (!val || val === "-") return `<span class="cell-ellipsis static">-</span>`;
       const key = crypto.randomUUID();
       textViewerCache.set(key, { title, body: val });
-      return `<button type="button" class="cell-ellipsis" data-text-key="${key}" title="Nhấp để xem đầy đủ">${escapeHtml(val)}</button>`;
+      return `<button type="button" class="${cls}" data-text-key="${key}" title="Nhấp để xem đầy đủ">${escapeHtml(val)}</button>`;
     }
 
     function imageThumbCell(imageSrc, entityId, type = "item") {
@@ -2058,15 +2166,15 @@
         const displayImage = item.image ? item.image : placeholderImg;
 
         return `<tr>
-          <td><strong style="color: #0f241d;">${escapeHtml(item.name)}</strong><br><div class="sku">${escapeHtml(item.sku)}</div></td>
-          <td><span style="font-weight: 300">${escapeHtml(item.category)}</span></td>
-          <td class="col-text-wide" style="font-size:13px; color:var(--muted);">${textEllipsisCell(item.specs, "Thông số kỹ thuật")}</td>
+          <td class="col-text-wide">${textEllipsisCell(item.name, "Tên linh kiện", "strong-text")}<div class="sku">${escapeHtml(item.sku)}</div></td>
+          <td class="col-text">${textEllipsisCell(item.category, "Nhóm linh kiện")}</td>
+          <td class="col-text-wide">${textEllipsisCell(item.specs, "Thông số kỹ thuật", "muted-text-cell")}</td>
           <td><strong>${number.format(item.quantity)}</strong></td>
           <td>${number.format(item.min)}</td>
-          <td><span style="background: #f0f4f1; padding: 4px 8px; border-radius: var(--radius-sm); font-weight: bold; font-size: 13px;">${escapeHtml(item.location || "-")}</span></td>
-          <td class="col-text">${textEllipsisCell(item.supplier, "Thiết bị dùng")}</td>
+          <td class="col-text">${textEllipsisCell(item.location || "-", "Vị trí kệ", "brand-text-cell")}</td>
+          <td class="col-text">${textEllipsisCell(item.supplier, "Thiết bị dùng", "muted-text-cell")}</td>
           <td class="col-img">${imageThumbCell(displayImage, item.id, "item")}</td>
-          <td class="col-text-wide" style="font-size:13px; color:var(--muted);">${textEllipsisCell(item.note, "Ghi chú linh kiện")}</td>
+          <td class="col-text-wide">${textEllipsisCell(item.note, "Ghi chú linh kiện", "muted-text-cell")}</td>
           <td><span class="pill ${cls}">${lbl}</span></td>
           <td>
             <div class="row-actions">
@@ -2445,11 +2553,11 @@
           : `<span class="pill ok">Đang theo dõi</span>`;
 
         return `<tr>
-          <td><strong style="color: #0d201a;">${escapeHtml(j.machineName)}</strong></td>
-          <td><span style="color:var(--brand); font-weight:700;">📌 ${escapeHtml(j.jobName)}</span></td>
+          <td class="col-text-wide">${textEllipsisCell(j.machineName, "Tên thiết bị máy", "strong-text")}</td>
+          <td class="col-text-wide">${textEllipsisCell(`📌 ${j.jobName}`, "Hạng mục / công việc bảo trì", "brand-text-cell")}</td>
           <td><strong style="background: #edf6f2; padding: 4px 8px; border-radius:4px; color:var(--brand);">${j.period} Tháng</strong></td>
           <td><strong style="color: ${isOverdue ? 'var(--danger)' : 'var(--ok)'}; font-size: 14px;">${formatDateDisplay(j.nextDate)}</strong></td>
-          <td class="col-text-wide" style="font-size:13px; color:var(--muted);">${textEllipsisCell(j.desc, "Mô tả chi tiết kỹ thuật Job")}</td>
+          <td class="col-text-wide">${textEllipsisCell(j.desc, "Mô tả chi tiết kỹ thuật Job", "muted-text-cell")}</td>
           <td>${statusPill}</td>
           <td>
             <div class="row-actions">
@@ -2484,10 +2592,10 @@
 
         return `<tr>
           <td><strong>${formatDateDisplay(h.faultTime)}</strong></td>
-          <td><strong style="color: #0f241d;">${escapeHtml(h.machine)}</strong></td>
-          <td><span style="color:var(--brand);font-weight:700;">👷 ${escapeHtml(h.staff)}</span></td>
-          <td class="col-text-wide" style="font-size:13px;">${textEllipsisCell(h.fault, "Mô tả lỗi sự cố")}</td>
-          <td class="col-text-wide" style="font-size:13px;">${textEllipsisCell(h.fix, "Phương án khắc phục")}</td>
+          <td class="col-text-wide">${textEllipsisCell(h.machine, "Thiết bị / máy lỗi", "strong-text")}</td>
+          <td class="col-text-wide">${textEllipsisCell(`👷 ${h.staff}`, "Kỹ sư xử lý", "brand-text-cell")}</td>
+          <td class="col-text-wide">${textEllipsisCell(h.fault, "Mô tả lỗi sự cố", "muted-text-cell")}</td>
+          <td class="col-text-wide">${textEllipsisCell(h.fix, "Phương án khắc phục", "muted-text-cell")}</td>
           <td class="col-img">${imageThumbCell(displayImage, h.id, "history")}</td>
           <td>
             <div class="row-actions">
