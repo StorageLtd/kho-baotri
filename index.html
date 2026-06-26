@@ -552,6 +552,73 @@
       object-fit: contain !important;
     }
 
+
+    /* Maintenance jobs: keep long content compact and clickable */
+    .jobs-table tbody tr {
+      height: 56px !important;
+      max-height: 56px !important;
+    }
+
+    .jobs-table td {
+      height: 56px;
+    }
+
+    .jobs-table .job-text-cell .cell-ellipsis {
+      display: block;
+      width: 100%;
+      max-width: 100%;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      line-height: 1.35;
+    }
+
+    .jobs-table .job-period,
+    .jobs-table .job-date {
+      display: inline-flex;
+      max-width: 100%;
+      align-items: center;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .jobs-table .job-period {
+      background: #edf6f2;
+      padding: 4px 8px;
+      border-radius: 4px;
+      color: var(--brand);
+      font-weight: 800;
+    }
+
+    .jobs-table .job-date {
+      font-size: 14px;
+      font-weight: 800;
+    }
+
+
+    /* Machine list: compact long text and open detail on click */
+    .machine-table { min-width: 920px; table-layout: fixed; }
+    .machine-table tbody tr {
+      height: 56px !important;
+      max-height: 56px !important;
+    }
+    .machine-table th:nth-child(1), .machine-table td:nth-child(1) { width: 28%; }
+    .machine-table th:nth-child(2), .machine-table td:nth-child(2) { width: 130px; }
+    .machine-table th:nth-child(3), .machine-table td:nth-child(3) { width: 130px; }
+    .machine-table th:nth-child(4), .machine-table td:nth-child(4) { width: 24%; }
+    .machine-table th:nth-child(5), .machine-table td:nth-child(5) { width: 18%; }
+    .machine-table th:nth-child(6), .machine-table td:nth-child(6) { width: 104px; }
+    .machine-table .machine-text-cell .cell-ellipsis {
+      display: block;
+      width: 100%;
+      max-width: 100%;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      line-height: 1.35;
+    }
+
     #textViewerDialog {
       width: min(640px, calc(100vw - 32px));
     }
@@ -1267,7 +1334,7 @@
             </div>
           </div>
           <div class="table-wrap">
-            <table>
+            <table class="data-table machine-table">
               <thead>
                 <tr>
                   <th>Tên máy thiết bị</th>
@@ -1275,7 +1342,7 @@
                   <th>Hạn bảo hành</th>
                   <th>Công ty cung cấp</th>
                   <th>Số điện thoại</th>
-                  <th style="width:100px; text-align: right;">Thao tác</th>
+                  <th class="col-actions" style="text-align: right;">Thao tác</th>
                 </tr>
               </thead>
               <tbody id="machineListBody"></tbody>
@@ -2159,9 +2226,8 @@
     function imageThumbCell(imageSrc, entityId, type = "item") {
       const raw = String(imageSrc || "").trim();
       const isSafeImage = raw && !/[<>"'\s]/.test(raw) && /^(data:image\/|https?:\/\/|\.\/|\.\.\/|[\w\-.\/]+\.(png|jpe?g|gif|webp|svg)(\?.*)?$)/i.test(raw);
-      const src = isSafeImage ? raw : PLACEHOLDER_IMG;
-      const fallbackClass = isSafeImage ? "" : " thumb-fallback";
-      return `<img src="${escapeHtml(src)}" class="table-thumb${fallbackClass}" data-img-entity="${escapeHtml(entityId)}" data-img-type="${escapeHtml(type)}" alt="Ảnh sản phẩm" title="Xem ảnh lớn">`;
+      if (!isSafeImage) return "";
+      return `<img src="${escapeHtml(raw)}" class="table-thumb" data-img-entity="${escapeHtml(entityId)}" data-img-type="${escapeHtml(type)}" alt="Ảnh sản phẩm" title="Xem ảnh lớn" loading="lazy" onerror="this.remove()">`;
     }
 
     function getAlarmKeyword(alarmCode) {
@@ -2210,8 +2276,7 @@
         const lbl = { ok: "Đủ dùng", low: "Sắp hết", out: "Hết linh kiện" }[s];
         const cls = { ok: "ok", low: "warn", out: "danger" }[s];
         
-        const placeholderImg = PLACEHOLDER_IMG;
-        const displayImage = item.image ? item.image : placeholderImg;
+        const displayImage = item.image || "";
 
         return `<tr>
           <td class="col-text-wide">${textEllipsisCell(item.name, "Tên linh kiện", "strong-text")}<div class="sku">${escapeHtml(item.sku)}</div></td>
@@ -2247,11 +2312,11 @@
       }
 
       els.machineListBody.innerHTML = rows.map(m => `<tr>
-        <td><strong style="color: var(--brand); font-size:15px;">⚙️ ${escapeHtml(m.name)}</strong></td>
-        <td>${formatDateDisplay(m.setupDate)}</td>
+        <td class="machine-text-cell">${textEllipsisCell(`⚙️ ${m.name}`, "Tên máy thiết bị", "brand-text-cell")}</td>
+        <td><strong>${formatDateDisplay(m.setupDate)}</strong></td>
         <td><strong>${formatDateDisplay(m.warranty)}</strong></td>
-        <td><span style="font-weight: 500">${escapeHtml(m.vendor)}</span></td>
-        <td><a href="tel:${m.phone}" style="color: var(--brand); font-weight: bold; text-decoration: none;">📞 ${escapeHtml(m.phone)}</a></td>
+        <td class="machine-text-cell">${textEllipsisCell(m.vendor, "Công ty cung cấp", "muted-text-cell")}</td>
+        <td class="machine-text-cell">${textEllipsisCell(m.phone ? `📞 ${m.phone}` : "", "Số điện thoại", "brand-text-cell")}</td>
         <td>
           <div class="row-actions">
             <button class="icon-btn" type="button" onclick="openMachineDialog('${m.id}')" title="Chỉnh sửa">${editIcon}</button>
@@ -2601,11 +2666,11 @@
           : `<span class="pill ok">Đang theo dõi</span>`;
 
         return `<tr>
-          <td class="col-text-wide">${textEllipsisCell(j.machineName, "Tên thiết bị máy", "strong-text")}</td>
-          <td class="col-text-wide">${textEllipsisCell(`📌 ${j.jobName}`, "Hạng mục / công việc bảo trì", "brand-text-cell")}</td>
-          <td><strong style="background: #edf6f2; padding: 4px 8px; border-radius:4px; color:var(--brand);">${j.period} Tháng</strong></td>
-          <td><strong style="color: ${isOverdue ? 'var(--danger)' : 'var(--ok)'}; font-size: 14px;">${formatDateDisplay(j.nextDate)}</strong></td>
-          <td class="col-text-wide">${textEllipsisCell(j.desc, "Mô tả chi tiết kỹ thuật Job", "muted-text-cell")}</td>
+          <td class="col-text-wide job-text-cell">${textEllipsisCell(j.machineName, "Tên thiết bị máy", "strong-text")}</td>
+          <td class="col-text-wide job-text-cell">${textEllipsisCell(`📌 ${j.jobName}`, "Hạng mục / công việc bảo trì", "brand-text-cell")}</td>
+          <td><span class="job-period">${escapeHtml(j.period)} Tháng</span></td>
+          <td><span class="job-date" style="color: ${isOverdue ? 'var(--danger)' : 'var(--ok)'};">${formatDateDisplay(j.nextDate)}</span></td>
+          <td class="col-text-wide job-text-cell">${textEllipsisCell(j.desc, "Mô tả chi tiết kỹ thuật Job", "muted-text-cell")}</td>
           <td>${statusPill}</td>
           <td>
             <div class="row-actions">
@@ -2635,8 +2700,7 @@
       }
 
       els.historyList.innerHTML = rows.map(h => {
-        const placeholderImg = PLACEHOLDER_IMG;
-        const displayImage = h.image ? h.image : placeholderImg;
+        const displayImage = h.image || "";
 
         return `<tr>
           <td><strong>${formatDateDisplay(h.faultTime)}</strong></td>
@@ -2670,7 +2734,8 @@
     const textViewerBody = document.querySelector("#textViewerBody");
 
     function openImageViewer(src) {
-      fullSizeImage.src = src || PLACEHOLDER_IMG;
+      if (!src) return;
+      fullSizeImage.src = src;
       imageViewerDialog.showModal();
     }
 
