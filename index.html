@@ -1168,6 +1168,33 @@
         <div style="color: #a7f3d0; font-size: 11px; margin-top: 4px;">● Đám mây (Firebase) đã kết nối</div>
       </div>
     </aside>
+    <div class="user-status" id="userStatusPanel">
+    <div style="font-size: 12px; color: var(--muted);">
+        <strong>Thiết bị:</strong> <span id="deviceName">Đang tải...</span><br>
+        <strong>IP:</strong> <span id="userIp">Đang tải...</span>
+    </div>
+</div>
+
+<dialog id="loginHistoryDialog">
+    <div class="modal-head">
+        <h3>Lịch sử đăng nhập</h3>
+        <button class="icon-btn" onclick="document.getElementById('loginHistoryDialog').close()">✕</button>
+    </div>
+    <div class="table-wrap">
+        <table class="history-table">
+            <thead>
+                <tr>
+                    <th>Thời gian</th>
+                    <th>Thiết bị</th>
+                    <th>Địa chỉ IP</th>
+                    <th>Trạng thái</th>
+                </tr>
+            </thead>
+            <tbody id="historyTableBody">
+                </tbody>
+        </table>
+    </div>
+</dialog>
 
     <main>
       <header class="topbar">
@@ -2167,7 +2194,28 @@
         }
       } catch(e){}
     }
+function updateLoginInfo() {
+    // 1. Lấy tên thiết bị đơn giản
+    const deviceName = navigator.userAgent.match(/(iPhone|iPad|Android|Windows NT|Macintosh)/)?.[0] || "PC/Khác";
+    document.getElementById('deviceName').textContent = deviceName;
 
+    // 2. Lấy IP (Cần gọi qua một API dịch vụ bên thứ 3)
+    fetch('https://api.ipify.org?format=json')
+        .then(response => response.json())
+        .then(data => {
+            document.getElementById('userIp').textContent = data.ip;
+        })
+        .catch(() => { document.getElementById('userIp').textContent = "Không xác định"; });
+}
+function exportHistory() {
+    // Giả sử bạn lấy dữ liệu từ một biến hoặc bảng
+    const headers = ["Thời gian", "Thiết bị", "IP", "Trạng thái"];
+    const rows = [
+        ["2026-06-30 10:00", "Windows Chrome", "192.168.1.1", "Thành công"],
+        // Thêm dữ liệu lấy từ backend
+    ];
+    downloadExcel(headers, rows, "LichSuDangNhap");
+}
     async function syncNode(nodeName, dataArray) {
       try {
         const obj = {};
