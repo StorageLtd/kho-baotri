@@ -1,0 +1,6 @@
+{
+  "name": "LTD VIET NAM - Cloud Maintenance System",
+  "description": "Hệ thống quản lý kho linh kiện và bảo trì thiết bị nhà xưởng LTD",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
