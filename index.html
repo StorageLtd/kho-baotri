@@ -3293,7 +3293,7 @@
         const keyword = getAlarmKeyword(a.alarmCode);
         const matchedPart = items.find(i => i.name.toLowerCase().includes(keyword.toLowerCase()));
         const stockLabel = matchedPart
-          ? (matchedPart.quantity > 0 ? `Còn ${matchedPart.quantity} (Kệ ${matchedPart.location || "-"})` : "Hết hàng")
+          ? (matchedPart.quantity > 0 ? `Còn ${matchedPart.quantity} (Kệ ${matchedPart.location || "-"})` : "Hết")
           : "Chưa có trong kho";
         const timeStr = `${formatDateDisplay(a.timestamp)} ${new Date(a.timestamp).toLocaleTimeString("vi-VN")}`;
         const resolvedStr = a.resolvedAt
