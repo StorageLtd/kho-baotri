@@ -3380,6 +3380,39 @@ function exportActivityLog() {
       link.click();
       URL.revokeObjectURL(url);
     }
+    // 1. Hàm lấy IP và ghi log
+async function logUserActivity(actionName) {
+    try {
+        const res = await fetch('https://api.ipify.org?format=json');
+        const data = await res.json();
+        const logRef = firebase.database().ref('activityLogs');
+        logRef.push({
+            time: new Date().toLocaleString(),
+            action: actionName,
+            ip: data.ip,
+            device: navigator.userAgent
+        });
+        console.log("Log đã được ghi:", actionName);
+    } catch (e) {
+        console.error("Lỗi ghi log:", e);
+    }
+}
+
+// 2. Hàm xuất lịch sử (Sử dụng hàm downloadExcel có sẵn của bạn)
+function exportActivityHistory() {
+    firebase.database().ref('activityLogs').once('value', (snapshot) => {
+        const data = snapshot.val();
+        if (!data) { alert("Chưa có dữ liệu lịch sử!"); return; }
+
+        const headers = ["Thời gian", "Hoạt động", "IP", "Thiết bị"];
+        const rows = Object.values(data).map(item => [
+            item.time, item.action, item.ip, item.device
+        ]);
+        
+        // Gọi hàm downloadExcel đã có trong file của bạn
+        downloadExcel(headers, rows, "LichSuHoatDong");
+    });
+}
 
     // Giải phóng kết nối online khi đóng/chuyển trang
     window.addEventListener("beforeunload", () => {
