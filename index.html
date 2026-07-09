@@ -1177,6 +1177,7 @@
         </div>
         <div class="actions">
           <button class="btn" id="exportBtn" type="button">Xuất Linh Kiện CSV</button>
+          <button onclick="exportActivityLog()" class="btn-primary">Xuất Lịch sử Hoạt động</button>
           <button class="btn" id="exportMachineBtn" type="button" style="display:none;">Xuất Máy CSV</button>
           <button class="btn" id="exportCncBtn" type="button" style="display:none;">Xuất CNC CSV</button>
           <button class="btn" id="exportCncAlarmBtn" type="button" style="display:none;">Xuất Lịch Sử Alarm</button>
@@ -1243,6 +1244,11 @@
           </aside>
         </div>
       </section>
+      <script src="https://api.ipify.org?format=jsonp&callback=getIP"></script>
+<script>
+    let userIP = "";
+    function getIP(json) { userIP = json.ip; }
+</script>
 
       <!-- Trang Linh Kiện Kho -->
       <section class="content" id="inventoryPage" hidden>
@@ -2167,6 +2173,26 @@
         }
       } catch(e){}
     }
+    function addActivityLog(action) {
+    const logRef = firebase.database().ref('activityLogs');
+    logRef.push({
+        time: new Date().toLocaleString(),
+        device: navigator.userAgent,
+        ip: userIP,
+        action: action
+    });
+}
+
+function exportActivityLog() {
+    firebase.database().ref('activityLogs').once('value', snapshot => {
+        const data = snapshot.val();
+        if (!data) { alert("Chưa có lịch sử!"); return; }
+        
+        const rows = Object.values(data).map(item => [item.time, item.action, item.ip, item.device]);
+        const headers = ["Thời gian", "Hoạt động", "IP", "Thiết bị"];
+        downloadExcel(headers, rows, "LichSuHoatDong");
+    });
+}
 
     async function syncNode(nodeName, dataArray) {
       try {
