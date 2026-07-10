@@ -2004,7 +2004,9 @@
         options.body = JSON.stringify(body);
       }
       try {
-        const res = await fetch(`${DB_URL}/${path}.json`, options);
+       // Thay thế đoạn fetch bằng lệnh của SDK
+const snapshot = await firebase.database().ref(path).get();
+const data = snapshot.val();
         return await res.json();
       } catch (err) {
         console.error("Lỗi đám mây:", err);
