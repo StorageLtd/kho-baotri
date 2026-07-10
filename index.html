@@ -2004,8 +2004,26 @@
         options.body = JSON.stringify(body);
       }
       try {
-       const res = await fetch(`${DB_URL}/${path}.json`, options);
-        return await res.json();
+      // ĐOẠN MỚI BẠN CẦN THAY THẾ
+const user = firebase.auth().currentUser;
+
+if (user) {
+    // 1. Lấy mã thông báo (ID Token) từ Firebase
+    const idToken = await user.getIdToken();
+
+    // 2. Chèn ?auth=idToken vào URL
+    // Lưu ý: Nếu URL của bạn đã có dấu '?' từ trước, hãy dùng '&auth='
+    const separator = `${DB_URL}/${path}.json`.includes('?') ? '&' : '?';
+    const secureUrl = `${DB_URL}/${path}.json${separator}auth=${idToken}`;
+
+    // 3. Thực hiện fetch với URL mới
+    const res = await fetch(secureUrl, options);
+    const data = await res.json();
+    
+    // ... tiếp tục các logic xử lý dữ liệu (data) của bạn ở đây
+} else {
+    console.error("Người dùng chưa đăng nhập, không thể fetch dữ liệu!");
+}
       } catch (err) {
         console.error("Lỗi đám mây:", err);
         return null;
