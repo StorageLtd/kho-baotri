@@ -1849,6 +1849,16 @@
 
     if (!sessionStorage.getItem("ltd_user_session_id")) {
       sessionStorage.setItem("ltd_user_session_id", crypto.randomUUID());
+      // Ví dụ: Kiểm tra trạng thái đăng nhập
+firebase.auth().onAuthStateChanged((user) => {
+  if (user) {
+    // Đã đăng nhập: Đây là nơi bạn gọi loadCloudData()
+    loadCloudData(); 
+  } else {
+    // Chưa đăng nhập: Cần chuyển hướng đến trang đăng nhập
+    window.location.href = 'login.html'; 
+  }
+});
     }
     const mySessionId = sessionStorage.getItem("ltd_user_session_id");
 
