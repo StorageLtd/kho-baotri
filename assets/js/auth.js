@@ -16,6 +16,23 @@ export const sendVerification = (user) => sendEmailVerification(user);
 export const getUser = () => auth.currentUser;
 export const getToken = () => auth.currentUser?.getIdToken();
 
+async function createDefaultProfile() {
+  const token = await getToken();
+  const user = auth.currentUser;
+  const response = await fetch(`${firebaseConfig.databaseURL}/users/${user.uid}.json?auth=${encodeURIComponent(token)}`, {
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      displayName: user.displayName || user.email.split("@")[0],
+      email: user.email,
+      role: "technician",
+      createdAt: new Date().toISOString()
+    })
+  });
+  if (!response.ok) throw new Error("Không thể tạo hồ sơ quyền cho tài khoản.");
+  return response.json();
+}
+
 export async function registerAccount({ displayName, email, password }) {
   const credential = await createUserWithEmailAndPassword(auth, email, password);
   await updateProfile(credential.user, { displayName });
@@ -41,6 +58,7 @@ export async function loadProfile() {
   const response = await fetch(`${firebaseConfig.databaseURL}/users/${auth.currentUser.uid}.json?auth=${encodeURIComponent(token)}`);
   if (!response.ok) throw new Error("Không thể tải quyền người dùng.");
   currentProfile = await response.json();
+  if (!currentProfile) currentProfile = await createDefaultProfile();
   return currentProfile;
 }
 
