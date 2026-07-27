@@ -421,16 +421,21 @@
       document.body.classList.add("locked"); 
     }
 
+  
     function applyAuthorization() {
+      if (canEdit()) return;
       const allowedToEdit = canEdit();
       document.querySelectorAll("button.primary, button.danger, #addMachineBtn, #addCncBtn, #addJobBtn, #addHistoryBtn").forEach(button => {
         if (button.closest(".login-screen")) return;
+        button.disabled = true;
+        button.title = "Tài khoản chỉ có quyền xem. Liên hệ quản lý để được cấp quyền chỉnh sửa.";
         button.disabled = !allowedToEdit;
         button.title = allowedToEdit
           ? ""
           : "Tài khoản chỉ có quyền xem. Liên hệ quản lý để được cấp quyền chỉnh sửa.";
       });
     }
+
 
     function switchPage(pageId) {
       els.overviewPage.hidden = (pageId !== "overviewPage");
