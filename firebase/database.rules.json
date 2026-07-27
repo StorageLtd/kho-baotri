@@ -1,0 +1,26 @@
+{
+  "rules": {
+    ".read": false,
+    ".write": false,
+    "users": {
+      "$uid": {
+        ".read": "auth != null && (auth.uid === $uid || root.child('users').child(auth.uid).child('role').val() === 'admin')",
+        ".write": "auth != null && root.child('users').child(auth.uid).child('role').val() === 'admin'"
+      }
+    },
+    "online_users": {
+      ".read": "auth != null",
+      "$sessionId": {
+        ".write": "auth != null && (!data.exists() || data.child('uid').val() === auth.uid)",
+        ".validate": "newData.hasChildren(['uid','timestamp']) && newData.child('uid').val() === auth.uid"
+      }
+    },
+    "items": { ".read": "auth != null", ".write": "auth != null && (root.child('users').child(auth.uid).child('role').val() === 'admin' || root.child('users').child(auth.uid).child('role').val() === 'manager')" },
+    "machines": { ".read": "auth != null", ".write": "auth != null && (root.child('users').child(auth.uid).child('role').val() === 'admin' || root.child('users').child(auth.uid).child('role').val() === 'manager')" },
+    "maintenanceJobs": { ".read": "auth != null", ".write": "auth != null && (root.child('users').child(auth.uid).child('role').val() === 'admin' || root.child('users').child(auth.uid).child('role').val() === 'manager')" },
+    "cncs": { ".read": "auth != null", ".write": "auth != null && (root.child('users').child(auth.uid).child('role').val() === 'admin' || root.child('users').child(auth.uid).child('role').val() === 'manager')" },
+    "cncAlarms": { ".read": "auth != null", ".write": "auth != null && (root.child('users').child(auth.uid).child('role').val() === 'admin' || root.child('users').child(auth.uid).child('role').val() === 'manager')" },
+    "repairHistory": { ".read": "auth != null", ".write": "auth != null && (root.child('users').child(auth.uid).child('role').val() === 'admin' || root.child('users').child(auth.uid).child('role').val() === 'manager')" },
+    "activities": { ".read": "auth != null", ".write": "auth != null && (root.child('users').child(auth.uid).child('role').val() === 'admin' || root.child('users').child(auth.uid).child('role').val() === 'manager')" }
+  }
+}

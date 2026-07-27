@@ -1,0 +1,755 @@
+﻿<!doctype html>
+<html lang="vi">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>LTD VIET NAM - Cloud Maintenance System</title>
+    <link rel="stylesheet" href="assets/css/app.css">
+</head>
+<body class="locked">
+  <!-- Screen Đăng Nhập -->
+  <section class="login-screen">
+    <form class="login-panel" id="loginForm" onsubmit="return false;">
+      <div class="login-title">
+        <div class="login-logo-container">
+          <img src="logo.jpg" alt="LTD Logo" style="width: 260px; height: auto; object-fit: contain;">
+        </div>
+        <div>
+          <h1>LTD VIET NAM</h1>
+          <p>Hệ Thống Quản Lý Kho & Bảo Trì Thiết Bị</p>
+        </div>
+      </div>
+      
+      <div class="field">
+        <label for="emailInput">Email cá nhân</label>
+        <input class="input" id="emailInput" type="email" required placeholder="tenban@congty.com" autocomplete="email">
+      </div>
+      
+      <div class="field">
+        <label for="passwordInput">Mật khẩu</label>
+        <div class="password-field-container">
+          <input class="input" id="passwordInput" type="password" required placeholder="Nhập mật khẩu" autocomplete="current-password">
+          <button type="button" class="toggle-password-btn" id="togglePasswordBtn">HIỆN</button>
+        </div>
+      </div>
+      
+      <div class="login-error" id="loginError"></div>
+      <button class="btn primary" type="submit" id="submitLoginBtn" style="width:100%; min-height:46px;">Đăng Nhập</button>
+    </form>
+  </section>
+
+  <!-- Giao Diện App Chính -->
+  <div class="app">
+    <aside class="sidebar">
+      <div class="brand">
+        <div class="brand-logo-container">
+          <img src="logo.jpg" alt="LTD Logo" style="width: 220px; height: auto; object-fit: contain;">
+        </div>
+        <div class="brand-text">
+          <h1>LTD VIET NAM</h1>
+        </div>
+      </div>
+      
+      <nav class="nav" aria-label="Menu chức năng">
+        <button class="active" type="button" data-page="overviewPage">
+          <svg viewBox="0 0 24 24"><path d="M10 20v-6h4v6h5v-8h3L12 3 2 12h3v8z"/></svg>
+          Tổng quan
+        </button>
+        <button type="button" data-page="inventoryPage">
+          <svg viewBox="0 0 24 24"><path d="M5 5h4v4H5zm0 10h4v4H5zm10-10h4v4h-4zm0 10h4v4h-4z"/></svg>
+          Linh kiện kho
+        </button>
+        <button type="button" data-page="cncMonitoringPage">
+          <svg viewBox="0 0 24 24"><path d="M19.14,12.94c0.04-0.3,0.06-0.61,0.06-0.94c0-0.32-0.02-0.64-0.07-0.94l2.03-1.58c0.18-0.14,0.23-0.41,0.12-0.61 l-1.92-3.32c-0.12-0.22-0.37-0.29-0.59-0.22l-2.39,0.96c-0.5-0.38-1.03-0.7-1.62-0.94L14.4,2.81c-0.04-0.24-0.24-0.41-0.48-0.41 h-3.84c-0.24,0-0.43,0.17-0.47,0.41L9.25,5.35C8.66,5.59,8.12,5.92,7.63,6.29L5.24,5.33c-0.22-0.08-0.47,0-0.59,0.22L2.74,8.87 C2.62,9.08,2.66,9.34,2.86,9.48l2.03,1.58C4.84,11.36,4.8,11.69,4.8,12c0,0.31,0.04,0.64,0.07,0.94l-2.03,1.58 c-0.18,0.14-0.23,0.41-0.12,0.61l1.92,3.32c0.12,0.22,0.37,0.29,0.59,0.22l2.39-0.96c0.5,0.38,1.03,0.7,1.62,0.94l0.36,2.54 c0.05,0.24,0.24,0.41,0.48,0.41h3.84c0.24,0,0.44-0.17,0.47-0.41l0.36-2.54c0.59-0.24,1.13-0.56,1.62-0.94l2.39,0.96 c0.22,0.08,0.47,0,0.59-0.22l1.92-3.32c0.12-0.22,0.07-0.47-0.12-0.61L19.14,12.94z M12,15.6c-1.98,0-3.6-1.62-3.6-3.6 s1.62-3.6,3.6-3.6s3.6,1.62,3.6,3.6S13.98,15.6,12,15.6z"/></svg>
+          🖥️ Giám sát CNC
+        </button>
+        <button type="button" data-page="machinesPage">
+          <svg viewBox="0 0 24 24"><path d="M22 9V7h-2V5c0-1.1-.9-2-2-2H4c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2v-2h2v-2h-2v-2h2v-2h-2V9h2zm-4 10H4V5h14v14zM6 13h5v4H6zm6-6h4v3h-4z"/></svg>
+          Danh sách máy
+        </button>
+        <button type="button" data-page="maintenanceJobsPage">
+          <svg viewBox="0 0 24 24"><path d="M19 3h-1V1h-2v2H8V1H6v2H5c-1.11 0-1.99.9-1.99 2L3 19c0 1.1.89 2 2 2h14c1.1 0 2-.9 2-2V5c0-2-1.1-2-2-2zm0 16H5V8h14v11zM7 10h5v5H7z"/></svg>
+          📅 Lịch bảo trì máy
+        </button>
+        <button type="button" data-page="historyPage">
+          <svg viewBox="0 0 24 24"><path d="M13 3c-4.97 0-9 4.03-9 9H1l3.89 3.89.07.14L9 12H6c0-3.87 3.13-7 7-7s7 3.13 7 7-3.13 7-7 7c-1.93 0-3.68-.79-4.94-2.06l-1.42 1.42C8.27 19.99 10.51 21 13 21c4.97 0 9-4.03 9-9s-4.03-9-9-9zm-1 5v5l4.28 2.54.72-1.21-3.5-2.08V8H12z"/></svg>
+          Lịch sử sửa chữa
+        </button>
+      </nav>
+      
+      <div class="sidebar-footer">
+        <strong id="todayLabel">Đang tải...</strong>
+        <div style="color: #6ee7b7; font-weight: bold; margin-top: 6px; display: flex; align-items: center; gap: 6px;" id="onlineCountLabel">
+          <span style="display:inline-block; width:8px; height:8px; border-radius:50%; background:#10b981; animation: rise 1s infinite alternate;"></span>
+          Đang truy cập: 1 người
+        </div>
+        <div style="color: #a7f3d0; font-size: 11px; margin-top: 4px;">● Đám mây (Firebase) đã kết nối</div>
+      </div>
+    </aside>
+
+    <main>
+      <header class="topbar">
+        <div class="page-title">
+          <h2 id="pageHeading">LTD VIET NAM</h2>
+          <p id="pageSubtitle">Quản lý linh kiện bảo trì</p>
+        </div>
+        <div class="actions">
+          <button class="btn" id="exportBtn" type="button">Xuất Linh Kiện CSV</button>
+          <button class="btn" id="exportMachineBtn" type="button" style="display:none;">Xuất Máy CSV</button>
+          <button class="btn" id="exportCncBtn" type="button" style="display:none;">Xuất CNC CSV</button>
+          <button class="btn" id="exportCncAlarmBtn" type="button" style="display:none;">Xuất Lịch Sử Alarm</button>
+          <button class="btn" id="exportJobBtn" type="button" style="display:none;">Xuất Lịch Job CSV</button>
+          <button class="btn" id="exportHistoryBtn" type="button" style="display:none;">Xuất Lịch Sử CSV</button>
+          <button class="btn danger-btn" id="logoutBtn" type="button">Đăng xuất</button>
+          <button class="btn primary" id="addBtn" type="button">Thêm linh kiện</button>
+          <button class="btn primary" id="addMachineMainBtn" type="button" style="display:none;">Thêm máy mới</button>
+          <button class="btn primary" id="addCncMainBtn" type="button" style="display:none;">Thêm máy CNC mới</button>
+          <button class="btn primary" id="addJobMainBtn" type="button" style="display:none;">Tạo Job Bảo Trì</button>
+        </div>
+      </header>
+
+      <!-- Trang Tổng Quan -->
+      <section class="content" id="overviewPage">
+        <div class="stats" id="overview">
+          <article class="stat">
+            <span>Mã linh kiện</span>
+            <strong id="statItems">0</strong>
+          </article>
+          <article class="stat">
+            <span>Tổng số lượng còn</span>
+            <strong id="statUnits">0</strong>
+          </article>
+          <article class="stat">
+            <span>Vị trí kệ</span>
+            <strong id="statValue">0</strong>
+          </article>
+          <article class="stat low-warning">
+            <span>Sắp hết linh kiện</span>
+            <strong id="statLow" style="color: var(--danger)">0</strong>
+          </article>
+        </div>
+
+        <div class="workspace">
+          <section class="section">
+            <div class="section-head">
+              <h3>Tóm tắt nhanh</h3>
+              <span class="meta">Cập nhật theo dữ liệu đám mây LTD</span>
+            </div>
+            <div style="padding: 20px; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px;">
+              <div style="background: var(--panel-soft); border-radius: var(--radius-sm); padding: 16px; border: 1px solid var(--line);">
+                <div class="meta" style="margin-bottom: 6px;">Máy CNC giám sát</div>
+                <strong style="font-size: 28px; color: var(--brand);" id="overviewCncTotal">0</strong>
+                <div class="meta" style="margin-top: 8px;">RUN: <strong id="overviewCncRun">0</strong> · HOLD: <strong id="overviewCncHold">0</strong> · ALARM: <strong id="overviewCncAlarm" style="color:var(--danger)">0</strong></div>
+              </div>
+              <div style="background: var(--panel-soft); border-radius: var(--radius-sm); padding: 16px; border: 1px solid var(--line);">
+                <div class="meta" style="margin-bottom: 6px;">Thiết bị & bảo trì</div>
+                <strong style="font-size: 28px; color: var(--brand);" id="overviewMachineTotal">0</strong>
+                <div class="meta" style="margin-top: 8px;">Job đến hạn: <strong id="overviewJobOverdue" style="color:var(--danger)">0</strong></div>
+              </div>
+            </div>
+          </section>
+
+          <aside class="side-panel">
+            <section class="section">
+              <div class="section-head"><h3>Cảnh báo hạn & tồn</h3></div>
+              <div class="list" id="alertList"></div>
+            </section>
+            <section class="section">
+              <div class="section-head"><h3>Hoạt động gần đây</h3></div>
+              <div class="list" id="activityList"></div>
+            </section>
+          </aside>
+        </div>
+      </section>
+
+      <!-- Trang Linh Kiện Kho -->
+      <section class="content" id="inventoryPage" hidden>
+        <section class="section" id="inventorySection">
+            <div class="section-head">
+              <h3>Danh sách linh kiện bảo trì</h3>
+              <span class="meta" id="resultCount">Đang tải...</span>
+            </div>
+            <div class="filters">
+              <div class="field">
+                <label for="searchInput">Tìm kiếm nhanh</label>
+                <input class="input" id="searchInput" type="search" placeholder="Tên linh kiện, mã, kệ...">
+              </div>
+              <div class="field">
+                <label for="categoryFilter">Nhóm linh kiện</label>
+                <select id="categoryFilter"><option value="all">Tất cả</option></select>
+              </div>
+              <div class="field">
+                <label for="statusFilter">Trạng thái tồn</label>
+                <select id="statusFilter">
+                  <option value="all">Tất cả</option>
+                  <option value="ok">Đủ dùng</option>
+                  <option value="low">Sắp hết</option>
+                  <option value="out">Hết linh kiện</option>
+                </select>
+              </div>
+            </div>
+            <div class="table-wrap">
+              <table class="data-table inventory-table">
+                <thead>
+                  <tr>
+                    <th>Linh kiện</th>
+                    <th>Nhóm</th>
+                    <th class="col-text-wide">Thông số kỹ thuật</th>
+                    <th>Số lượng</th>
+                    <th>Tối thiểu</th>
+                    <th>Vị trí Kệ</th>
+                    <th class="col-text">Thiết bị dùng</th>
+                    <th class="col-img">Hình ảnh</th>
+                    <th class="col-text-wide">Ghi chú</th>
+                    <th class="col-status">Trạng thái</th>
+                    <th class="col-actions" style="text-align: right;">Thao tác</th>
+                  </tr>
+                </thead>
+                <tbody id="inventoryBody"></tbody>
+              </table>
+            </div>
+          </section>
+      </section>
+
+      <!-- Trang GIÁM SÁT MÁY CNC (MỚI TÍCH HỢP) -->
+      <section class="content" id="cncMonitoringPage" hidden>
+        <div class="stats">
+          <article class="stat">
+            <span>Tổng số máy CNC</span>
+            <strong id="statCncTotal">0</strong>
+          </article>
+          <article class="stat" style="border-left: 4px solid var(--ok)">
+            <span>Máy đang chạy (RUN)</span>
+            <strong id="statCncRunning" style="color: var(--ok)">0</strong>
+          </article>
+          <article class="stat" style="border-left: 4px solid var(--warn)">
+            <span>Máy đang chờ (HOLD)</span>
+            <strong id="statCncHold" style="color: var(--warn)">0</strong>
+          </article>
+          <article class="stat low-warning" style="border-left: 4px solid var(--danger)">
+            <span>Máy đang có lỗi (ALARM)</span>
+            <strong id="statCncAlarm" style="color: var(--danger)">0</strong>
+          </article>
+        </div>
+
+        <div class="workspace">
+          <div style="display: flex; flex-direction: column; gap: 24px;">
+            <section class="section">
+              <div class="section-head">
+                <h3>Bảng điều khiển & Giám sát CNC (Thời gian thực)</h3>
+                <div class="row-actions">
+                  <button class="btn primary" id="addCncBtn" type="button">Thêm máy CNC</button>
+                </div>
+              </div>
+              <div style="padding: 16px 20px; background: #fbfcfa; border-bottom: 1px solid var(--line); display: flex; gap: 12px; align-items: center;">
+                <div class="field" style="flex: 1;">
+                  <input class="input" id="cncSearchInput" type="search" placeholder="Tìm theo tên máy CNC, IP kết nối...">
+                </div>
+              </div>
+              <div class="list" style="padding: 20px;">
+                <div class="cnc-grid" id="cncListGrid">
+                  <!-- Danh sách máy CNC tải động -->
+                </div>
+              </div>
+            </section>
+
+            <!-- Lịch sử lỗi của máy CNC liên kết kho -->
+            <section class="section">
+              <div class="section-head">
+                <h3>Thống kê lịch sử Alarm & Linh kiện khắc phục trong kho LTD</h3>
+                <div class="row-actions">
+                  <button class="btn" id="exportCncAlarmSectionBtn" type="button">Xuất Excel Alarm</button>
+                  <span class="meta" id="cncAlarmCount">0 sự cố</span>
+                </div>
+              </div>
+              <div class="table-wrap">
+                <table class="data-table">
+                  <thead>
+                    <tr>
+                      <th>Thời gian phát hiện</th>
+                      <th>Tên máy CNC</th>
+                      <th>Mã Alarm (Hệ Fanuc 0i-F)</th>
+                      <th class="col-text-wide">Mô tả chi tiết lỗi</th>
+                      <th>Nhóm Linh kiện</th>
+                      <th class="col-text">Trạng thái tồn kho thực tế (LTD)</th>
+                      <th class="col-actions" style="text-align: right;">Thao tác xử lý</th>
+                    </tr>
+                  </thead>
+                  <tbody id="cncAlarmHistoryBody">
+                    <!-- Danh sách tải động -->
+                  </tbody>
+                </table>
+              </div>
+            </section>
+          </div>
+
+          <aside class="side-panel">
+            <section class="section">
+              <div class="section-head"><h3>Thông tin Fanuc 0i-F</h3></div>
+              <div class="list" style="padding: 16px; font-size: 13.5px; line-height: 1.6; display: flex; flex-direction: column; gap: 10px;">
+                <p>Hệ điều hành <strong>Fanuc Series 0i-MODEL F</strong> được giám sát thông qua kết nối giao thức <strong>Ethernet (FOCAS 1/2 API)</strong> tại Port <code>8193</code>.</p>
+                <div style="border-top: 1px solid var(--line); padding-top: 10px;">
+                  <strong>Các nhóm mã lỗi liên kết kho:</strong>
+                  <ul style="padding-left: 20px; margin: 8px 0;">
+                    <li><code>SVxxxx</code> (Servo Drive/Motor) -> Liên kết cảm biến, cáp, motor trục.</li>
+                    <li><code>SPxxxx</code> (Spindle Drive) -> Liên kết Spindle inverter, chổi than.</li>
+                    <li><code>OTxxxx</code> (Overtravel) -> Liên kết công tắc hành trình.</li>
+                    <li><code>ALxxxx</code> (PMC Alarm) -> Liên kết relay, PLC board, nguồn 24VDC.</li>
+                  </ul>
+                </div>
+              </div>
+            </section>
+          </aside>
+        </div>
+      </section>
+
+      <!-- Trang Danh Sách Máy Móc -->
+      <section class="content" id="machinesPage" hidden>
+        <section class="section">
+          <div class="section-head">
+            <div>
+              <h3>Danh sách quản lý máy nhà xưởng</h3>
+              <div class="meta">Theo dõi thông tin thiết bị cơ bản và thời gian bảo hành nhà cung cấp.</div>
+            </div>
+            <button class="btn primary" id="addMachineBtn" type="button">Thêm máy mới</button>
+          </div>
+          <div style="padding: 16px 20px; background: #fbfcfa; border-bottom: 1px solid var(--line);">
+            <div class="field">
+              <label for="machineSearchInput">Tìm nhanh máy thiết bị</label>
+              <input class="input" id="machineSearchInput" type="search" placeholder="Tìm theo tên máy, đơn vị cung cấp...">
+            </div>
+          </div>
+          <div class="table-wrap">
+            <table class="data-table machine-table">
+              <thead>
+                <tr>
+                  <th>Tên máy thiết bị</th>
+                  <th>Ngày lắp đặt</th>
+                  <th>Hạn bảo hành</th>
+                  <th>Công ty cung cấp</th>
+                  <th>Số điện thoại</th>
+                  <th class="col-actions" style="text-align: right;">Thao tác</th>
+                </tr>
+              </thead>
+              <tbody id="machineListBody"></tbody>
+            </table>
+          </div>
+        </section>
+      </section>
+
+      <!-- Trang Kế Hoạch Job Bảo Trì -->
+      <section class="content" id="maintenanceJobsPage" hidden>
+        <section class="section">
+          <div class="section-head">
+            <div>
+              <h3>Thiết lập kế hoạch Job bảo trì định kỳ</h3>
+              <div class="meta">Cài đặt nhiều hạng mục kiểm tra, thay thế vật tư riêng biệt cho mỗi thiết bị máy.</div>
+            </div>
+            <button class="btn primary" id="addJobBtn" type="button">Thêm kế hoạch Job mới</button>
+          </div>
+          <div style="padding: 16px 20px; background: #fbfcfa; border-bottom: 1px solid var(--line);">
+            <div class="field">
+              <label for="jobSearchInput">Lọc nhanh theo tên máy hoặc tên công việc</label>
+              <input class="input" id="jobSearchInput" type="search" placeholder="Ví dụ: Kiểm tra biến tần, Thay dầu...">
+            </div>
+          </div>
+          <div class="table-wrap">
+            <table class="data-table jobs-table">
+              <thead>
+                <tr>
+                  <th>Tên thiết bị máy</th>
+                  <th>Hạng mục / Công việc bảo trì (Job)</th>
+                  <th>Chu kỳ lặp</th>
+                  <th>Ngày bảo trì dự kiến tiếp theo</th>
+                  <th class="col-text-wide">Mô tả chi tiết kỹ thuật</th>
+                  <th class="col-status">Trạng thái</th>
+                  <th class="col-actions" style="text-align: right;">Thao tác</th>
+                </tr>
+              </thead>
+              <tbody id="jobListBody"></tbody>
+            </table>
+          </div>
+        </section>
+      </section>
+
+      <!-- Trang Lịch Sử Sửa Chữa -->
+      <section class="content" id="historyPage" hidden>
+        <section class="section">
+          <div class="section-head">
+            <div>
+              <h3>Lịch sử sự cố lỗi và xử lý sửa chữa</h3>
+              <div class="meta">Theo dõi lỗi phát sinh đột xuất của thiết bị máy và phương án khắc phục thực tế.</div>
+            </div>
+            <button class="btn primary" id="addHistoryBtn" type="button">Thêm lịch sử mới</button>
+          </div>
+          <div class="history-tools">
+            <div class="field">
+              <label for="historySearchInput">Tìm nhanh sự cố</label>
+              <input class="input" id="historySearchInput" type="search" placeholder="Tên máy, nội dung lỗi...">
+            </div>
+            <div class="field">
+              <label for="historyFromInput">Từ ngày sự cố</label>
+              <input class="input" id="historyFromInput" type="date">
+            </div>
+            <div class="field">
+              <label for="historyToInput">Đến ngày sự cố</label>
+              <input class="input" id="historyToInput" type="date">
+            </div>
+          </div>
+          <div class="table-wrap">
+            <table class="data-table history-table">
+              <thead>
+                <tr>
+                  <th>Ngày xảy ra</th>
+                  <th>Thiết bị máy lỗi</th>
+                  <th>Kỹ sư xử lý</th>
+                  <th class="col-text-wide">Mô tả lỗi sự cố</th>
+                  <th class="col-text-wide">Phương án khắc phục</th>
+                  <th class="col-img">Hình ảnh thực tế</th>
+                  <th class="col-actions" style="text-align: right;">Thao tác</th>
+                </tr>
+              </thead>
+              <tbody id="historyList"></tbody>
+            </table>
+          </div>
+        </section>
+      </section>
+    </main>
+  </div>
+
+  <!-- Dialog / Hộp thoại: Thêm/Sửa Linh Kiện -->
+  <dialog id="itemDialog">
+    <form id="itemForm" method="dialog">
+      <div class="modal-head">
+        <h3 id="dialogTitle">Thêm linh kiện</h3>
+        <button class="icon-btn" value="cancel" type="button" id="closeDialog">
+          <svg viewBox="0 0 24 24"><path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+        </button>
+      </div>
+      <div class="form-grid">
+        <input type="hidden" id="itemId">
+        <div class="field">
+          <label for="nameInput">Tên linh kiện</label>
+          <input class="input" id="nameInput" required placeholder="Ví dụ: Cảm biến quang">
+        </div>
+        <div class="field">
+          <label for="skuInput">Mã linh kiện (SKU)</label>
+          <input class="input" id="skuInput" required placeholder="Ví dụ: CB-QG-001">
+        </div>
+        <div class="field">
+          <label for="categoryInput">Nhóm linh kiện</label>
+          <input class="input" id="categoryInput" required placeholder="Ví dụ: Thiết bị cảm biến">
+        </div>
+        <div class="field">
+          <label for="supplierInput">Thiết bị dùng cho</label>
+          <input class="input" id="supplierInput" required placeholder="Ví dụ: Máy CNC Fanuc, Máy nén khí">
+        </div>
+        <div class="field">
+          <label for="quantityInput">Số lượng hiện tại trong kho</label>
+          <input class="input" id="quantityInput" type="number" required min="0" value="0">
+        </div>
+        <div class="field">
+          <label for="minInput">Ngưỡng tồn tối thiểu cảnh báo</label>
+          <input class="input" id="minInput" type="number" required min="0" value="1">
+        </div>
+        <div class="field">
+          <label for="priceInput">Giá tham khảo (VNĐ)</label>
+          <input class="input" id="priceInput" type="number" required min="0" value="0">
+        </div>
+        <div class="field">
+          <label for="locationInput">Vị trí kệ lưu trữ</label>
+          <input class="input" id="locationInput" placeholder="Ví dụ: Kệ A - Ngăn 3">
+        </div>
+        <div class="field wide">
+          <label for="specsInput">Thông số kỹ thuật linh kiện</label>
+          <textarea id="specsInput" placeholder="Nhập kích thước, điện áp, tần số, công suất..."></textarea>
+        </div>
+        <div class="field wide">
+          <label for="noteInput">Ghi chú thêm</label>
+          <textarea id="noteInput" placeholder="Các thông tin lưu ý khác khi sử dụng linh kiện này..."></textarea>
+        </div>
+        <div class="field wide">
+          <label for="itemImageInput">Tải lên hình ảnh sản phẩm</label>
+          <input class="input" id="itemImageInput" type="file" accept="image/*" style="padding:6px 14px;">
+          <input type="hidden" id="itemImageDataHidden">
+          <div id="itemImagePreviewWrap" style="margin-top: 14px; display: none;">
+            <img id="itemImagePreview" src="" style="max-width: 140px; max-height: 140px; object-fit: contain; border-radius: var(--radius-sm); border: 1px solid var(--line);">
+          </div>
+        </div>
+      </div>
+      <div class="modal-foot">
+        <button class="btn" id="cancelBtn" type="button">Hủy bỏ</button>
+        <button class="btn primary" type="submit">Lưu lại</button>
+      </div>
+    </form>
+  </dialog>
+
+  <!-- Dialog: Thêm máy CNC mới (MỚI TÍCH HỢP) -->
+  <dialog id="cncDialog">
+    <form id="cncForm" method="dialog">
+      <div class="modal-head">
+        <h3 id="cncTitle">Thêm máy CNC mới</h3>
+        <button class="icon-btn" type="button" id="closeCncDialog">
+          <svg viewBox="0 0 24 24"><path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+        </button>
+      </div>
+      <div class="form-grid">
+        <input type="hidden" id="cncId">
+        <div class="field wide">
+          <label for="cncNameInput">Tên máy CNC</label>
+          <input class="input" id="cncNameInput" required placeholder="Ví dụ: Máy Phay CNC Fanuc Oi-F">
+        </div>
+        <div class="field">
+          <label for="cncIpInput">Địa chỉ IP kết nối (FOCAS)</label>
+          <input class="input" id="cncIpInput" required placeholder="Ví dụ: 192.168.1.100">
+        </div>
+        <div class="field">
+          <label for="cncPortInput">Cổng mạng (FOCAS Port)</label>
+          <input class="input" id="cncPortInput" type="number" required value="8193">
+        </div>
+        <div class="field">
+          <label for="cncModelInput">Model Bộ điều khiển</label>
+          <select id="cncModelInput" class="input">
+            <option value="Fanuc 0i-F">Fanuc Series 0i-MODEL F</option>
+            <option value="Fanuc 31i-B">Fanuc Series 31i-MODEL B</option>
+            <option value="Fanuc 0i-D">Fanuc Series 0i-MODEL D</option>
+          </select>
+        </div>
+        <div class="field">
+          <label for="cncLocationInput">Vị trí trong xưởng</label>
+          <input class="input" id="cncLocationInput" placeholder="Ví dụ: Khu A - Máy 3">
+        </div>
+      </div>
+      <div class="modal-foot">
+        <button class="btn" id="cancelCncBtn" type="button">Hủy</button>
+        <button class="btn primary" type="submit">Lưu thông tin</button>
+      </div>
+    </form>
+  </dialog>
+
+  <!-- Dialog: Cập nhật tăng giảm số lượng (Nhập/Xuất kho) -->
+  <dialog id="moveDialog">
+    <form id="moveForm" method="dialog">
+      <div class="modal-head">
+        <h3 id="moveTitle">Cập nhật số lượng kho</h3>
+        <button class="icon-btn" type="button" id="closeMoveDialog">
+          <svg viewBox="0 0 24 24"><path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+        </button>
+      </div>
+      <div class="form-grid">
+        <input type="hidden" id="moveItemId">
+        <div class="field">
+          <label for="moveType">Loại giao dịch thực tế</label>
+          <select id="moveType">
+            <option value="in">Nhập kho (Tăng số lượng)</option>
+            <option value="out">Xuất kho sử dụng (Giảm số lượng)</option>
+          </select>
+        </div>
+        <div class="field">
+          <label for="moveAmount">Số lượng thực hiện</label>
+          <input class="input" id="moveAmount" type="number" required min="1" value="1">
+        </div>
+        <div class="field wide">
+          <label for="moveNote">Lý do giao dịch / Biên bản bàn giao</label>
+          <input class="input" id="moveNote" placeholder="Ví dụ: Thay thế cho máy CNC hỏng trục X, Nhập bổ sung định kỳ...">
+        </div>
+      </div>
+      <div class="modal-foot">
+        <button class="btn" id="cancelMoveBtn" type="button">Quay lại</button>
+        <button class="btn primary" type="submit">Xác nhận</button>
+      </div>
+    </form>
+  </dialog>
+
+  <!-- Dialog: Thêm / Sửa máy móc nhà xưởng -->
+  <dialog id="machineDialog">
+    <form id="machineForm" method="dialog">
+      <div class="modal-head">
+        <h3 id="machineTitle">Thêm máy thiết bị</h3>
+        <button class="icon-btn" type="button" id="closeMachineDialog">
+          <svg viewBox="0 0 24 24"><path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+        </button>
+      </div>
+      <div class="form-grid">
+        <input type="hidden" id="machineId">
+        <div class="field wide">
+          <label for="mNameInput">Tên máy thiết bị chi tiết</label>
+          <input class="input" id="mNameInput" required placeholder="Ví dụ: Máy Cắt Laser Fiber CO2 CNC">
+        </div>
+        <div class="field">
+          <label for="mSetupDateInput">Ngày bàn giao lắp đặt</label>
+          <input class="input" id="mSetupDateInput" type="date" required>
+        </div>
+        <div class="field">
+          <label for="mWarrantyInput">Ngày hết hạn bảo hành</label>
+          <input class="input" id="mWarrantyInput" type="date" required>
+        </div>
+        <div class="field">
+          <label for="mVendorInput">Nhà cung cấp / Đối tác thiết bị</label>
+          <input class="input" id="mVendorInput" required placeholder="Ví dụ: Công ty Cơ Điện Đại Việt">
+        </div>
+        <div class="field">
+          <label for="mPhoneInput">Số điện thoại liên hệ sửa chữa</label>
+          <input class="input" id="mPhoneInput" required placeholder="Ví dụ: 0912345678" type="tel">
+        </div>
+      </div>
+      <div class="modal-foot">
+        <button class="btn" id="cancelMachineBtn" type="button">Hủy</button>
+        <button class="btn primary" type="submit">Lưu thông tin</button>
+      </div>
+    </form>
+  </dialog>
+
+  <!-- Dialog: Lập kế hoạch Job bảo trì máy móc -->
+  <dialog id="jobDialog">
+    <form id="jobForm" method="dialog">
+      <div class="modal-head">
+        <h3 id="jobTitle">Thiết lập Job Bảo trì</h3>
+        <button class="icon-btn" type="button" id="closeJobDialog">
+          <svg viewBox="0 0 24 24"><path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+        </button>
+      </div>
+      <div class="form-grid">
+        <input type="hidden" id="jobId">
+        <div class="field wide">
+          <label for="jMachineSelect">Chọn máy móc cần lập lịch</label>
+          <select id="jMachineSelect" class="input" required>
+            <option value="">-- Vui lòng chọn máy xưởng --</option>
+          </select>
+        </div>
+        <div class="field wide">
+          <label for="jNameInput">Tên đầu mục công việc (Job Name)</label>
+          <input class="input" id="jNameInput" required placeholder="Ví dụ: Tra dầu bạc đạn máy nén khí, vệ sinh lọc gió...">
+        </div>
+        <div class="field">
+          <label for="jPeriodInput">Chu kỳ lặp lại bảo dưỡng</label>
+          <select id="jPeriodInput" class="input">
+            <option value="1">Hằng Tháng (1 Tháng)</option>
+            <option value="2">2 Tháng một lần</option>
+            <option value="3">Hằng Quý (3 Tháng)</option>
+            <option value="6">Mỗi Bán Niên (6 Tháng)</option>
+            <option value="12">Hằng Năm (12 Tháng)</option>
+          </select>
+        </div>
+        <div class="field">
+          <label for="jNextDateInput">Ngày tiến hành kỳ kế tiếp</label>
+          <input class="input" id="jNextDateInput" type="date" required>
+        </div>
+        <div class="field wide">
+          <label for="jDescInput">Các bước hướng dẫn kỹ thuật chi tiết</label>
+          <textarea id="jDescInput" placeholder="- Bước 1: Ngắt điện tổng xưởng máy&#10;- Bước 2: Dùng cờ-lê tháo van kiểm tra tra dầu mỡ..."></textarea>
+        </div>
+      </div>
+      <div class="modal-foot">
+        <button class="btn" id="cancelJobBtn" type="button">Hủy</button>
+        <button class="btn primary" type="submit">Lưu kế hoạch</button>
+      </div>
+    </form>
+  </dialog>
+
+  <!-- Dialog: Ghi sự cố xử lý / Sửa máy đột xuất -->
+  <dialog id="historyDialog">
+    <form id="historyForm" method="dialog">
+      <div class="modal-head">
+        <h3 id="historyTitle">Ghi nhận sự cố sửa chữa</h3>
+        <button class="icon-btn" type="button" id="closeHistoryDialog">
+          <svg viewBox="0 0 24 24"><path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+        </button>
+      </div>
+      <div class="form-grid">
+        <input type="hidden" id="historyId">
+        <div class="field">
+          <label for="machineInput">Thiết bị máy xảy ra sự cố</label>
+          <input class="input" id="machineInput" required placeholder="Ví dụ: Máy ép nhựa trục dọc số 02">
+        </div>
+        <div class="field">
+          <label for="faultTimeInput">Ngày phát hiện và xử lý</label>
+          <input class="input" id="faultTimeInput" type="date" required>
+        </div>
+        <div class="field wide">
+          <label for="staffInput">Kỹ sư/Nhân viên trực tiếp chịu trách nhiệm sửa</label>
+          <input class="input" id="staffInput" required placeholder="Ví dụ: Nguyễn Văn Bảo Trì">
+        </div>
+        <div class="field wide">
+          <label for="faultInput">Mô tả chi tiết biểu hiện lỗi</label>
+          <textarea id="faultInput" required placeholder="Mô tả: Động cơ kêu rít to, chảy dầu nắp hộp số, màn hình hiển thị báo lỗi E04..."></textarea>
+        </div>
+        <div class="field wide">
+          <label for="fixInput">Phương án và biện pháp kỹ thuật xử lý thực tế</label>
+          <textarea id="fixInput" required placeholder="Xử lý: Đã tháo động cơ, thay ổ bi mới mã 6204, bổ sung dầu hộp số..."></textarea>
+        </div>
+        <div class="field wide">
+          <label for="historyImageInput">Hình ảnh hiện trạng lỗi / hình ảnh đã sửa xong</label>
+          <input class="input" id="historyImageInput" type="file" accept="image/*" style="padding:6px 14px;">
+          <input type="hidden" id="historyImageDataHidden">
+          <div id="historyImagePreviewWrap" style="margin-top: 14px; display: none;">
+            <img id="historyImagePreview" src="" style="max-width: 140px; max-height: 140px; object-fit: contain; border-radius: var(--radius-sm); border: 1px solid var(--line);">
+          </div>
+        </div>
+      </div>
+      <div class="modal-foot">
+        <button class="btn" id="cancelHistoryBtn" type="button">Hủy</button>
+        <button class="btn primary" type="submit">Lưu sự cố</button>
+      </div>
+    </form>
+  </dialog>
+
+  <!-- Dialog: Lịch sử lỗi theo từng máy CNC -->
+  <dialog id="cncAlarmHistoryDialog">
+    <div class="modal-head">
+      <h3 id="cncAlarmHistoryTitle">Lịch sử lỗi máy CNC</h3>
+      <button class="icon-btn" type="button" id="closeCncAlarmHistoryBtn">
+        <svg viewBox="0 0 24 24"><path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+      </button>
+    </div>
+    <div style="padding: 12px 24px 0; color: var(--muted); font-size: 13px;" id="cncAlarmHistoryMeta"></div>
+    <div class="table-wrap" style="padding: 16px 24px; max-height: 55vh;">
+      <table style="min-width: 720px;">
+        <thead>
+          <tr>
+            <th>Thời gian</th>
+            <th>Mã Alarm</th>
+            <th>Mô tả lỗi</th>
+            <th>Trạng thái</th>
+          </tr>
+        </thead>
+        <tbody id="cncMachineAlarmHistoryBody"></tbody>
+      </table>
+    </div>
+    <div class="modal-foot">
+      <span class="cnc-alarm-history-live" id="cncAlarmHistoryLiveLabel">Cập nhật realtime mỗi 5 giây</span>
+      <button class="btn" type="button" id="closeCncAlarmHistoryFootBtn">Đóng</button>
+    </div>
+  </dialog>
+
+  <!-- Dialog / Hộp thoại phóng to ảnh chất lượng cao -->
+  <dialog id="imageViewerDialog">
+    <div class="modal-head">
+      <h3>Hình ảnh chi tiết</h3>
+      <button class="icon-btn" type="button" id="closeImageViewerBtn">
+        <svg viewBox="0 0 24 24"><path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+      </button>
+    </div>
+    <div class="image-viewer-content">
+      <img id="fullSizeImage" src="" alt="Hình ảnh đầy đủ">
+    </div>
+  </dialog>
+
+  <dialog id="textViewerDialog">
+    <div class="modal-head">
+      <h3 id="textViewerTitle">Chi tiết nội dung</h3>
+      <button class="icon-btn" type="button" id="closeTextViewerBtn">
+        <svg viewBox="0 0 24 24"><path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+      </button>
+    </div>
+    <div id="textViewerBody"></div>
+    <div class="modal-foot">
+      <button class="btn" type="button" id="closeTextViewerFootBtn">Đóng</button>
+    </div>
+  </dialog>
+
+  <div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+    <script type="module" src="assets/js/app.js"></script>
+</body>
+</html>
