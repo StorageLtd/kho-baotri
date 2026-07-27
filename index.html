@@ -32,9 +32,21 @@
           <button type="button" class="toggle-password-btn" id="togglePasswordBtn">HIỆN</button>
         </div>
       </div>
+
+      <div id="registrationFields" hidden>
+        <div class="field">
+          <label for="fullNameInput">Họ và tên</label>
+          <input class="input" id="fullNameInput" placeholder="Nhập họ và tên" autocomplete="name">
+        </div>
+        <div class="field">
+          <label for="confirmPasswordInput">Xác nhận mật khẩu</label>
+          <input class="input" id="confirmPasswordInput" type="password" placeholder="Nhập lại mật khẩu" autocomplete="new-password">
+        </div>
+      </div>
       
       <div class="login-error" id="loginError"></div>
       <button class="btn primary" type="submit" id="submitLoginBtn" style="width:100%; min-height:46px;">Đăng Nhập</button>
+      <button class="btn" type="button" id="toggleRegistrationBtn" style="width:100%; margin-top:10px;">Tạo tài khoản mới</button>
     </form>
   </section>
 

@@ -1,5 +1,5 @@
 ﻿
-    import { onSessionChanged, signIn, signOutUser, getToken, getUser, loadProfile, role, canEdit, displayName } from "./auth.js";
+    import { onSessionChanged, signIn, signOutUser, sendVerification, registerAccount, getToken, getUser, loadProfile, role, canEdit, displayName } from "./auth.js";
     import { firebaseConfig } from "./firebase-config.js";
 
     const DB_URL = firebaseConfig.databaseURL;
@@ -151,6 +151,11 @@
       loginForm: document.querySelector("#loginForm"),
       emailInput: document.querySelector("#emailInput"),
       passwordInput: document.querySelector("#passwordInput"),
+      fullNameInput: document.querySelector("#fullNameInput"),
+      confirmPasswordInput: document.querySelector("#confirmPasswordInput"),
+      registrationFields: document.querySelector("#registrationFields"),
+      toggleRegistrationBtn: document.querySelector("#toggleRegistrationBtn"),
+      submitLoginBtn: document.querySelector("#submitLoginBtn"),
       loginError: document.querySelector("#loginError"),
       toast: document.querySelector("#toast")
     };
@@ -347,20 +352,48 @@
       } catch(e){}
     }
 
+    let registrationMode = false;
+
+    function setRegistrationMode(enabled) {
+      registrationMode = enabled;
+      els.registrationFields.hidden = !enabled;
+      els.fullNameInput.required = enabled;
+      els.confirmPasswordInput.required = enabled;
+      els.passwordInput.autocomplete = enabled ? "new-password" : "current-password";
+      els.submitLoginBtn.textContent = enabled ? "Tạo tài khoản" : "Đăng Nhập";
+      els.toggleRegistrationBtn.textContent = enabled ? "Quay lại đăng nhập" : "Tạo tài khoản mới";
+      els.loginError.textContent = "";
+    }
+
     async function login(event) {
       if (event) { event.preventDefault(); event.stopPropagation(); }
       const userVal = els.emailInput.value.trim();
       const passVal = els.passwordInput.value;
       els.loginError.textContent = "";
       try {
+        if (registrationMode) {
+          if (passVal !== els.confirmPasswordInput.value) throw new Error("password-mismatch");
+          if (passVal.length < 6) throw new Error("weak-password");
+          await registerAccount({ displayName: els.fullNameInput.value.trim(), email: userVal, password: passVal });
+          await signOutUser();
+          setRegistrationMode(false);
+          els.loginError.textContent = "Tài khoản đã tạo. Hãy xác minh email rồi đăng nhập.";
+          return false;
+        }
         const credential = await signIn(userVal, passVal);
         if (!credential.user.emailVerified) {
+          await sendVerification(credential.user);
           await signOutUser();
-          els.loginError.textContent = "Email chưa được xác minh. Vui lòng xác minh email trước khi đăng nhập.";
+          els.loginError.textContent = "Email chưa được xác minh. Liên kết xác minh đã được gửi lại, vui lòng mở email rồi đăng nhập lại.";
           return false;
         }
       } catch (error) {
-        els.loginError.textContent = "Email hoặc mật khẩu không hợp lệ.";
+        const messages = {
+          "auth/email-already-in-use": "Email này đã được đăng ký.",
+          "auth/weak-password": "Mật khẩu cần có ít nhất 6 ký tự.",
+          "password-mismatch": "Mật khẩu xác nhận không khớp."
+        };
+        els.loginError.textContent = messages[error.code || error.message] || "Email hoặc mật khẩu không hợp lệ.";
         return false;
       }
       return false;
@@ -1556,4 +1589,5 @@
       if (user && user.emailVerified) unlockApp();
       else document.body.classList.add("locked");
     });
+    els.toggleRegistrationBtn.addEventListener("click", () => setRegistrationMode(!registrationMode));
   
