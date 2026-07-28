@@ -423,7 +423,6 @@
 
   
     function applyAuthorization() {
-      if (canEdit()) return;
       const allowedToEdit = canEdit();
       document.querySelectorAll("button.primary, button.danger, #addMachineBtn, #addCncBtn, #addJobBtn, #addHistoryBtn").forEach(button => {
         if (button.closest(".login-screen")) return;
