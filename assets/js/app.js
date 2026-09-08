@@ -18,6 +18,8 @@
     let cncAlarmHistory = []; // Mảng lưu lịch sử Alarm CNC
     let cncAlarmHistoryViewId = null;
     let cncRealtimeSyncStarted = false;
+    let deviceHistory = [];
+    let accountHistory = [];
 
     const number = new Intl.NumberFormat("vi-VN");
 
@@ -55,11 +57,14 @@
       statCncRunning: document.querySelector("#statCncRunning"), // STAT MỚI
       statCncHold: document.querySelector("#statCncHold"), // STAT MỚI
       statCncAlarm: document.querySelector("#statCncAlarm"), // STAT MỚI
+      cncConnectionReady: document.querySelector("#cncConnectionReady"),
       resultCount: document.querySelector("#resultCount"),
       inventoryBody: document.querySelector("#inventoryBody"),
       machineListBody: document.querySelector("#machineListBody"),
       jobListBody: document.querySelector("#jobListBody"),
       historyList: document.querySelector("#historyList"),
+      deviceHistoryList: document.querySelector("#deviceHistoryList"),
+      accountHistoryList: document.querySelector("#accountHistoryList"),
       searchInput: document.querySelector("#searchInput"),
       machineSearchInput: document.querySelector("#machineSearchInput"),
       jobSearchInput: document.querySelector("#jobSearchInput"),
@@ -188,17 +193,42 @@
       }
     }
 
+    async function writeAudit(node, entry) {
+      const user = getUser();
+      const token = await getToken();
+      if (!user || !token) return;
+      const id = crypto.randomUUID();
+      const record = { id, uid: user.uid, actor: displayName(), at: new Date().toISOString(), ...entry };
+      const response = await fetch(`${DB_URL}/${node}/${id}.json?auth=${encodeURIComponent(token)}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(record)
+      });
+      if (!response.ok) throw new Error("Không thể ghi lịch sử hệ thống.");
+      return record;
+    }
+
+    async function writeAccountHistory(action) {
+      try { await writeAudit(`accountHistory/${getUser().uid}`, { action, email: getUser().email }); } catch (error) { console.warn(error); }
+    }
+
+    async function writeDeviceHistory(device, action) {
+      try { await writeAudit("deviceHistory", { device, action }); } catch (error) { console.warn(error); }
+    }
+
     async function loadCloudData() {
       if(els.resultCount) els.resultCount.textContent = "Đang đồng bộ dữ liệu đám mây...";
       try {
-        const [cloudItems, cloudActivities, cloudHistory, cloudMachines, cloudJobs, cloudCncs, cloudCncAlarms] = await Promise.all([
+        const [cloudItems, cloudActivities, cloudHistory, cloudMachines, cloudJobs, cloudCncs, cloudCncAlarms, cloudDeviceHistory, cloudAccountHistory] = await Promise.all([
           fbFetch("items"),
           fbFetch("activities"),
           fbFetch("repairHistory"),
           fbFetch("machines"),
           fbFetch("maintenanceJobs"),
           fbFetch("cncs"), // Tải dữ liệu CNC
-          fbFetch("cncAlarms") // Tải dữ liệu lịch sử Alarm CNC
+          fbFetch("cncAlarms"), // Tải dữ liệu lịch sử Alarm CNC
+          fbFetch("deviceHistory"),
+          fbFetch(`accountHistory/${getUser().uid}`)
         ]);
 
         items = cloudItems ? Object.values(cloudItems) : [];
@@ -208,6 +238,8 @@
         maintenanceJobs = cloudJobs ? Object.values(cloudJobs) : [];
         cncs = cloudCncs ? Object.values(cloudCncs) : [];
         cncAlarmHistory = cloudCncAlarms ? Object.values(cloudCncAlarms) : [];
+        deviceHistory = cloudDeviceHistory ? Object.values(cloudDeviceHistory) : [];
+        accountHistory = cloudAccountHistory ? Object.values(cloudAccountHistory) : [];
 
         // Nếu lần đầu chưa có máy CNC, tự động tạo máy CNC demo
         if (cncs.length === 0) {
@@ -311,6 +343,7 @@
             
             const deltaFeed = Math.floor((Math.random() - 0.5) * 4);
             c.feedrate = Math.max(0, c.targetFeedrate + deltaFeed);
+            c.lastSeen = new Date().toISOString();
             
             // Thay đổi block N-code ngẫu nhiên
             if (Math.random() > 0.7) {
@@ -387,6 +420,8 @@
           els.loginError.textContent = "Email chưa được xác minh. Liên kết xác minh đã được gửi lại, vui lòng mở email rồi đăng nhập lại.";
           return false;
         }
+        await unlockApp();
+        await writeAccountHistory("Đăng nhập thành công");
       } catch (error) {
         const messages = {
           "auth/email-already-in-use": "Email này đã được đăng ký.",
@@ -416,7 +451,10 @@
     }
     
     async function logout() {
-      try { if (typeof mySessionId !== "undefined") fbFetch(`online_users/${mySessionId}`, "DELETE"); } catch(e){}
+      try {
+        await writeAccountHistory("Đăng xuất");
+        if (typeof mySessionId !== "undefined") await fbFetch(`online_users/${mySessionId}`, "DELETE");
+      } catch(e) {}
       await signOutUser();
       document.body.classList.add("locked"); 
     }
@@ -506,8 +544,17 @@
       renderCncTable();
       renderMaintenanceJobsTable();
       renderHistoryTable();
+      renderAuditHistory();
       renderAlertsAndActivities();
       updateMachineSelectOptions();
+    }
+
+    function renderAuditHistory() {
+      const deviceRows = [...deviceHistory].sort((a, b) => new Date(b.at) - new Date(a.at)).slice(0, 12);
+      const accountRows = [...accountHistory].sort((a, b) => new Date(b.at) - new Date(a.at)).slice(0, 12);
+      els.deviceHistoryList.innerHTML = deviceRows.length ? deviceRows.map(row => `<tr><td>${formatDateDisplay(row.at)} ${new Date(row.at).toLocaleTimeString("vi-VN")}</td><td>${escapeHtml(row.device || "-")}</td><td>${escapeHtml(row.action || "-")}</td><td>${escapeHtml(row.actor || "-")}</td></tr>`).join("") : `<tr><td colspan="4" class="empty">Chưa có thao tác thiết bị.</td></tr>`;
+      els.accountHistoryList.innerHTML = accountRows.length ? accountRows.map(row => `<tr><td>${formatDateDisplay(row.at)} ${new Date(row.at).toLocaleTimeString("vi-VN")}</td><td>${escapeHtml(row.email || "-")}</td><td>${escapeHtml(row.action || "-")}</td></tr>`).join("") : `<tr><td colspan="3" class="empty">Chưa có lịch sử truy cập.</td></tr>`;
+      if (els.cncConnectionReady) els.cncConnectionReady.textContent = `${cncs.filter(c => c.status !== "alarm").length} / ${cncs.length}`;
     }
 
     const textViewerCache = new Map();
@@ -654,6 +701,7 @@
         if (c.status === "alarm" && c.alarm) {
           matchedPartInfo = checkAvailablePartsInInventory(c.alarm);
         }
+        const lastSignal = c.lastSeen ? `${formatDateDisplay(c.lastSeen)} ${new Date(c.lastSeen).toLocaleTimeString("vi-VN")}` : "Chờ tín hiệu đầu tiên";
 
         return `
           <div class="cnc-card" id="card-${c.id}">
@@ -661,11 +709,12 @@
               <span class="cnc-title">💻 ${escapeHtml(c.name)}</span>
               <span class="cnc-status ${statusClass}">${statusText}</span>
             </div>
+            <div style="display:flex; justify-content:space-between; gap:12px; padding:8px 0 12px; color:var(--muted); font-size:11px; border-bottom:1px solid var(--line);">
+              <span><strong style="color:var(--ink)">FOCAS endpoint</strong> · ${escapeHtml(c.ip)}:${c.port}</span>
+              <span><strong style="color:var(--ink)">Tín hiệu</strong> · ${escapeHtml(lastSignal)}</span>
+            </div>
             
             <div class="cnc-details">
-              <span class="cnc-label">Địa chỉ IP FOCAS:</span>
-              <span class="cnc-value" style="color: var(--brand)">${escapeHtml(c.ip)}:${c.port}</span>
-              
               <span class="cnc-label">Model CNC:</span>
               <span class="cnc-value">${escapeHtml(c.model)}</span>
               
@@ -867,10 +916,11 @@
     // Xóa máy CNC
     async function deleteCnc(id) {
       if (!confirm("Bạn chắc chắn muốn ngắt kết nối và xóa máy CNC này?")) return;
+      const machine = cncs.find(c => c.id === id);
       cncs = cncs.filter(c => c.id !== id);
       addAct("Xóa máy CNC khỏi hệ thống giám sát.");
       render();
-      await Promise.all([syncNode("cncs", cncs), syncNode("activities", activities)]);
+      await Promise.all([syncNode("cncs", cncs), syncNode("activities", activities), writeDeviceHistory(machine?.name || "Máy CNC", "Ngắt liên kết và xóa thiết bị")]);
     }
 
     // Cập nhật hoặc lưu thông tin CNC
@@ -892,10 +942,12 @@
         feedrate: 100,
         targetFeedrate: 100,
         override: 100,
-        alarm: ""
+        alarm: "",
+        lastSeen: new Date().toISOString()
       };
 
       const idx = cncs.findIndex(x => x.id === id);
+      const deviceAction = idx >= 0 ? "Cập nhật cấu hình liên kết FOCAS" : "Thêm thiết bị vào giám sát FOCAS";
       if (idx >= 0) {
         cncs[idx] = { ...cncs[idx], ...payload };
         addAct(`Cập nhật thông tin kết nối máy CNC: ${payload.name}`);
@@ -905,7 +957,7 @@
       }
       closeCncDialog();
       render();
-      await Promise.all([syncNode("cncs", cncs), syncNode("activities", activities)]);
+      await Promise.all([syncNode("cncs", cncs), syncNode("activities", activities), writeDeviceHistory(payload.name, deviceAction)]);
     }
 
     function openCncDialog(id = "") {
@@ -938,7 +990,7 @@
       addAct(`Đã xử lý xong (Clear Alarm) cho máy CNC: ${c.name}`);
       render();
       showToast(`Đã xóa lỗi cho máy ${c.name}. Máy trở lại trạng thái Sẵn Sàng (RUN).`);
-      await Promise.all([syncNode("cncs", cncs), syncNode("cncAlarms", cncAlarmHistory), syncNode("activities", activities)]);
+      await Promise.all([syncNode("cncs", cncs), syncNode("cncAlarms", cncAlarmHistory), syncNode("activities", activities), writeDeviceHistory(c.name, "Xác nhận đã xử lý alarm và đưa máy về RUN")]);
 
       if (cncAlarmHistoryViewId === id && els.cncAlarmHistoryDialog.open) {
         renderCncMachineAlarmHistory(id);
@@ -1591,9 +1643,9 @@
       try { if (typeof mySessionId !== "undefined") navigator.sendBeacon(`${DB_URL}/online_users/${mySessionId}.json?x-http-method-override=DELETE`); } catch(e){}
     });
 
-    onSessionChanged(user => {
-      if (user && user.emailVerified) unlockApp();
-      else document.body.classList.add("locked");
-    });
+    // Không tự mở CMMS theo phiên Firebase cũ: mỗi lần tải trang đều phải đăng nhập lại.
+    document.body.classList.add("locked");
+    onSessionChanged(() => document.body.classList.add("locked"));
+    signOutUser().catch(() => {});
     els.toggleRegistrationBtn.addEventListener("click", () => setRegistrationMode(!registrationMode));
   

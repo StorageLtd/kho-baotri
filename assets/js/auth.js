@@ -48,6 +48,19 @@ export async function registerAccount({ displayName, email, password }) {
     })
   });
   if (!response.ok) throw new Error("Không thể tạo hồ sơ quyền cho tài khoản.");
+  const accountEvent = {
+    id: crypto.randomUUID(),
+    uid: credential.user.uid,
+    actor: displayName,
+    email: credential.user.email,
+    action: "Tạo tài khoản",
+    at: new Date().toISOString()
+  };
+  await fetch(`${firebaseConfig.databaseURL}/accountHistory/${credential.user.uid}/${accountEvent.id}.json?auth=${encodeURIComponent(token)}`, {
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(accountEvent)
+  });
   await sendEmailVerification(credential.user);
   return credential;
 }
