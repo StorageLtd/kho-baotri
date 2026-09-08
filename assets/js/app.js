@@ -20,6 +20,7 @@
     let cncRealtimeSyncStarted = false;
     let deviceHistory = [];
     let accountHistory = [];
+    let appStarted = false;
 
     const number = new Intl.NumberFormat("vi-VN");
 
@@ -161,6 +162,7 @@
       registrationFields: document.querySelector("#registrationFields"),
       toggleRegistrationBtn: document.querySelector("#toggleRegistrationBtn"),
       submitLoginBtn: document.querySelector("#submitLoginBtn"),
+      sessionBadge: document.querySelector("#sessionBadge"),
       loginError: document.querySelector("#loginError"),
       toast: document.querySelector("#toast")
     };
@@ -367,11 +369,11 @@
           let activeCount = 0;
           for (const id in allSessions) {
             if (now - allSessions[id].timestamp < 45000) { activeCount++; } 
-            else { fbFetch(`online_users/${id}`, "DELETE"); }
+            // Chỉ chủ phiên mới được Firebase Rules cho phép xóa phiên của mình.
           }
           const label = document.querySelector("#onlineCountLabel");
           if (label) {
-            label.innerHTML = `<span style="display:inline-block; width:8px; height:8px; border-radius:50%; background:#10b981; animation: rise 1.5s infinite alternate;"></span> Đang truy cập: <span style="font-size:14px; background:#fff; color:#0f241d; padding:2px 8px; border-radius:99px; font-weight: 800; margin:0 4px;">${activeCount}</span> người`;
+            label.innerHTML = `<span style="display:inline-block; width:8px; height:8px; border-radius:50%; background:#10b981; animation: rise 1.5s infinite alternate;"></span> Đang truy cập: <span style="font-size:14px; background:#fff; color:#0f241d; padding:2px 8px; border-radius:99px; font-weight:800; margin:0 4px;">${Math.max(1, activeCount)}</span> người`;
           }
         }
       } catch(e){}
@@ -435,15 +437,19 @@
     }
 
     async function unlockApp() {
+      if (appStarted) return;
+      appStarted = true;
       try {
         await loadProfile();
       } catch (error) {
+        appStarted = false;
         await signOutUser();
         els.loginError.textContent = "Tài khoản chưa được cấp quyền CMMS. Vui lòng liên hệ quản trị viên.";
         return;
       }
       document.body.classList.remove("locked"); 
       document.body.dataset.role = role();
+      els.sessionBadge.textContent = `${displayName()} · ${role().toUpperCase()}`;
       applyAuthorization();
       render();
       loadCloudData();
@@ -456,7 +462,10 @@
         if (typeof mySessionId !== "undefined") await fbFetch(`online_users/${mySessionId}`, "DELETE");
       } catch(e) {}
       await signOutUser();
+      appStarted = false;
       document.body.classList.add("locked"); 
+      document.body.removeAttribute("data-role");
+      els.sessionBadge.textContent = "Chưa đăng nhập";
     }
 
   
@@ -1643,11 +1652,10 @@
       try { if (typeof mySessionId !== "undefined") navigator.sendBeacon(`${DB_URL}/online_users/${mySessionId}.json?x-http-method-override=DELETE`); } catch(e){}
     });
 
-    // Không tự mở CMMS theo phiên Firebase cũ: mỗi lần tải trang đều phải đăng nhập lại.
-    document.body.classList.add("locked");
+    // Chỉ mở CMMS khi Firebase khôi phục được một phiên hợp lệ đã xác minh.
     onSessionChanged(user => {
-      if (!user) document.body.classList.add("locked");
+      if (user?.emailVerified) unlockApp();
+      else document.body.classList.add("locked");
     });
-    signOutUser().catch(() => {});
     els.toggleRegistrationBtn.addEventListener("click", () => setRegistrationMode(!registrationMode));
   
