@@ -1645,7 +1645,9 @@
 
     // Không tự mở CMMS theo phiên Firebase cũ: mỗi lần tải trang đều phải đăng nhập lại.
     document.body.classList.add("locked");
-    onSessionChanged(() => document.body.classList.add("locked"));
+    onSessionChanged(user => {
+      if (!user) document.body.classList.add("locked");
+    });
     signOutUser().catch(() => {});
     els.toggleRegistrationBtn.addEventListener("click", () => setRegistrationMode(!registrationMode));
   
