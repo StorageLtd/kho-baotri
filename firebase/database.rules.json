@@ -15,12 +15,28 @@
         ".validate": "newData.hasChildren(['uid','timestamp']) && newData.child('uid').val() === auth.uid"
       }
     },
-    "items": { ".read": "auth != null", ".write": "auth != null && (root.child('users').child(auth.uid).child('role').val() === 'admin' || root.child('users').child(auth.uid).child('role').val() === 'manager')" },
-    "machines": { ".read": "auth != null", ".write": "auth != null && (root.child('users').child(auth.uid).child('role').val() === 'admin' || root.child('users').child(auth.uid).child('role').val() === 'manager')" },
-    "maintenanceJobs": { ".read": "auth != null", ".write": "auth != null && (root.child('users').child(auth.uid).child('role').val() === 'admin' || root.child('users').child(auth.uid).child('role').val() === 'manager')" },
-    "cncs": { ".read": "auth != null", ".write": "auth != null && (root.child('users').child(auth.uid).child('role').val() === 'admin' || root.child('users').child(auth.uid).child('role').val() === 'manager')" },
-    "cncAlarms": { ".read": "auth != null", ".write": "auth != null && (root.child('users').child(auth.uid).child('role').val() === 'admin' || root.child('users').child(auth.uid).child('role').val() === 'manager')" },
-    "repairHistory": { ".read": "auth != null", ".write": "auth != null && (root.child('users').child(auth.uid).child('role').val() === 'admin' || root.child('users').child(auth.uid).child('role').val() === 'manager')" },
-    "activities": { ".read": "auth != null", ".write": "auth != null && (root.child('users').child(auth.uid).child('role').val() === 'admin' || root.child('users').child(auth.uid).child('role').val() === 'manager')" }
+    "accountHistory": {
+      "$uid": {
+        ".read": "auth != null && (auth.uid === $uid || root.child('users').child(auth.uid).child('role').val() === 'admin')",
+        "$entryId": {
+          ".write": "auth != null && auth.uid === $uid && newData.child('uid').val() === auth.uid",
+          ".validate": "newData.hasChildren(['id','uid','at','action','email'])"
+        }
+      }
+    },
+    "deviceHistory": {
+      ".read": "auth != null",
+      "$entryId": {
+        ".write": "auth != null && (root.child('users').child(auth.uid).child('role').val() === 'admin' || root.child('users').child(auth.uid).child('role').val() === 'manager' || root.child('users').child(auth.uid).child('role').val() === 'technician')",
+        ".validate": "newData.hasChildren(['id','uid','actor','at','device','action'])"
+      }
+    },
+    "items": { ".read": "auth != null", ".write": "auth != null && (root.child('users').child(auth.uid).child('role').val() === 'admin' || root.child('users').child(auth.uid).child('role').val() === 'manager' || root.child('users').child(auth.uid).child('role').val() === 'technician')" },
+    "machines": { ".read": "auth != null", ".write": "auth != null && (root.child('users').child(auth.uid).child('role').val() === 'admin' || root.child('users').child(auth.uid).child('role').val() === 'manager' || root.child('users').child(auth.uid).child('role').val() === 'technician')" },
+    "maintenanceJobs": { ".read": "auth != null", ".write": "auth != null && (root.child('users').child(auth.uid).child('role').val() === 'admin' || root.child('users').child(auth.uid).child('role').val() === 'manager' || root.child('users').child(auth.uid).child('role').val() === 'technician')" },
+    "cncs": { ".read": "auth != null", ".write": "auth != null && (root.child('users').child(auth.uid).child('role').val() === 'admin' || root.child('users').child(auth.uid).child('role').val() === 'manager' || root.child('users').child(auth.uid).child('role').val() === 'technician')" },
+    "cncAlarms": { ".read": "auth != null", ".write": "auth != null && (root.child('users').child(auth.uid).child('role').val() === 'admin' || root.child('users').child(auth.uid).child('role').val() === 'manager' || root.child('users').child(auth.uid).child('role').val() === 'technician')" },
+    "repairHistory": { ".read": "auth != null", ".write": "auth != null && (root.child('users').child(auth.uid).child('role').val() === 'admin' || root.child('users').child(auth.uid).child('role').val() === 'manager' || root.child('users').child(auth.uid).child('role').val() === 'technician')" },
+    "activities": { ".read": "auth != null", ".write": "auth != null && (root.child('users').child(auth.uid).child('role').val() === 'admin' || root.child('users').child(auth.uid).child('role').val() === 'manager' || root.child('users').child(auth.uid).child('role').val() === 'technician')" }
   }
 }
