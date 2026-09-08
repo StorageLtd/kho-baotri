@@ -1652,6 +1652,25 @@
       try { if (typeof mySessionId !== "undefined") navigator.sendBeacon(`${DB_URL}/online_users/${mySessionId}.json?x-http-method-override=DELETE`); } catch(e){}
     });
 
+    // Các hàng được vẽ động vẫn dùng thuộc tính onclick; module ES không tự đưa hàm ra window.
+    Object.assign(window, {
+      openItemDialog,
+      deleteItem,
+      openMoveDialog,
+      openMachineDialog,
+      deleteMachine,
+      openJobDialog,
+      deleteJob,
+      completeAndRenewJob,
+      openHistoryDialog,
+      deleteHistory,
+      openCncDialog,
+      deleteCnc,
+      resolveCncAlarm,
+      openCncMachineAlarmHistory,
+      autoCreateRepairHistoryFromCncAlarm
+    });
+
     // Chỉ mở CMMS khi Firebase khôi phục được một phiên hợp lệ đã xác minh.
     onSessionChanged(user => {
       if (user?.emailVerified) unlockApp();
