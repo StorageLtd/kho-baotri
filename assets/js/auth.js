@@ -76,5 +76,6 @@ export async function loadProfile() {
 }
 
 export function role() { return currentProfile?.role || "viewer"; }
-export function canEdit() { return ["admin", "manager"].includes(role()); }
+// Technician được phép vận hành nghiệp vụ CMMS; chỉ admin quản lý người dùng và phân quyền.
+export function canEdit() { return ["admin", "manager", "technician"].includes(role()); }
 export function displayName() { return currentProfile?.displayName || auth.currentUser?.email || "Người dùng"; }

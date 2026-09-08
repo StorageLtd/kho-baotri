@@ -925,11 +925,10 @@
     // Xóa máy CNC
     async function deleteCnc(id) {
       if (!confirm("Bạn chắc chắn muốn ngắt kết nối và xóa máy CNC này?")) return;
-      const machine = cncs.find(c => c.id === id);
       cncs = cncs.filter(c => c.id !== id);
       addAct("Xóa máy CNC khỏi hệ thống giám sát.");
       render();
-      await Promise.all([syncNode("cncs", cncs), syncNode("activities", activities), writeDeviceHistory(machine?.name || "Máy CNC", "Ngắt liên kết và xóa thiết bị")]);
+      await Promise.all([syncNode("cncs", cncs), syncNode("activities", activities)]);
     }
 
     // Cập nhật hoặc lưu thông tin CNC
@@ -956,7 +955,6 @@
       };
 
       const idx = cncs.findIndex(x => x.id === id);
-      const deviceAction = idx >= 0 ? "Cập nhật cấu hình liên kết FOCAS" : "Thêm thiết bị vào giám sát FOCAS";
       if (idx >= 0) {
         cncs[idx] = { ...cncs[idx], ...payload };
         addAct(`Cập nhật thông tin kết nối máy CNC: ${payload.name}`);
@@ -966,7 +964,7 @@
       }
       closeCncDialog();
       render();
-      await Promise.all([syncNode("cncs", cncs), syncNode("activities", activities), writeDeviceHistory(payload.name, deviceAction)]);
+      await Promise.all([syncNode("cncs", cncs), syncNode("activities", activities)]);
     }
 
     function openCncDialog(id = "") {
@@ -999,7 +997,7 @@
       addAct(`Đã xử lý xong (Clear Alarm) cho máy CNC: ${c.name}`);
       render();
       showToast(`Đã xóa lỗi cho máy ${c.name}. Máy trở lại trạng thái Sẵn Sàng (RUN).`);
-      await Promise.all([syncNode("cncs", cncs), syncNode("cncAlarms", cncAlarmHistory), syncNode("activities", activities), writeDeviceHistory(c.name, "Xác nhận đã xử lý alarm và đưa máy về RUN")]);
+      await Promise.all([syncNode("cncs", cncs), syncNode("cncAlarms", cncAlarmHistory), syncNode("activities", activities)]);
 
       if (cncAlarmHistoryViewId === id && els.cncAlarmHistoryDialog.open) {
         renderCncMachineAlarmHistory(id);
@@ -1452,7 +1450,11 @@
       await Promise.all([fbFetch(`repairHistory/${id}`, "DELETE"), syncNode("activities", activities)]);
     }
 
-    function addAct(text) { activities.unshift({ at: new Date().toISOString(), text }); }
+    function addAct(text) {
+      activities.unshift({ at: new Date().toISOString(), text });
+      // Nhật ký thao tác độc lập với bảng hoạt động nhanh trên dashboard.
+      void writeDeviceHistory("CMMS", text);
+    }
     
     function showToast(msg) { 
       els.toast.textContent = msg; 
