@@ -225,6 +225,18 @@
 
       <!-- Trang GIÁM SÁT MÁY CNC (MỚI TÍCH HỢP) -->
       <section class="content" id="cncMonitoringPage" hidden>
+        <section class="cnc-command-center" aria-label="Trung tâm liên kết CNC">
+          <div>
+            <span class="eyebrow">FOCAS CONNECTION CENTER</span>
+            <h2>Liên kết máy CNC</h2>
+            <p>Giám sát endpoint, tín hiệu vận hành và alarm từ các bộ điều khiển Fanuc.</p>
+          </div>
+          <div class="cnc-connection-summary">
+            <div><span>Kết nối sẵn sàng</span><strong id="cncConnectionReady">0 / 0</strong></div>
+            <div><span>Chu kỳ đồng bộ</span><strong>05 giây</strong></div>
+            <div><span>Giao thức</span><strong>FOCAS 1/2</strong></div>
+          </div>
+        </section>
         <div class="stats">
           <article class="stat">
             <span>Tổng số máy CNC</span>
@@ -425,6 +437,16 @@
             </table>
           </div>
         </section>
+        <div class="audit-grid">
+          <section class="section">
+            <div class="section-head"><div><h3>Lịch sử thiết bị</h3><div class="meta">Thao tác cấu hình CNC và xử lý cảnh báo.</div></div></div>
+            <div class="table-wrap"><table class="data-table compact-table"><thead><tr><th>Thời gian</th><th>Thiết bị</th><th>Thao tác</th><th>Người thực hiện</th></tr></thead><tbody id="deviceHistoryList"></tbody></table></div>
+          </section>
+          <section class="section">
+            <div class="section-head"><div><h3>Lịch sử truy cập</h3><div class="meta">Các phiên đăng nhập và đăng xuất của tài khoản hiện tại.</div></div></div>
+            <div class="table-wrap"><table class="data-table compact-table"><thead><tr><th>Thời gian</th><th>Tài khoản</th><th>Sự kiện</th></tr></thead><tbody id="accountHistoryList"></tbody></table></div>
+          </section>
+        </div>
       </section>
     </main>
   </div>
