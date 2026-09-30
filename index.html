@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>LTD VIET NAM - Cloud Maintenance System</title>
-  <link rel="stylesheet" href="assets/css/app.css?v=20260908d">
+  <link rel="stylesheet" href="assets/css/app.css?v=20260930b">
 </head>
 <body class="locked">
   <!-- Screen Đăng Nhập -->
@@ -367,10 +367,13 @@
         <section class="section">
           <div class="section-head">
             <div>
-              <h3>Thiết lập kế hoạch Job bảo trì định kỳ</h3>
-              <div class="meta">Cài đặt nhiều hạng mục kiểm tra, thay thế vật tư riêng biệt cho mỗi thiết bị máy.</div>
+              <h3>Kế hoạch bảo trì theo thiết bị</h3>
+              <div class="meta">Quản lý nhiều máy; mỗi máy có danh sách hạng mục, chu kỳ, người lập và công việc thực hiện riêng.</div>
             </div>
-            <button class="btn primary" id="addJobBtn" type="button">Thêm kế hoạch Job mới</button>
+            <div class="row-actions">
+              <button class="btn" id="addMaintenanceMachineBtn" type="button">Thêm máy quản lý</button>
+              <button class="btn primary" id="addJobBtn" type="button">Thiết lập lịch bảo trì</button>
+            </div>
           </div>
           <div style="padding: 16px 20px; background: #fbfcfa; border-bottom: 1px solid var(--line);">
             <div class="field">
@@ -378,22 +381,7 @@
               <input class="input" id="jobSearchInput" type="search" placeholder="Ví dụ: Kiểm tra biến tần, Thay dầu...">
             </div>
           </div>
-          <div class="table-wrap">
-            <table class="data-table jobs-table">
-              <thead>
-                <tr>
-                  <th>Tên thiết bị máy</th>
-                  <th>Hạng mục / Công việc bảo trì (Job)</th>
-                  <th>Chu kỳ lặp</th>
-                  <th>Ngày bảo trì dự kiến tiếp theo</th>
-                  <th class="col-text-wide">Mô tả chi tiết kỹ thuật</th>
-                  <th class="col-status">Trạng thái</th>
-                  <th class="col-actions" style="text-align: right;">Thao tác</th>
-                </tr>
-              </thead>
-              <tbody id="jobListBody"></tbody>
-            </table>
-          </div>
+          <div class="maintenance-board" id="maintenanceScheduleBoard"></div>
         </section>
       </section>
 
@@ -657,21 +645,29 @@
           <input class="input" id="jNameInput" required placeholder="Ví dụ: Tra dầu bạc đạn máy nén khí, vệ sinh lọc gió...">
         </div>
         <div class="field">
-          <label for="jPeriodInput">Chu kỳ lặp lại bảo dưỡng</label>
-          <select id="jPeriodInput" class="input">
-            <option value="1">Hằng Tháng (1 Tháng)</option>
-            <option value="2">2 Tháng một lần</option>
-            <option value="3">Hằng Quý (3 Tháng)</option>
-            <option value="6">Mỗi Bán Niên (6 Tháng)</option>
-            <option value="12">Hằng Năm (12 Tháng)</option>
+          <label for="jFrequencyInput">Chu kỳ / Lịch bảo trì</label>
+          <select id="jFrequencyInput" class="input">
+            <option value="daily">Hằng ngày</option>
+            <option value="monthly">Hằng tháng</option>
+            <option value="quarterly">Hằng quý</option>
+            <option value="semiannual">6 tháng một lần</option>
+            <option value="yearly">Hằng năm</option>
           </select>
         </div>
         <div class="field">
-          <label for="jNextDateInput">Ngày tiến hành kỳ kế tiếp</label>
+          <label for="jNextDateInput">Ngày thực hiện kỳ đầu / kỳ kế tiếp</label>
           <input class="input" id="jNextDateInput" type="date" required>
         </div>
+        <div class="field">
+          <label for="jOwnerInput">Người phụ trách bảo trì</label>
+          <input class="input" id="jOwnerInput" required placeholder="Ví dụ: Nguyễn Văn A - Bảo trì cơ khí">
+        </div>
+        <div class="field">
+          <label for="jEstimatedTimeInput">Thời lượng dự kiến</label>
+          <input class="input" id="jEstimatedTimeInput" placeholder="Ví dụ: 45 phút">
+        </div>
         <div class="field wide">
-          <label for="jDescInput">Các bước hướng dẫn kỹ thuật chi tiết</label>
+          <label for="jDescInput">Công việc cụ thể / Checklist kỹ thuật</label>
           <textarea id="jDescInput" placeholder="- Bước 1: Ngắt điện tổng xưởng máy&#10;- Bước 2: Dùng cờ-lê tháo van kiểm tra tra dầu mỡ..."></textarea>
         </div>
       </div>
@@ -785,6 +781,6 @@
 
   <div class="toast" id="toast" role="status" aria-live="polite"></div>
 
-  <script type="module" src="assets/js/app.js?v=20260908d"></script>
+  <script type="module" src="assets/js/app.js?v=20260930b"></script>
 </body>
 </html>
