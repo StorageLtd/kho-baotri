@@ -45,6 +45,18 @@
     .session-badge { display: inline-flex; align-items: center; min-height: 34px; padding: 0 10px; border: 1px solid var(--line); background: var(--panel-soft); color: var(--brand-strong); font-size: 12px; font-weight: 800; white-space: nowrap; }
     body[data-role="admin"] .session-badge { background: #e6f4ea; border-color: #8ac69d; color: #166534; }
     .compact-table { font-size: 12px; }
+    .maintenance-board { padding: 18px; display: grid; gap: 16px; background: #f7faf8; }
+    .maintenance-machine { border: 1px solid var(--line); background: var(--panel); }
+    .maintenance-machine-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; padding: 16px 18px; border-bottom: 1px solid var(--line); }
+    .maintenance-machine-head h4 { margin: 0; font-size: 15px; }
+    .maintenance-machine-head p { margin: 4px 0 0; color: var(--muted); font-size: 12px; }
+    .maintenance-task { display: grid; grid-template-columns: minmax(200px, 1.1fr) 120px 140px minmax(160px, .9fr) auto; gap: 14px; align-items: center; padding: 14px 18px; border-bottom: 1px solid var(--line); }
+    .maintenance-task:last-child { border-bottom: 0; }
+    .maintenance-task strong { display: block; font-size: 13px; }
+    .maintenance-task small { display: block; margin-top: 3px; color: var(--muted); font-size: 11px; }
+    .maintenance-task-actions { display: flex; justify-content: flex-end; gap: 6px; }
+    .maintenance-empty { padding: 18px; color: var(--muted); font-size: 13px; }
+    @media (max-width: 900px) { .maintenance-machine-head, .maintenance-task { display: block; } .maintenance-task > * { margin-bottom: 10px; } .maintenance-task-actions { justify-content: flex-start; } }
     @media (max-width: 820px) { .cnc-command-center, .cnc-connection-summary { flex-direction: column; align-items: flex-start; } .cnc-connection-summary { gap: 12px; } .audit-grid { grid-template-columns: 1fr; } }
 
     button, input, select, textarea { font: inherit; }
