@@ -21,6 +21,7 @@
     let deviceHistory = [];
     let accountHistory = [];
     let appStarted = false;
+    const expandedMaintenanceMachineIds = new Set();
 
     const number = new Intl.NumberFormat("vi-VN");
 
@@ -141,6 +142,8 @@
       machineTitle: document.querySelector("#machineTitle"),
       mId: document.querySelector("#machineId"),
       mName: document.querySelector("#mNameInput"),
+      mModel: document.querySelector("#mModelInput"),
+      mSerial: document.querySelector("#mSerialInput"),
       mSetupDate: document.querySelector("#mSetupDateInput"),
       mWarranty: document.querySelector("#mWarrantyInput"),
       mVendor: document.querySelector("#mVendorInput"),
@@ -662,16 +665,18 @@
     function renderMachineTable() {
       const term = els.machineSearchInput.value.trim().toLowerCase();
       const rows = machines.filter(m => {
-        return !term || [m.name, m.vendor].join(" ").toLowerCase().includes(term);
+        return !term || [m.name, m.model, m.serial, m.vendor].join(" ").toLowerCase().includes(term);
       }).sort((a,b) => a.name.localeCompare(b.name, "vi"));
 
       if(!rows.length) {
-        els.machineListBody.innerHTML = `<tr><td colspan="6" class="empty">Không tìm thấy máy thiết bị cơ điện nào trong cơ sở dữ liệu.</td></tr>`;
+          els.machineListBody.innerHTML = `<tr><td colspan="8" class="empty">Không tìm thấy máy thiết bị cơ điện nào trong cơ sở dữ liệu.</td></tr>`;
         return;
       }
 
       els.machineListBody.innerHTML = rows.map(m => `<tr>
         <td class="machine-text-cell">${textEllipsisCell(`⚙️ ${m.name}`, "Tên máy thiết bị", "brand-text-cell")}</td>
+        <td class="machine-text-cell">${textEllipsisCell(m.model || "-", "Model máy", "muted-text-cell")}</td>
+        <td class="machine-text-cell">${textEllipsisCell(m.serial || "-", "Số Serial", "muted-text-cell")}</td>
         <td><strong>${formatDateDisplay(m.setupDate)}</strong></td>
         <td><strong>${formatDateDisplay(m.warranty)}</strong></td>
         <td class="machine-text-cell">${textEllipsisCell(m.vendor, "Công ty cung cấp", "muted-text-cell")}</td>
@@ -1010,6 +1015,7 @@
 
     const frequencyDetails = {
       daily: { label: "Hằng ngày", months: 0, days: 1 },
+      weekly: { label: "Hằng tuần", months: 0, days: 7 },
       monthly: { label: "Hằng tháng", months: 1 },
       quarterly: { label: "Hằng quý", months: 3 },
       semiannual: { label: "6 tháng một lần", months: 6 },
@@ -1026,7 +1032,7 @@
     function renderMaintenanceJobsTable() {
       const term = els.jobSearchInput.value.trim().toLowerCase();
       const todayStr = new Date().toISOString().slice(0, 10);
-      const visibleMachines = machines.filter(machine => !term || [machine.name, machine.vendor, ...maintenanceJobs.filter(j => j.machineId === machine.id).flatMap(j => [j.jobName, j.desc, j.owner])].join(" ").toLowerCase().includes(term));
+      const visibleMachines = machines.filter(machine => !term || [machine.name, machine.model, machine.serial, machine.vendor, ...maintenanceJobs.filter(j => j.machineId === machine.id).flatMap(j => [j.jobName, j.desc, j.owner])].join(" ").toLowerCase().includes(term));
 
       if (!visibleMachines.length) {
         els.maintenanceScheduleBoard.innerHTML = `<div class="empty">Chưa có máy nào phù hợp. Hãy thêm máy quản lý hoặc điều chỉnh bộ lọc.</div>`;
@@ -1035,12 +1041,19 @@
 
       els.maintenanceScheduleBoard.innerHTML = visibleMachines.map(machine => {
         const jobs = maintenanceJobs.filter(j => j.machineId === machine.id && (!term || [j.jobName, j.desc, j.owner, machine.name].join(" ").toLowerCase().includes(term))).sort((a, b) => String(a.nextDate).localeCompare(String(b.nextDate)));
-        const dueCount = jobs.filter(j => j.nextDate <= todayStr).length;
-        return `<article class="maintenance-machine">
-          <header class="maintenance-machine-head">
-            <div><h4>${escapeHtml(machine.name)}</h4><p>${escapeHtml(machine.vendor || "Chưa cập nhật nhà cung cấp")} · ${jobs.length} hạng mục · ${dueCount ? `${dueCount} đến hạn` : "Không có việc đến hạn"}</p></div>
-            <button class="btn primary" type="button" onclick="openJobDialog('', '${machine.id}')">Thêm hạng mục</button>
-          </header>
+        const dueCount = jobs.filter(j => j.nextDate && j.nextDate <= todayStr).length;
+        const isExpanded = expandedMaintenanceMachineIds.has(machine.id);
+        const machineIdentity = [machine.model && `Model: ${machine.model}`, machine.serial && `S/N: ${machine.serial}`].filter(Boolean).join(" · ") || "Chưa cập nhật Model / Serial";
+        return `<article class="maintenance-machine ${dueCount ? "has-due" : ""} ${isExpanded ? "is-expanded" : ""}">
+          <div class="maintenance-machine-head">
+            <button class="maintenance-machine-summary" type="button" onclick="toggleMaintenanceMachine('${machine.id}')" aria-expanded="${isExpanded}">
+              <span class="maintenance-machine-name"><strong>${escapeHtml(machine.name)}</strong><small>${escapeHtml(machineIdentity)} · ${jobs.length} hạng mục</small></span>
+              <span class="maintenance-machine-state ${dueCount ? "due" : "ok"}">${dueCount ? `Cần bảo trì: ${dueCount}` : "Đúng lịch"}</span>
+              <span class="maintenance-machine-chevron" aria-hidden="true">${isExpanded ? "⌃" : "⌄"}</span>
+            </button>
+          </div>
+          <div class="maintenance-machine-jobs" ${isExpanded ? "" : "hidden"}>
+          <div class="maintenance-machine-toolbar"><span>${escapeHtml(machine.vendor || "Chưa cập nhật nhà cung cấp")}</span><button class="btn primary" type="button" onclick="openJobDialog('', '${machine.id}')">Thêm hạng mục</button></div>
           ${jobs.length ? jobs.map(job => {
             const due = job.nextDate <= todayStr;
             return `<div class="maintenance-task">
@@ -1055,8 +1068,15 @@
               </div>
             </div>`;
           }).join("") : `<div class="maintenance-empty">Máy này chưa có lịch bảo trì. Chọn “Thêm hạng mục” để tạo kế hoạch đầu tiên.</div>`}
+          </div>
         </article>`;
       }).join("");
+    }
+
+    function toggleMaintenanceMachine(id) {
+      if (expandedMaintenanceMachineIds.has(id)) expandedMaintenanceMachineIds.delete(id);
+      else expandedMaintenanceMachineIds.add(id);
+      renderMaintenanceJobsTable();
     }
 
     function renderHistoryTable() {
@@ -1298,6 +1318,8 @@
       els.machineTitle.textContent = m ? "Sửa thông tin máy móc" : "Thêm máy thiết bị mới";
       els.mId.value = m?.id || "";
       els.mName.value = m?.name || "";
+      els.mModel.value = m?.model || "";
+      els.mSerial.value = m?.serial || "";
       els.mSetupDate.value = m?.setupDate || new Date().toISOString().slice(0,10);
       els.mWarranty.value = m?.warranty || new Date().toISOString().slice(0,10);
       els.mVendor.value = m?.vendor || "";
@@ -1310,7 +1332,7 @@
       e.preventDefault();
       const id = els.mId.value || crypto.randomUUID();
       const payload = {
-        id, name: els.mName.value.trim(), setupDate: els.mSetupDate.value,
+        id, name: els.mName.value.trim(), model: els.mModel.value.trim(), serial: els.mSerial.value.trim(), setupDate: els.mSetupDate.value,
         warranty: els.mWarranty.value, vendor: els.mVendor.value.trim(), phone: els.mPhone.value.trim()
       };
       const idx = machines.findIndex(x => x.id === id);
@@ -1331,6 +1353,7 @@
       const mName = machines.find(x => x.id === id)?.name || "thiết bị";
       machines = machines.filter(x => x.id !== id);
       maintenanceJobs = maintenanceJobs.filter(j => j.machineId !== id);
+      expandedMaintenanceMachineIds.delete(id);
       addAct(`Xóa hồ sơ máy: ${mName}`); render();
       await Promise.all([fbFetch(`machines/${id}`, "DELETE"), syncNode("maintenanceJobs", maintenanceJobs), syncNode("activities", activities)]);
     }
@@ -1597,8 +1620,8 @@
       downloadCsv(h, r, "kho-linh-kien-ltd");
     });
     els.exportMachineBtn.addEventListener("click", () => {
-      const h = ["Tên máy", "Ngày lắp", "Hạn bảo hành", "Nhà cung cấp", "SĐT"];
-      const r = machines.map(m => [m.name, formatDateDisplay(m.setupDate), formatDateDisplay(m.warranty), m.vendor, m.phone]);
+      const h = ["Tên máy", "Model máy", "Số Serial", "Ngày lắp", "Hạn bảo hành", "Nhà cung cấp", "SĐT"];
+      const r = machines.map(m => [m.name, m.model || "", m.serial || "", formatDateDisplay(m.setupDate), formatDateDisplay(m.warranty), m.vendor, m.phone]);
       downloadCsv(h, r, "danh-sach-may-ltd");
     });
     els.exportCncBtn.addEventListener("click", () => {
@@ -1639,8 +1662,8 @@
     els.exportCncAlarmBtn.addEventListener("click", exportCncAlarmExcel);
     document.querySelector("#exportCncAlarmSectionBtn").addEventListener("click", exportCncAlarmExcel);
     els.exportJobBtn.addEventListener("click", () => {
-      const h = ["Tên máy", "Hạng mục bảo trì", "Chu kỳ", "Ngày thực hiện kế tiếp", "Người phụ trách", "Thời lượng dự kiến", "Người thiết lập", "Công việc cụ thể / Checklist"];
-      const r = maintenanceJobs.map(j => [j.machineName, j.jobName, recurrenceLabel(j), formatDateDisplay(j.nextDate), j.owner || "", j.estimatedTime || "", j.createdBy || "", j.desc]);
+      const h = ["Tên máy", "Model máy", "Số Serial", "Hạng mục bảo trì", "Chu kỳ", "Ngày thực hiện kế tiếp", "Người phụ trách", "Thời lượng dự kiến", "Người thiết lập", "Công việc cụ thể / Checklist"];
+      const r = maintenanceJobs.map(j => { const machine = machines.find(m => m.id === j.machineId) || {}; return [j.machineName, machine.model || "", machine.serial || "", j.jobName, recurrenceLabel(j), formatDateDisplay(j.nextDate), j.owner || "", j.estimatedTime || "", j.createdBy || "", j.desc]; });
       downloadCsv(h, r, "ke-hoach-job-bao-tri-ltd");
     });
     els.exportHistoryBtn.addEventListener("click", () => {
@@ -1688,6 +1711,7 @@
       openMoveDialog,
       openMachineDialog,
       deleteMachine,
+      toggleMaintenanceMachine,
       openJobDialog,
       deleteJob,
       completeAndRenewJob,
