@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>LTD VIET NAM - Cloud Maintenance System</title>
-  <link rel="stylesheet" href="assets/css/app.css?v=20260930c">
+  <link rel="stylesheet" href="assets/css/app.css?v=20260930e">
 </head>
 <body class="locked">
   <!-- Screen Đăng Nhập -->
@@ -393,9 +393,8 @@
           <div class="section-head">
             <div>
               <h3>Lịch sử sự cố lỗi và xử lý sửa chữa</h3>
-              <div class="meta">Theo dõi lỗi phát sinh đột xuất của thiết bị máy và phương án khắc phục thực tế.</div>
+              <div class="meta">Kho lưu trữ chỉ đọc các sự cố phát sinh và phương án khắc phục đã được ghi nhận.</div>
             </div>
-            <button class="btn primary" id="addHistoryBtn" type="button">Thêm lịch sử mới</button>
           </div>
           <div class="history-tools">
             <div class="field">
@@ -421,23 +420,28 @@
                   <th class="col-text-wide">Mô tả lỗi sự cố</th>
                   <th class="col-text-wide">Phương án khắc phục</th>
                   <th class="col-img">Hình ảnh thực tế</th>
-                  <th class="col-actions" style="text-align: right;">Thao tác</th>
                 </tr>
               </thead>
               <tbody id="historyList"></tbody>
             </table>
           </div>
         </section>
-        <div class="audit-grid">
+        <section class="section admin-audit-entry" id="adminAuditEntry" hidden>
+          <div class="section-head">
+            <div><h3>Nhật ký quản trị</h3><div class="meta">Dữ liệu riêng cho Quản trị viên.</div></div>
+            <button class="btn" id="toggleAdminAuditBtn" type="button">Xem lịch sử quản trị</button>
+          </div>
+          <div class="audit-grid" id="adminAuditPanel" hidden>
           <section class="section">
             <div class="section-head"><div><h3>Lịch sử thao tác hệ thống</h3><div class="meta">Ghi nhận thêm, sửa, xóa và cập nhật dữ liệu CMMS.</div></div></div>
             <div class="table-wrap"><table class="data-table compact-table"><thead><tr><th>Thời gian</th><th>Phân hệ</th><th>Thao tác</th><th>Người thực hiện</th></tr></thead><tbody id="deviceHistoryList"></tbody></table></div>
           </section>
           <section class="section">
-            <div class="section-head"><div><h3>Lịch sử truy cập</h3><div class="meta">Các phiên đăng nhập và đăng xuất của tài khoản hiện tại.</div></div></div>
+            <div class="section-head"><div><h3>Lịch sử đăng nhập</h3><div class="meta">Các phiên đăng nhập và đăng xuất của toàn bộ tài khoản.</div></div></div>
             <div class="table-wrap"><table class="data-table compact-table"><thead><tr><th>Thời gian</th><th>Tài khoản</th><th>Sự kiện</th></tr></thead><tbody id="accountHistoryList"></tbody></table></div>
           </section>
-        </div>
+          </div>
+        </section>
       </section>
     </main>
   </div>
@@ -792,6 +796,6 @@
 
   <div class="toast" id="toast" role="status" aria-live="polite"></div>
 
-  <script type="module" src="assets/js/app.js?v=20260930c"></script>
+  <script type="module" src="assets/js/app.js?v=20260930e"></script>
 </body>
 </html>
