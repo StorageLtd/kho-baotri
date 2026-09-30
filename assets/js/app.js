@@ -44,6 +44,7 @@
       addMachineMainBtn: document.querySelector("#addMachineMainBtn"),
       addCncMainBtn: document.querySelector("#addCncMainBtn"), // NÚT MỚI
       addJobMainBtn: document.querySelector("#addJobMainBtn"),
+      addMaintenanceMachineBtn: document.querySelector("#addMaintenanceMachineBtn"),
       exportBtn: document.querySelector("#exportBtn"),
       exportMachineBtn: document.querySelector("#exportMachineBtn"),
       exportCncBtn: document.querySelector("#exportCncBtn"), // NÚT MỚI
@@ -63,6 +64,7 @@
       inventoryBody: document.querySelector("#inventoryBody"),
       machineListBody: document.querySelector("#machineListBody"),
       jobListBody: document.querySelector("#jobListBody"),
+      maintenanceScheduleBoard: document.querySelector("#maintenanceScheduleBoard"),
       historyList: document.querySelector("#historyList"),
       deviceHistoryList: document.querySelector("#deviceHistoryList"),
       accountHistoryList: document.querySelector("#accountHistoryList"),
@@ -150,8 +152,10 @@
       jId: document.querySelector("#jobId"),
       jMachineSelect: document.querySelector("#jMachineSelect"),
       jName: document.querySelector("#jNameInput"),
-      jPeriod: document.querySelector("#jPeriodInput"),
+      jFrequency: document.querySelector("#jFrequencyInput"),
       jNextDate: document.querySelector("#jNextDateInput"),
+      jOwner: document.querySelector("#jOwnerInput"),
+      jEstimatedTime: document.querySelector("#jEstimatedTimeInput"),
       jDesc: document.querySelector("#jDescInput"),
 
       loginForm: document.querySelector("#loginForm"),
@@ -515,8 +519,8 @@
         els.pageHeading.textContent = "HỒ SƠ MÁY XƯỞNG";
         els.pageSubtitle.textContent = "Hệ thống lưu giữ thông tin hồ sơ thiết bị, thời hạn bảo hành của toàn xưởng.";
       } else if(pageId === "maintenanceJobsPage") {
-        els.pageHeading.textContent = "LỊCH TRÌNH BẢO TRÌ";
-        els.pageSubtitle.textContent = "Thiết lập nhiều đầu mục công việc kiểm tra cơ điện định kỳ cho từng dòng máy riêng biệt.";
+        els.pageHeading.textContent = "KẾ HOẠCH BẢO TRÌ CMMS";
+        els.pageSubtitle.textContent = "Tổ chức kế hoạch theo từng thiết bị, với chu kỳ, người phụ trách và checklist công việc rõ ràng.";
       } else {
         els.pageHeading.textContent = "NHẬT KÝ SỰ CỐ";
         els.pageSubtitle.textContent = "Theo dõi sự cố đột xuất cơ điện xưởng và phương án xử lý thực tế.";
@@ -1004,40 +1008,54 @@
       }
     }
 
+    const frequencyDetails = {
+      daily: { label: "Hằng ngày", months: 0, days: 1 },
+      monthly: { label: "Hằng tháng", months: 1 },
+      quarterly: { label: "Hằng quý", months: 3 },
+      semiannual: { label: "6 tháng một lần", months: 6 },
+      yearly: { label: "Hằng năm", months: 12 }
+    };
+
+    function recurrenceForJob(job) {
+      if (frequencyDetails[job.recurrence]) return job.recurrence;
+      return ({ 1: "monthly", 3: "quarterly", 6: "semiannual", 12: "yearly" })[Number(job.period)] || "monthly";
+    }
+
+    function recurrenceLabel(job) { return frequencyDetails[recurrenceForJob(job)].label; }
+
     function renderMaintenanceJobsTable() {
       const term = els.jobSearchInput.value.trim().toLowerCase();
-      const rows = maintenanceJobs.filter(j => {
-        return !term || [j.machineName, j.jobName, j.desc].join(" ").toLowerCase().includes(term);
-      }).sort((a,b) => a.nextDate.localeCompare(b.nextDate));
+      const todayStr = new Date().toISOString().slice(0, 10);
+      const visibleMachines = machines.filter(machine => !term || [machine.name, machine.vendor, ...maintenanceJobs.filter(j => j.machineId === machine.id).flatMap(j => [j.jobName, j.desc, j.owner])].join(" ").toLowerCase().includes(term));
 
-      if(!rows.length) {
-        els.jobListBody.innerHTML = `<tr><td colspan="7" class="empty">Không tìm thấy công việc (job) bảo trì nào được lên kế hoạch.</td></tr>`;
+      if (!visibleMachines.length) {
+        els.maintenanceScheduleBoard.innerHTML = `<div class="empty">Chưa có máy nào phù hợp. Hãy thêm máy quản lý hoặc điều chỉnh bộ lọc.</div>`;
         return;
       }
 
-      const todayStr = new Date().toISOString().slice(0, 10);
-
-      els.jobListBody.innerHTML = rows.map(j => {
-        const isOverdue = j.nextDate <= todayStr;
-        const statusPill = isOverdue 
-          ? `<span class="pill danger" style="padding: 4px 10px; font-weight:800;">🚨 Đến kỳ hạn</span>`
-          : `<span class="pill ok">Đang theo dõi</span>`;
-
-        return `<tr>
-          <td class="col-text-wide job-text-cell">${textEllipsisCell(j.machineName, "Tên thiết bị máy", "strong-text")}</td>
-          <td class="col-text-wide job-text-cell">${textEllipsisCell(`📌 ${j.jobName}`, "Hạng mục / công việc bảo trì", "brand-text-cell")}</td>
-          <td><span class="job-period">${escapeHtml(j.period)} Tháng</span></td>
-          <td><span class="job-date" style="color: ${isOverdue ? 'var(--danger)' : 'var(--ok)'};">${formatDateDisplay(j.nextDate)}</span></td>
-          <td class="col-text-wide job-text-cell">${textEllipsisCell(j.desc, "Mô tả chi tiết kỹ thuật Job", "muted-text-cell")}</td>
-          <td>${statusPill}</td>
-          <td>
-            <div class="row-actions">
-              <button class="icon-btn" style="background: #e6f4ea; color: var(--ok); border-color: rgba(21,128,61,0.2)" type="button" title="Hoàn tất bảo trì kỳ này và tự tạo kỳ tới" onclick="completeAndRenewJob('${j.id}')">${checkIcon}</button>
-              <button class="icon-btn" type="button" onclick="openJobDialog('${j.id}')" title="Sửa lịch trình">${editIcon}</button>
-              <button class="icon-btn danger" type="button" onclick="deleteJob('${j.id}')" title="Hủy bỏ Job này">${deleteIcon}</button>
-            </div>
-          </td>
-        </tr>`;
+      els.maintenanceScheduleBoard.innerHTML = visibleMachines.map(machine => {
+        const jobs = maintenanceJobs.filter(j => j.machineId === machine.id && (!term || [j.jobName, j.desc, j.owner, machine.name].join(" ").toLowerCase().includes(term))).sort((a, b) => String(a.nextDate).localeCompare(String(b.nextDate)));
+        const dueCount = jobs.filter(j => j.nextDate <= todayStr).length;
+        return `<article class="maintenance-machine">
+          <header class="maintenance-machine-head">
+            <div><h4>${escapeHtml(machine.name)}</h4><p>${escapeHtml(machine.vendor || "Chưa cập nhật nhà cung cấp")} · ${jobs.length} hạng mục · ${dueCount ? `${dueCount} đến hạn` : "Không có việc đến hạn"}</p></div>
+            <button class="btn primary" type="button" onclick="openJobDialog('', '${machine.id}')">Thêm hạng mục</button>
+          </header>
+          ${jobs.length ? jobs.map(job => {
+            const due = job.nextDate <= todayStr;
+            return `<div class="maintenance-task">
+              <div><strong>${escapeHtml(job.jobName)}</strong><small>${escapeHtml(job.desc || "Chưa có checklist kỹ thuật")}</small></div>
+              <div><small>Chu kỳ</small><strong>${escapeHtml(recurrenceLabel(job))}</strong></div>
+              <div><small>Kỳ kế tiếp</small><strong style="color:${due ? "var(--danger)" : "var(--ok)"}">${formatDateDisplay(job.nextDate)}</strong></div>
+              <div><small>Phụ trách</small><strong>${escapeHtml(job.owner || "Chưa phân công")}</strong><small>${escapeHtml(job.estimatedTime || "Chưa có thời lượng")} · Thiết lập: ${escapeHtml(job.createdBy || "Dữ liệu cũ")}</small></div>
+              <div class="maintenance-task-actions">
+                <button class="icon-btn" type="button" title="Hoàn tất kỳ này" onclick="completeAndRenewJob('${job.id}')">${checkIcon}</button>
+                <button class="icon-btn" type="button" title="Sửa lịch" onclick="openJobDialog('${job.id}')">${editIcon}</button>
+                <button class="icon-btn danger" type="button" title="Xóa lịch" onclick="deleteJob('${job.id}')">${deleteIcon}</button>
+              </div>
+            </div>`;
+          }).join("") : `<div class="maintenance-empty">Máy này chưa có lịch bảo trì. Chọn “Thêm hạng mục” để tạo kế hoạch đầu tiên.</div>`}
+        </article>`;
       }).join("");
     }
 
@@ -1150,7 +1168,7 @@
               </strong>
               <div style="font-weight:800; margin-top:2px; font-size:13.5px;">Thiết bị: ${escapeHtml(j.machineName)}</div>
               <div style="font-size:12.5px; font-weight:600; color:var(--brand);">Hạng mục: ${escapeHtml(j.jobName)}</div>
-              <div class="meta">Hạn dự kiến: ${formatDateDisplay(j.nextDate)}. Chu kỳ: ${j.period} tháng.</div>
+              <div class="meta">Hạn dự kiến: ${formatDateDisplay(j.nextDate)}. Chu kỳ: ${recurrenceLabel(j)}.</div>
             </div>
           `;
         }
@@ -1318,7 +1336,7 @@
     }
 
     // JOB BẢO TRÌ
-    function openJobDialog(id = "") {
+    function openJobDialog(id = "", selectedMachineId = "") {
       if (machines.length === 0) {
         alert("Lỗi: Bạn cần tạo dữ liệu thông tin Máy móc nhà xưởng trước khi lập kế hoạch Job bảo trì!");
         return;
@@ -1327,10 +1345,12 @@
       const j = maintenanceJobs.find(x => x.id === id);
       els.jobTitle.textContent = j ? "Sửa đổi thông tin Job" : "Thiết lập Job Bảo trì mới";
       els.jId.value = j?.id || "";
-      els.jMachineSelect.value = j?.machineId || "";
+      els.jMachineSelect.value = j?.machineId || selectedMachineId || "";
       els.jName.value = j?.jobName || "";
-      els.jPeriod.value = j?.period || "3";
+      els.jFrequency.value = recurrenceForJob(j || { recurrence: "monthly" });
       els.jNextDate.value = j?.nextDate || new Date().toISOString().slice(0,10);
+      els.jOwner.value = j?.owner || "";
+      els.jEstimatedTime.value = j?.estimatedTime || "";
       els.jDesc.value = j?.desc || "";
       els.jobDialog.showModal();
     }
@@ -1343,13 +1363,18 @@
       if(!targetMachine) return;
 
       const id = els.jId.value || crypto.randomUUID();
+      const recurrence = els.jFrequency.value;
       const payload = {
         id,
         machineId: mId,
         machineName: targetMachine.name,
         jobName: els.jName.value.trim(),
-        period: Number(els.jPeriod.value),
+        recurrence,
+        period: frequencyDetails[recurrence].months || 0,
         nextDate: els.jNextDate.value,
+        owner: els.jOwner.value.trim(),
+        estimatedTime: els.jEstimatedTime.value.trim(),
+        createdBy: maintenanceJobs.find(x => x.id === id)?.createdBy || displayName(),
         desc: els.jDesc.value.trim()
       };
 
@@ -1392,8 +1417,9 @@
       };
       repairHistory.push(histPayload);
 
-      // Tính ngày tiếp theo của chu kỳ: Ngày cũ + Chu kỳ lặp (Tháng)
-      currentNextDate.setMonth(currentNextDate.getMonth() + Number(j.period));
+      const schedule = frequencyDetails[recurrenceForJob(j)];
+      if (schedule.days) currentNextDate.setDate(currentNextDate.getDate() + schedule.days);
+      else currentNextDate.setMonth(currentNextDate.getMonth() + schedule.months);
       j.nextDate = currentNextDate.toISOString().slice(0, 10);
 
       addAct(`Đã hoàn tất bảo trì & Đổi lịch kế tiếp Job: ${j.jobName}`);
@@ -1486,6 +1512,7 @@
     els.addCncMainBtn.addEventListener("click", () => openCncDialog()); // Sự kiện thêm máy CNC bên Header
     els.addJobMainBtn.addEventListener("click", () => openJobDialog());
     document.querySelector("#addMachineBtn").addEventListener("click", () => openMachineDialog());
+    els.addMaintenanceMachineBtn.addEventListener("click", () => openMachineDialog());
     document.querySelector("#addCncBtn").addEventListener("click", () => openCncDialog()); // Sự kiện thêm máy CNC nút trong tab
     document.querySelector("#addJobBtn").addEventListener("click", () => openJobDialog());
     document.querySelector("#addHistoryBtn").addEventListener("click", () => openHistoryDialog());
@@ -1612,8 +1639,8 @@
     els.exportCncAlarmBtn.addEventListener("click", exportCncAlarmExcel);
     document.querySelector("#exportCncAlarmSectionBtn").addEventListener("click", exportCncAlarmExcel);
     els.exportJobBtn.addEventListener("click", () => {
-      const h = ["Tên máy xưởng", "Tên Job bảo trì", "Chu kỳ (tháng)", "Ngày đến hạn tiếp theo", "Mô tả chi tiết"];
-      const r = maintenanceJobs.map(j => [j.machineName, j.jobName, j.period, formatDateDisplay(j.nextDate), j.desc]);
+      const h = ["Tên máy", "Hạng mục bảo trì", "Chu kỳ", "Ngày thực hiện kế tiếp", "Người phụ trách", "Thời lượng dự kiến", "Người thiết lập", "Công việc cụ thể / Checklist"];
+      const r = maintenanceJobs.map(j => [j.machineName, j.jobName, recurrenceLabel(j), formatDateDisplay(j.nextDate), j.owner || "", j.estimatedTime || "", j.createdBy || "", j.desc]);
       downloadCsv(h, r, "ke-hoach-job-bao-tri-ltd");
     });
     els.exportHistoryBtn.addEventListener("click", () => {
