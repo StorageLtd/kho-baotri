@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>LTD VIET NAM - Cloud Maintenance System</title>
-  <link rel="stylesheet" href="assets/css/app.css?v=20260930b">
+  <link rel="stylesheet" href="assets/css/app.css?v=20260930c">
 </head>
 <body class="locked">
   <!-- Screen Đăng Nhập -->
@@ -349,6 +349,8 @@
               <thead>
                 <tr>
                   <th>Tên máy thiết bị</th>
+                  <th>Model máy</th>
+                  <th>Serial máy</th>
                   <th>Ngày lắp đặt</th>
                   <th>Hạn bảo hành</th>
                   <th>Công ty cung cấp</th>
@@ -600,6 +602,14 @@
           <input class="input" id="mNameInput" required placeholder="Ví dụ: Máy Cắt Laser Fiber CO2 CNC">
         </div>
         <div class="field">
+          <label for="mModelInput">Model máy</label>
+          <input class="input" id="mModelInput" required placeholder="Ví dụ: VF-2SS / FIBER 3015">
+        </div>
+        <div class="field">
+          <label for="mSerialInput">Số Serial / Số sê-ri</label>
+          <input class="input" id="mSerialInput" required placeholder="Ví dụ: SN-2026-00125">
+        </div>
+        <div class="field">
           <label for="mSetupDateInput">Ngày bàn giao lắp đặt</label>
           <input class="input" id="mSetupDateInput" type="date" required>
         </div>
@@ -648,6 +658,7 @@
           <label for="jFrequencyInput">Chu kỳ / Lịch bảo trì</label>
           <select id="jFrequencyInput" class="input">
             <option value="daily">Hằng ngày</option>
+            <option value="weekly">Hằng tuần</option>
             <option value="monthly">Hằng tháng</option>
             <option value="quarterly">Hằng quý</option>
             <option value="semiannual">6 tháng một lần</option>
@@ -781,6 +792,6 @@
 
   <div class="toast" id="toast" role="status" aria-live="polite"></div>
 
-  <script type="module" src="assets/js/app.js?v=20260930b"></script>
+  <script type="module" src="assets/js/app.js?v=20260930c"></script>
 </body>
 </html>
