@@ -22,6 +22,7 @@
     let accountHistory = [];
     let appStarted = false;
     const expandedMaintenanceMachineIds = new Set();
+    let adminAuditOpen = false;
 
     const number = new Intl.NumberFormat("vi-VN");
 
@@ -69,6 +70,9 @@
       historyList: document.querySelector("#historyList"),
       deviceHistoryList: document.querySelector("#deviceHistoryList"),
       accountHistoryList: document.querySelector("#accountHistoryList"),
+      adminAuditEntry: document.querySelector("#adminAuditEntry"),
+      adminAuditPanel: document.querySelector("#adminAuditPanel"),
+      toggleAdminAuditBtn: document.querySelector("#toggleAdminAuditBtn"),
       searchInput: document.querySelector("#searchInput"),
       machineSearchInput: document.querySelector("#machineSearchInput"),
       jobSearchInput: document.querySelector("#jobSearchInput"),
@@ -228,6 +232,9 @@
     async function loadCloudData() {
       if(els.resultCount) els.resultCount.textContent = "Đang đồng bộ dữ liệu đám mây...";
       try {
+        const adminAuditRequests = role() === "admin"
+          ? [fbFetch("deviceHistory"), fbFetch("accountHistory")]
+          : [Promise.resolve(null), Promise.resolve(null)];
         const [cloudItems, cloudActivities, cloudHistory, cloudMachines, cloudJobs, cloudCncs, cloudCncAlarms, cloudDeviceHistory, cloudAccountHistory] = await Promise.all([
           fbFetch("items"),
           fbFetch("activities"),
@@ -236,8 +243,7 @@
           fbFetch("maintenanceJobs"),
           fbFetch("cncs"), // Tải dữ liệu CNC
           fbFetch("cncAlarms"), // Tải dữ liệu lịch sử Alarm CNC
-          fbFetch("deviceHistory"),
-          fbFetch(`accountHistory/${getUser().uid}`)
+          ...adminAuditRequests
         ]);
 
         items = cloudItems ? Object.values(cloudItems) : [];
@@ -248,7 +254,7 @@
         cncs = cloudCncs ? Object.values(cloudCncs) : [];
         cncAlarmHistory = cloudCncAlarms ? Object.values(cloudCncAlarms) : [];
         deviceHistory = cloudDeviceHistory ? Object.values(cloudDeviceHistory) : [];
-        accountHistory = cloudAccountHistory ? Object.values(cloudAccountHistory) : [];
+        accountHistory = cloudAccountHistory ? Object.values(cloudAccountHistory).flatMap(entries => Object.values(entries || {})) : [];
 
         // Nếu lần đầu chưa có máy CNC, tự động tạo máy CNC demo
         if (cncs.length === 0) {
@@ -478,7 +484,13 @@
   
     function applyAuthorization() {
       const allowedToEdit = canEdit();
-      document.querySelectorAll("button.primary, button.danger, #addMachineBtn, #addCncBtn, #addJobBtn, #addHistoryBtn").forEach(button => {
+      const isAdmin = role() === "admin";
+      els.adminAuditEntry.hidden = !isAdmin;
+      if (!isAdmin) {
+        adminAuditOpen = false;
+        els.adminAuditPanel.hidden = true;
+      }
+      document.querySelectorAll("button.primary, button.danger, #addMachineBtn, #addCncBtn, #addJobBtn").forEach(button => {
         if (button.closest(".login-screen")) return;
         button.disabled = true;
         button.title = "Tài khoản chỉ có quyền xem. Liên hệ quản lý để được cấp quyền chỉnh sửa.";
@@ -566,6 +578,7 @@
     }
 
     function renderAuditHistory() {
+      if (role() !== "admin") return;
       const deviceRows = [...deviceHistory].sort((a, b) => new Date(b.at) - new Date(a.at)).slice(0, 12);
       const accountRows = [...accountHistory].sort((a, b) => new Date(b.at) - new Date(a.at)).slice(0, 12);
       els.deviceHistoryList.innerHTML = deviceRows.length ? deviceRows.map(row => `<tr><td>${formatDateDisplay(row.at)} ${new Date(row.at).toLocaleTimeString("vi-VN")}</td><td>${escapeHtml(row.device || "-")}</td><td>${escapeHtml(row.action || "-")}</td><td>${escapeHtml(row.actor || "-")}</td></tr>`).join("") : `<tr><td colspan="4" class="empty">Chưa có thao tác thiết bị.</td></tr>`;
@@ -916,19 +929,10 @@
 
     // TỰ ĐỘNG CHUYỂN ALARM CNC THÀNH NHẬT KÝ SỬA CHỮA KHẮC PHỤC SỰ CỐ
     function autoCreateRepairHistoryFromCncAlarm(alarmId) {
-      const a = cncAlarmHistory.find(x => x.id === alarmId);
-      if(!a) return;
-
       switchPage("historyPage");
       document.querySelectorAll(".nav button").forEach(entry => entry.classList.remove("active"));
       document.querySelector('[data-page="historyPage"]').classList.add("active");
-
-      // Mở dialog sửa chữa, điền sẵn thông tin sự cố kết nối
-      openHistoryDialog();
-      els.machineInput.value = a.cncName;
-      els.faultTimeInput.value = new Date(a.timestamp).toISOString().slice(0, 10);
-      els.faultInput.value = `Ghi nhận lỗi IoT qua Ethernet Fanuc FOCAS API: \nMã lỗi: [${a.alarmCode}] - ${a.description}`;
-      els.fixInput.value = `Tiến hành kiểm tra tủ điều khiển điện máy CNC. Sửa chữa lỗi bằng cách thay thế linh kiện...`;
+      showToast("Nhật ký sự cố là dữ liệu chỉ đọc. Hệ thống chỉ tự ghi khi hoàn tất bảo trì.");
     }
 
     // Xóa máy CNC
@@ -1051,9 +1055,10 @@
               <span class="maintenance-machine-state ${dueCount ? "due" : "ok"}">${dueCount ? `Cần bảo trì: ${dueCount}` : "Đúng lịch"}</span>
               <span class="maintenance-machine-chevron" aria-hidden="true">${isExpanded ? "⌃" : "⌄"}</span>
             </button>
+            <button class="btn primary maintenance-machine-add" type="button" onclick="openJobDialog('', '${machine.id}')">Thêm hạng mục</button>
           </div>
           <div class="maintenance-machine-jobs" ${isExpanded ? "" : "hidden"}>
-          <div class="maintenance-machine-toolbar"><span>${escapeHtml(machine.vendor || "Chưa cập nhật nhà cung cấp")}</span><button class="btn primary" type="button" onclick="openJobDialog('', '${machine.id}')">Thêm hạng mục</button></div>
+          <div class="maintenance-machine-toolbar"><span>${escapeHtml(machine.vendor || "Chưa cập nhật nhà cung cấp")}</span></div>
           ${jobs.length ? jobs.map(job => {
             const due = job.nextDate <= todayStr;
             return `<div class="maintenance-task">
@@ -1091,7 +1096,7 @@
       }).sort((a,b) => new Date(b.faultTime) - new Date(a.faultTime));
 
       if(!rows.length) {
-        els.historyList.innerHTML = `<tr><td colspan="7" class="empty">Không tìm thấy nhật ký sự cố sửa chữa nào phù hợp.</td></tr>`;
+        els.historyList.innerHTML = `<tr><td colspan="6" class="empty">Không tìm thấy nhật ký sự cố sửa chữa nào phù hợp.</td></tr>`;
         return;
       }
 
@@ -1105,12 +1110,6 @@
           <td class="col-text-wide">${textEllipsisCell(h.fault, "Mô tả lỗi sự cố", "muted-text-cell")}</td>
           <td class="col-text-wide">${textEllipsisCell(h.fix, "Phương án khắc phục", "muted-text-cell")}</td>
           <td class="col-img">${imageThumbCell(displayImage, h.id, "history")}</td>
-          <td>
-            <div class="row-actions">
-              <button class="icon-btn" type="button" onclick="openHistoryDialog('${h.id}')" title="Sửa lịch sử">${editIcon}</button>
-              <button class="icon-btn danger" type="button" onclick="deleteHistory('${h.id}')" title="Xóa lịch sử sự cố này">${deleteIcon}</button>
-            </div>
-          </td>
         </tr>`;
       }).join("");
     }
@@ -1448,7 +1447,7 @@
       addAct(`Đã hoàn tất bảo trì & Đổi lịch kế tiếp Job: ${j.jobName}`);
       render();
       showToast("Xác nhận hoàn tất! Hệ thống đã đẩy lịch sang chu kỳ tiếp theo.");
-      await Promise.all([syncNode("maintenanceJobs", maintenanceJobs), syncNode("repairHistory", repairHistory), syncNode("activities", activities)]);
+      await Promise.all([syncNode("maintenanceJobs", maintenanceJobs), fbFetch(`repairHistory/${histPayload.id}`, "PUT", histPayload), syncNode("activities", activities)]);
     }
 
     // NHẬT KÝ SỰ CỐ ĐỘT XUẤT
@@ -1478,25 +1477,12 @@
     
     async function saveRepairHistory(e) {
       e.preventDefault();
-      const id = els.historyId.value || crypto.randomUUID();
-      const payload = {
-        id, machine: els.machineInput.value.trim(), faultTime: els.faultTimeInput.value,
-        staff: els.staffInput.value.trim(), fault: els.faultInput.value.trim(), fix: els.fixInput.value.trim(),
-        image: els.historyImageDataHidden.value || ""
-      };
-      const idx = repairHistory.findIndex(x => x.id === id);
-      if(idx >= 0) { repairHistory[idx] = payload; addAct(`Sửa lịch sử sự cố máy: ${payload.machine}`); }
-      else { repairHistory.push(payload); addAct(`Ghi sự cố đột xuất máy: ${payload.machine}`); }
-      closeHistoryDialog(); render();
-      await Promise.all([syncNode("repairHistory", repairHistory), syncNode("activities", activities)]);
+      closeHistoryDialog();
+      showToast("Nhật ký sự cố là dữ liệu chỉ đọc và không thể chỉnh sửa.");
     }
 
     async function deleteHistory(id) {
-      if(!confirm("Xác nhận xóa biên bản sửa chữa sự cố này trên đám mây?")) return;
-      const hName = repairHistory.find(x => x.id === id)?.machine || "máy";
-      repairHistory = repairHistory.filter(x => x.id !== id);
-      addAct(`Xóa lịch sử sự cố: ${hName}`); render();
-      await Promise.all([fbFetch(`repairHistory/${id}`, "DELETE"), syncNode("activities", activities)]);
+      showToast("Nhật ký sự cố là dữ liệu chỉ đọc và không thể xóa.");
     }
 
     function addAct(text) {
@@ -1538,7 +1524,12 @@
     els.addMaintenanceMachineBtn.addEventListener("click", () => openMachineDialog());
     document.querySelector("#addCncBtn").addEventListener("click", () => openCncDialog()); // Sự kiện thêm máy CNC nút trong tab
     document.querySelector("#addJobBtn").addEventListener("click", () => openJobDialog());
-    document.querySelector("#addHistoryBtn").addEventListener("click", () => openHistoryDialog());
+    els.toggleAdminAuditBtn.addEventListener("click", () => {
+      if (role() !== "admin") return;
+      adminAuditOpen = !adminAuditOpen;
+      els.adminAuditPanel.hidden = !adminAuditOpen;
+      els.toggleAdminAuditBtn.textContent = adminAuditOpen ? "Ẩn lịch sử quản trị" : "Xem lịch sử quản trị";
+    });
     
     document.querySelector("#closeDialog").addEventListener("click", closeItemDialog);
     document.querySelector("#cancelBtn").addEventListener("click", closeItemDialog);
@@ -1715,8 +1706,6 @@
       openJobDialog,
       deleteJob,
       completeAndRenewJob,
-      openHistoryDialog,
-      deleteHistory,
       openCncDialog,
       deleteCnc,
       resolveCncAlarm,
