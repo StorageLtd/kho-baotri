@@ -12,6 +12,7 @@
     let items = [];
     let activities = [];
     let repairHistory = [];
+    let stockMovements = [];
     let machines = [];
     let maintenanceJobs = []; 
     let cncs = []; // Mảng quản lý máy CNC mới
@@ -23,6 +24,7 @@
     let appStarted = false;
     const expandedMaintenanceMachineIds = new Set();
     let adminAuditOpen = false;
+    let manualLoginInProgress = false;
 
     const number = new Intl.NumberFormat("vi-VN");
 
@@ -64,10 +66,12 @@
       cncConnectionReady: document.querySelector("#cncConnectionReady"),
       resultCount: document.querySelector("#resultCount"),
       inventoryBody: document.querySelector("#inventoryBody"),
+      movementHistoryList: document.querySelector("#movementHistoryList"),
       machineListBody: document.querySelector("#machineListBody"),
       jobListBody: document.querySelector("#jobListBody"),
       maintenanceScheduleBoard: document.querySelector("#maintenanceScheduleBoard"),
       historyList: document.querySelector("#historyList"),
+      historyActionsHeading: document.querySelector("#historyActionsHeading"),
       deviceHistoryList: document.querySelector("#deviceHistoryList"),
       accountHistoryList: document.querySelector("#accountHistoryList"),
       adminAuditEntry: document.querySelector("#adminAuditEntry"),
@@ -232,29 +236,25 @@
     async function loadCloudData() {
       if(els.resultCount) els.resultCount.textContent = "Đang đồng bộ dữ liệu đám mây...";
       try {
-        const adminAuditRequests = role() === "admin"
-          ? [fbFetch("deviceHistory"), fbFetch("accountHistory")]
-          : [Promise.resolve(null), Promise.resolve(null)];
-        const [cloudItems, cloudActivities, cloudHistory, cloudMachines, cloudJobs, cloudCncs, cloudCncAlarms, cloudDeviceHistory, cloudAccountHistory] = await Promise.all([
+        const [cloudItems, cloudActivities, cloudHistory, cloudMovements, cloudMachines, cloudJobs, cloudCncs, cloudCncAlarms] = await Promise.all([
           fbFetch("items"),
           fbFetch("activities"),
           fbFetch("repairHistory"),
+          fbFetch("stockMovements"),
           fbFetch("machines"),
           fbFetch("maintenanceJobs"),
           fbFetch("cncs"), // Tải dữ liệu CNC
-          fbFetch("cncAlarms"), // Tải dữ liệu lịch sử Alarm CNC
-          ...adminAuditRequests
+          fbFetch("cncAlarms") // Tải dữ liệu lịch sử Alarm CNC
         ]);
 
         items = cloudItems ? Object.values(cloudItems) : [];
         activities = cloudActivities ? Object.values(cloudActivities) : [{ at: new Date().toISOString(), text: "Hệ thống mây đã sẵn sàng." }];
         repairHistory = cloudHistory ? Object.values(cloudHistory) : [];
+        stockMovements = cloudMovements ? Object.values(cloudMovements) : [];
         machines = cloudMachines ? Object.values(cloudMachines) : [];
         maintenanceJobs = cloudJobs ? Object.values(cloudJobs) : [];
         cncs = cloudCncs ? Object.values(cloudCncs) : [];
         cncAlarmHistory = cloudCncAlarms ? Object.values(cloudCncAlarms) : [];
-        deviceHistory = cloudDeviceHistory ? Object.values(cloudDeviceHistory) : [];
-        accountHistory = cloudAccountHistory ? Object.values(cloudAccountHistory).flatMap(entries => Object.values(entries || {})) : [];
 
         // Nếu lần đầu chưa có máy CNC, tự động tạo máy CNC demo
         if (cncs.length === 0) {
@@ -428,16 +428,21 @@
           els.loginError.textContent = "Tài khoản đã tạo. Hãy xác minh email rồi đăng nhập.";
           return false;
         }
+        manualLoginInProgress = true;
         const credential = await signIn(userVal, passVal);
         if (!credential.user.emailVerified) {
           await sendVerification(credential.user);
           await signOutUser();
+          manualLoginInProgress = false;
           els.loginError.textContent = "Email chưa được xác minh. Liên kết xác minh đã được gửi lại, vui lòng mở email rồi đăng nhập lại.";
           return false;
         }
+        sessionStorage.setItem("ltd_explicit_cmms_login", "1");
         await unlockApp();
         await writeAccountHistory("Đăng nhập thành công");
+        manualLoginInProgress = false;
       } catch (error) {
+        manualLoginInProgress = false;
         const messages = {
           "auth/email-already-in-use": "Email này đã được đăng ký.",
           "auth/weak-password": "Mật khẩu cần có ít nhất 6 ký tự.",
@@ -476,6 +481,7 @@
       } catch(e) {}
       await signOutUser();
       appStarted = false;
+      sessionStorage.removeItem("ltd_explicit_cmms_login");
       document.body.classList.add("locked"); 
       document.body.removeAttribute("data-role");
       els.sessionBadge.textContent = "Chưa đăng nhập";
@@ -486,6 +492,7 @@
       const allowedToEdit = canEdit();
       const isAdmin = role() === "admin";
       els.adminAuditEntry.hidden = !isAdmin;
+      els.historyActionsHeading.hidden = !isAdmin;
       if (!isAdmin) {
         adminAuditOpen = false;
         els.adminAuditPanel.hidden = true;
@@ -568,6 +575,7 @@
 
       updateOverviewQuickStats();
       renderInventoryTable();
+      renderMovementHistory();
       renderMachineTable();
       renderCncTable();
       renderMaintenanceJobsTable();
@@ -584,6 +592,30 @@
       els.deviceHistoryList.innerHTML = deviceRows.length ? deviceRows.map(row => `<tr><td>${formatDateDisplay(row.at)} ${new Date(row.at).toLocaleTimeString("vi-VN")}</td><td>${escapeHtml(row.device || "-")}</td><td>${escapeHtml(row.action || "-")}</td><td>${escapeHtml(row.actor || "-")}</td></tr>`).join("") : `<tr><td colspan="4" class="empty">Chưa có thao tác thiết bị.</td></tr>`;
       els.accountHistoryList.innerHTML = accountRows.length ? accountRows.map(row => `<tr><td>${formatDateDisplay(row.at)} ${new Date(row.at).toLocaleTimeString("vi-VN")}</td><td>${escapeHtml(row.email || "-")}</td><td>${escapeHtml(row.action || "-")}</td></tr>`).join("") : `<tr><td colspan="3" class="empty">Chưa có lịch sử truy cập.</td></tr>`;
       if (els.cncConnectionReady) els.cncConnectionReady.textContent = `${cncs.filter(c => c.status !== "alarm").length} / ${cncs.length}`;
+    }
+
+    async function toggleAdminAudit() {
+      if (role() !== "admin") return;
+      adminAuditOpen = !adminAuditOpen;
+      els.adminAuditPanel.hidden = !adminAuditOpen;
+      els.toggleAdminAuditBtn.textContent = adminAuditOpen ? "Ẩn lịch sử quản trị" : "Xem lịch sử quản trị";
+      if (!adminAuditOpen) return;
+
+      els.toggleAdminAuditBtn.disabled = true;
+      els.toggleAdminAuditBtn.textContent = "Đang tải lịch sử...";
+      try {
+        const [cloudDeviceHistory, cloudAccountHistory] = await Promise.all([fbFetch("deviceHistory"), fbFetch("accountHistory")]);
+        deviceHistory = cloudDeviceHistory ? Object.values(cloudDeviceHistory) : [];
+        accountHistory = cloudAccountHistory ? Object.values(cloudAccountHistory).flatMap(entries => Object.values(entries || {})) : [];
+        renderAuditHistory();
+      } catch (error) {
+        adminAuditOpen = false;
+        els.adminAuditPanel.hidden = true;
+        showToast("Không tải được nhật ký quản trị. Hãy kiểm tra Firebase Rules.");
+      } finally {
+        els.toggleAdminAuditBtn.disabled = false;
+        els.toggleAdminAuditBtn.textContent = adminAuditOpen ? "Ẩn lịch sử quản trị" : "Xem lịch sử quản trị";
+      }
     }
 
     const textViewerCache = new Map();
@@ -672,6 +704,19 @@
             </div>
           </td>
         </tr>`;
+      }).join("");
+    }
+
+    function renderMovementHistory() {
+      const rows = [...stockMovements].sort((a, b) => new Date(b.at) - new Date(a.at)).slice(0, 100);
+      if (!rows.length) {
+        els.movementHistoryList.innerHTML = `<tr><td colspan="8" class="empty">Chưa phát sinh giao dịch nhập hoặc xuất linh kiện.</td></tr>`;
+        return;
+      }
+      els.movementHistoryList.innerHTML = rows.map(m => {
+        const typeLabel = m.type === "in" ? "Nhập kho" : "Xuất kho";
+        const typeClass = m.type === "in" ? "ok" : "warn";
+        return `<tr><td><strong>${formatDateDisplay(m.at)}</strong><div class="meta">${new Date(m.at).toLocaleTimeString("vi-VN")}</div></td><td><span class="pill ${typeClass}">${typeLabel}</span></td><td><strong>${escapeHtml(m.itemName || "-")}</strong><div class="meta">${escapeHtml(m.sku || "")}</div></td><td><strong>${m.amount}</strong></td><td>${m.beforeQuantity} / <strong>${m.afterQuantity}</strong></td><td class="col-text-wide">${textEllipsisCell(m.note || "-", "Lý do giao dịch")}</td><td>${escapeHtml(m.actor || "-")}</td><td><button class="btn" type="button" onclick="exportMovementVoucher('${m.id}')">In phiếu</button></td></tr>`;
       }).join("");
     }
 
@@ -1096,7 +1141,7 @@
       }).sort((a,b) => new Date(b.faultTime) - new Date(a.faultTime));
 
       if(!rows.length) {
-        els.historyList.innerHTML = `<tr><td colspan="6" class="empty">Không tìm thấy nhật ký sự cố sửa chữa nào phù hợp.</td></tr>`;
+        els.historyList.innerHTML = `<tr><td colspan="${role() === "admin" ? 7 : 6}" class="empty">Không tìm thấy nhật ký sự cố sửa chữa nào phù hợp.</td></tr>`;
         return;
       }
 
@@ -1109,7 +1154,7 @@
           <td class="col-text-wide">${textEllipsisCell(`👷 ${h.staff}`, "Kỹ sư xử lý", "brand-text-cell")}</td>
           <td class="col-text-wide">${textEllipsisCell(h.fault, "Mô tả lỗi sự cố", "muted-text-cell")}</td>
           <td class="col-text-wide">${textEllipsisCell(h.fix, "Phương án khắc phục", "muted-text-cell")}</td>
-          <td class="col-img">${imageThumbCell(displayImage, h.id, "history")}</td>
+          <td class="col-img">${imageThumbCell(displayImage, h.id, "history")}</td>${role() === "admin" ? `<td><div class="row-actions"><button class="icon-btn" type="button" onclick="openHistoryDialog('${h.id}')" title="Sửa nhật ký sự cố">${editIcon}</button><button class="icon-btn danger" type="button" onclick="deleteHistory('${h.id}')" title="Xóa nhật ký sự cố">${deleteIcon}</button></div></td>` : ""}
         </tr>`;
       }).join("");
     }
@@ -1305,10 +1350,18 @@
         alert("Lỗi: Số lượng xuất kho vượt quá lượng tồn thực tế đang có!"); 
         return; 
       }
-      item.quantity += (els.moveType.value === "in" ? amt : -amt);
-      addAct(`${els.moveType.value === 'in' ? 'Nhập kho thêm' : 'Xuất kho dùng'} ${amt} chiếc ${item.name}`);
+      const type = els.moveType.value;
+      const beforeQuantity = item.quantity;
+      item.quantity += (type === "in" ? amt : -amt);
+      const movement = {
+        id: crypto.randomUUID(), itemId: item.id, itemName: item.name, sku: item.sku || "",
+        type, amount: amt, beforeQuantity, afterQuantity: item.quantity,
+        note: els.moveNote.value.trim(), actor: displayName(), at: new Date().toISOString()
+      };
+      stockMovements.unshift(movement);
+      addAct(`${type === 'in' ? 'Nhập kho thêm' : 'Xuất kho dùng'} ${amt} chiếc ${item.name}`);
       closeMoveDialog(); render();
-      await Promise.all([syncNode("items", items), syncNode("activities", activities)]);
+      await Promise.all([syncNode("items", items), fbFetch(`stockMovements/${movement.id}`, "PUT", movement), syncNode("activities", activities)]);
     }
 
     // MÁY MÓC NHÀ XƯỞNG
@@ -1452,6 +1505,7 @@
 
     // NHẬT KÝ SỰ CỐ ĐỘT XUẤT
     function openHistoryDialog(id = "") {
+      if (role() !== "admin") { showToast("Chỉ Quản trị viên được chỉnh sửa nhật ký sự cố."); return; }
       const h = repairHistory.find(x => x.id === id);
       els.historyTitle.textContent = h ? "Sửa nhật ký sửa chữa" : "Ghi nhận sự cố mới";
       els.historyId.value = h?.id || "";
@@ -1477,12 +1531,29 @@
     
     async function saveRepairHistory(e) {
       e.preventDefault();
-      closeHistoryDialog();
-      showToast("Nhật ký sự cố là dữ liệu chỉ đọc và không thể chỉnh sửa.");
+      if (role() !== "admin") { closeHistoryDialog(); showToast("Chỉ Quản trị viên được chỉnh sửa nhật ký sự cố."); return; }
+      const id = els.historyId.value;
+      const idx = repairHistory.findIndex(x => x.id === id);
+      if (idx < 0) { closeHistoryDialog(); showToast("Chỉ có thể chỉnh sửa nhật ký sự cố đã tồn tại."); return; }
+      const payload = {
+        id, machine: els.machineInput.value.trim(), faultTime: els.faultTimeInput.value,
+        staff: els.staffInput.value.trim(), fault: els.faultInput.value.trim(), fix: els.fixInput.value.trim(),
+        image: els.historyImageDataHidden.value || ""
+      };
+      repairHistory[idx] = payload;
+      addAct(`Quản trị viên sửa lịch sử sự cố máy: ${payload.machine}`);
+      closeHistoryDialog(); render();
+      await Promise.all([fbFetch(`repairHistory/${id}`, "PUT", payload), syncNode("activities", activities)]);
     }
 
     async function deleteHistory(id) {
-      showToast("Nhật ký sự cố là dữ liệu chỉ đọc và không thể xóa.");
+      if (role() !== "admin") { showToast("Chỉ Quản trị viên được xóa nhật ký sự cố."); return; }
+      if (!confirm("Quản trị viên xác nhận xóa nhật ký sự cố này?")) return;
+      const hName = repairHistory.find(x => x.id === id)?.machine || "máy";
+      repairHistory = repairHistory.filter(x => x.id !== id);
+      addAct(`Quản trị viên xóa lịch sử sự cố: ${hName}`);
+      render();
+      await Promise.all([fbFetch(`repairHistory/${id}`, "DELETE"), syncNode("activities", activities)]);
     }
 
     function addAct(text) {
@@ -1524,11 +1595,9 @@
     els.addMaintenanceMachineBtn.addEventListener("click", () => openMachineDialog());
     document.querySelector("#addCncBtn").addEventListener("click", () => openCncDialog()); // Sự kiện thêm máy CNC nút trong tab
     document.querySelector("#addJobBtn").addEventListener("click", () => openJobDialog());
-    els.toggleAdminAuditBtn.addEventListener("click", () => {
-      if (role() !== "admin") return;
-      adminAuditOpen = !adminAuditOpen;
-      els.adminAuditPanel.hidden = !adminAuditOpen;
-      els.toggleAdminAuditBtn.textContent = adminAuditOpen ? "Ẩn lịch sử quản trị" : "Xem lịch sử quản trị";
+    els.toggleAdminAuditBtn.addEventListener("click", toggleAdminAudit);
+    els.adminAuditEntry.querySelector(":scope > .section-head").addEventListener("click", event => {
+      if (!event.target.closest("button")) toggleAdminAudit();
     });
     
     document.querySelector("#closeDialog").addEventListener("click", closeItemDialog);
@@ -1663,6 +1732,23 @@
       downloadCsv(h, r, "lich-su-sua-may-ltd");
     });
 
+    function exportMovementVoucher(id) {
+      const movement = stockMovements.find(entry => entry.id === id);
+      if (!movement) { showToast("Không tìm thấy giao dịch để in phiếu."); return; }
+      const esc = value => String(value ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+      const isImport = movement.type === "in";
+      const voucherType = isImport ? "PHIẾU NHẬP KHO" : "PHIẾU XUẤT KHO";
+      const documentNo = `LTD-${isImport ? "PN" : "PX"}-${String(movement.at || "").slice(0, 10).replaceAll("-", "")}-${movement.id.slice(0, 6).toUpperCase()}`;
+      const html = `<!doctype html><html><head><meta charset="UTF-8"><style>body{font-family:Arial,sans-serif;color:#111;font-size:12pt}table{border-collapse:collapse;width:100%;margin-top:14px}td,th{border:1px solid #111;padding:8px;vertical-align:top}.no-border td{border:0;padding:2px}.center{text-align:center}.right{text-align:right}.title{font-size:18pt;font-weight:bold}.signature td{height:95px;text-align:center;vertical-align:top;padding-top:10px}</style></head><body><table class="no-border"><tr><td><strong>CÔNG TY LTD VIET NAM</strong><br>HỆ THỐNG QUẢN LÝ KHO & BẢO TRÌ</td><td class="right"><strong>Mã phiếu: ${esc(documentNo)}</strong><br>Ngày lập: ${esc(formatDateDisplay(movement.at))}</td></tr></table><div class="center" style="margin-top:20px"><div class="title">${voucherType}</div><div>Ngày ${esc(formatDateDisplay(movement.at))}</div></div><table><thead><tr><th>STT</th><th>Mã linh kiện</th><th>Tên linh kiện</th><th>Loại giao dịch</th><th>Số lượng</th><th>Tồn trước</th><th>Tồn sau</th></tr></thead><tbody><tr><td class="center">1</td><td>${esc(movement.sku || "-")}</td><td>${esc(movement.itemName)}</td><td>${isImport ? "Nhập kho" : "Xuất kho"}</td><td class="center">${esc(movement.amount)}</td><td class="center">${esc(movement.beforeQuantity)}</td><td class="center">${esc(movement.afterQuantity)}</td></tr></tbody></table><table class="no-border"><tr><td style="width:22%"><strong>Lý do:</strong></td><td>${esc(movement.note || "-")}</td></tr><tr><td><strong>Người thực hiện:</strong></td><td>${esc(movement.actor || "-")}</td></tr><tr><td><strong>Thời gian:</strong></td><td>${esc(new Date(movement.at).toLocaleString("vi-VN"))}</td></tr></table><table class="signature"><tr><td><strong>Người lập phiếu</strong><br><em>(Ký, ghi rõ họ tên)</em></td><td><strong>Thủ kho</strong><br><em>(Ký, ghi rõ họ tên)</em></td><td><strong>Người giao / nhận</strong><br><em>(Ký, ghi rõ họ tên)</em></td><td><strong>Quản lý phê duyệt</strong><br><em>(Ký, ghi rõ họ tên)</em></td></tr></table></body></html>`;
+      const blob = new Blob(["\ufeff" + html], { type: "application/vnd.ms-excel;charset=utf-8" });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = `${documentNo}.xls`;
+      link.click();
+      URL.revokeObjectURL(url);
+    }
+
     function downloadCsv(headers, rows, filename) {
       const csv = [headers, ...rows].map(row => row.map(c => `"${String(c??'').replaceAll('"','""')}"`).join(",")).join("\n");
       const blob = new Blob(["\ufeff" + csv], { type: "text/csv;charset=utf-8" });
@@ -1700,12 +1786,15 @@
       openItemDialog,
       deleteItem,
       openMoveDialog,
+      exportMovementVoucher,
       openMachineDialog,
       deleteMachine,
       toggleMaintenanceMachine,
       openJobDialog,
       deleteJob,
       completeAndRenewJob,
+      openHistoryDialog,
+      deleteHistory,
       openCncDialog,
       deleteCnc,
       resolveCncAlarm,
@@ -1713,10 +1802,15 @@
       autoCreateRepairHistoryFromCncAlarm
     });
 
-    // Chỉ mở CMMS khi Firebase khôi phục được một phiên hợp lệ đã xác minh.
+    // Chỉ khôi phục phiên sau một lần đăng nhập chủ động trong tab hiện tại.
     onSessionChanged(user => {
-      if (user?.emailVerified) unlockApp();
-      else document.body.classList.add("locked");
+      const hasExplicitLogin = sessionStorage.getItem("ltd_explicit_cmms_login") === "1";
+      if (user?.emailVerified && (hasExplicitLogin || manualLoginInProgress)) {
+        unlockApp();
+        return;
+      }
+      if (!manualLoginInProgress && user) void signOutUser();
+      document.body.classList.add("locked");
     });
     els.toggleRegistrationBtn.addEventListener("click", () => setRegistrationMode(!registrationMode));
   
