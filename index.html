@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>LTD VIET NAM - Cloud Maintenance System</title>
-  <link rel="stylesheet" href="assets/css/app.css?v=20260930e">
+  <link rel="stylesheet" href="assets/css/app.css?v=20261007a">
 </head>
 <body class="locked">
   <!-- Screen Đăng Nhập -->
@@ -222,6 +222,20 @@
               </table>
             </div>
           </section>
+          <section class="section" id="movementHistorySection">
+            <div class="section-head">
+              <div>
+                <h3>Nhật ký nhập xuất linh kiện</h3>
+                <div class="meta">Lưu vết số lượng trước/sau giao dịch; in từng phiếu để ký nhận.</div>
+              </div>
+            </div>
+            <div class="table-wrap">
+              <table class="data-table compact-table">
+                <thead><tr><th>Thời gian</th><th>Loại</th><th>Linh kiện</th><th>Số lượng</th><th>Tồn trước / sau</th><th>Lý do</th><th>Người thực hiện</th><th class="col-actions">Phiếu</th></tr></thead>
+                <tbody id="movementHistoryList"></tbody>
+              </table>
+            </div>
+          </section>
       </section>
 
       <!-- Trang GIÁM SÁT MÁY CNC (MỚI TÍCH HỢP) -->
@@ -420,6 +434,7 @@
                   <th class="col-text-wide">Mô tả lỗi sự cố</th>
                   <th class="col-text-wide">Phương án khắc phục</th>
                   <th class="col-img">Hình ảnh thực tế</th>
+                  <th class="col-actions" id="historyActionsHeading" style="text-align: right;" hidden>Thao tác</th>
                 </tr>
               </thead>
               <tbody id="historyList"></tbody>
@@ -796,6 +811,6 @@
 
   <div class="toast" id="toast" role="status" aria-live="polite"></div>
 
-  <script type="module" src="assets/js/app.js?v=20260930e"></script>
+  <script type="module" src="assets/js/app.js?v=20261007a"></script>
 </body>
 </html>
