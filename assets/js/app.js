@@ -78,6 +78,7 @@
       adminAuditPanel: document.querySelector("#adminAuditPanel"),
       toggleAdminAuditBtn: document.querySelector("#toggleAdminAuditBtn"),
       searchInput: document.querySelector("#searchInput"),
+      skuSearchInput: document.querySelector("#skuSearchInput"),
       machineSearchInput: document.querySelector("#machineSearchInput"),
       jobSearchInput: document.querySelector("#jobSearchInput"),
       historySearchInput: document.querySelector("#historySearchInput"),
@@ -664,12 +665,13 @@
 
     function renderInventoryTable() {
       const term = els.searchInput.value.trim().toLowerCase();
+      const skuTerm = els.skuSearchInput.value.trim().toLowerCase();
       const cat = els.categoryFilter.value;
       const stat = els.statusFilter.value;
 
       const rows = items.filter(i => {
         const h = [i.name, i.sku, i.supplier, i.location, i.specs || '', i.note || ''].join(" ").toLowerCase();
-        return (!term || h.includes(term)) && (cat === "all" || i.category === cat) && (stat === "all" || itemStatus(i) === stat);
+        return (!term || h.includes(term)) && (!skuTerm || String(i.sku ?? "").toLowerCase().includes(skuTerm)) && (cat === "all" || i.category === cat) && (stat === "all" || itemStatus(i) === stat);
       }).sort((a, b) => a.name.localeCompare(b.name, "vi"));
 
       els.resultCount.textContent = `${rows.length} linh kiện`;
@@ -1633,6 +1635,7 @@
 
     // Tìm kiếm & Lọc dữ liệu đầu vào (Input/Select listeners)
     els.searchInput.addEventListener("input", render);
+    els.skuSearchInput.addEventListener("input", render);
     els.categoryFilter.addEventListener("change", render);
     els.statusFilter.addEventListener("change", render);
     els.machineSearchInput.addEventListener("input", render);

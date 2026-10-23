@@ -332,7 +332,7 @@
     /* Filter System */
     .filters { 
       display: grid; 
-      grid-template-columns: minmax(180px, 1.5fr) 1fr 1fr; 
+      grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
       gap: 12px; 
       padding: 16px 20px; 
       background: #fbfcfa; 
