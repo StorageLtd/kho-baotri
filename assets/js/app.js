@@ -1735,13 +1735,26 @@
       downloadCsv(h, r, "lich-su-sua-may-ltd");
     });
 
+    function movementVoucherNumber(movement, movements = stockMovements) {
+      const dateFormatter = new Intl.DateTimeFormat("sv-SE", {
+        timeZone: "Asia/Ho_Chi_Minh", year: "numeric", month: "2-digit", day: "2-digit"
+      });
+      const dayKey = entry => dateFormatter.format(new Date(entry.at)).replaceAll("-", "");
+      const day = dayKey(movement);
+      const dailyMovements = movements
+        .filter(entry => entry.type === movement.type && dayKey(entry) === day)
+        .sort((a, b) => new Date(a.at) - new Date(b.at) || a.id.localeCompare(b.id));
+      const sequence = String(dailyMovements.findIndex(entry => entry.id === movement.id) + 1).padStart(3, "0");
+      return `LTD-${movement.type === "in" ? "PN" : "PX"}${sequence}-${day}`;
+    }
+
     function exportMovementVoucher(id) {
       const movement = stockMovements.find(entry => entry.id === id);
       if (!movement) { showToast("Không tìm thấy giao dịch để in phiếu."); return; }
       const esc = value => String(value ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
       const isImport = movement.type === "in";
       const voucherType = isImport ? "PHIẾU NHẬP KHO" : "PHIẾU XUẤT KHO";
-      const documentNo = `LTD-${isImport ? "PN" : "PX"}-${String(movement.at || "").slice(0, 10).replaceAll("-", "")}`;
+      const documentNo = movementVoucherNumber(movement);
       const html = `<!doctype html><html><head><meta charset="UTF-8"><style>body{font-family:Arial,sans-serif;color:#111;font-size:12pt}table{border-collapse:collapse;width:100%;margin-top:14px}td,th{border:1px solid #111;padding:8px;vertical-align:top}.no-border td{border:0;padding:2px}.center{text-align:center}.right{text-align:right}.title{font-size:18pt;font-weight:bold}.signature td{height:95px;text-align:center;vertical-align:top;padding-top:10px}</style></head><body><table class="no-border"><tr><td><strong>CÔNG TY LTD VIET NAM</strong><br>HỆ THỐNG QUẢN LÝ KHO & BẢO TRÌ</td><td class="right"><strong>Mã phiếu: ${esc(documentNo)}</strong><br>Ngày lập: ${esc(formatDateDisplay(movement.at))}</td></tr></table><div class="center" style="margin-top:20px"><div class="title">${voucherType}</div><div>Ngày ${esc(formatDateDisplay(movement.at))}</div></div><table><thead><tr><th>STT</th><th>Mã linh kiện</th><th>Tên linh kiện</th><th>Loại giao dịch</th><th>Số lượng</th><th>Tồn trước</th><th>Tồn sau</th></tr></thead><tbody><tr><td class="center">1</td><td>${esc(movement.sku || "-")}</td><td>${esc(movement.itemName)}</td><td>${isImport ? "Nhập kho" : "Xuất kho"}</td><td class="center">${esc(movement.amount)}</td><td class="center">${esc(movement.beforeQuantity)}</td><td class="center">${esc(movement.afterQuantity)}</td></tr></tbody></table><table class="no-border"><tr><td style="width:22%"><strong>Lý do:</strong></td><td>${esc(movement.note || "-")}</td></tr><tr><td><strong>Người thực hiện:</strong></td><td>${esc(movement.actor || "-")}</td></tr><tr><td><strong>Thời gian:</strong></td><td>${esc(new Date(movement.at).toLocaleString("vi-VN"))}</td></tr></table><table class="signature"><tr><td><strong>Người lập phiếu</strong><br><em>(Ký, ghi rõ họ tên)</em></td><td><strong>Thủ kho</strong><br><em>(Ký, ghi rõ họ tên)</em></td><td><strong>Người giao / nhận</strong><br><em>(Ký, ghi rõ họ tên)</em></td><td><strong>Quản lý phê duyệt</strong><br><em>(Ký, ghi rõ họ tên)</em></td></tr></table></body></html>`;
       const blob = new Blob(["\ufeff" + html], { type: "application/vnd.ms-excel;charset=utf-8" });
       const url = URL.createObjectURL(blob);
