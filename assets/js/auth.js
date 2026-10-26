@@ -9,6 +9,14 @@ const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
 let currentProfile = null;
 
+// Finish restoring/closing the previous session before accepting a new login.
+export async function initializeSession() {
+  await auth.authStateReady();
+  if (auth.currentUser && sessionStorage.getItem("ltd_explicit_cmms_login") !== "1") {
+    await signOut(auth);
+  }
+}
+
 export const onSessionChanged = (callback) => onAuthStateChanged(auth, callback);
 export const signIn = (email, password) => signInWithEmailAndPassword(auth, email, password);
 export const signOutUser = () => signOut(auth);

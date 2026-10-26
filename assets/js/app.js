@@ -1,5 +1,5 @@
 ﻿
-    import { onSessionChanged, signIn, signOutUser, sendVerification, registerAccount, getToken, getUser, loadProfile, role, canEdit, displayName } from "./auth.js";
+    import { initializeSession, onSessionChanged, signIn, signOutUser, sendVerification, registerAccount, getToken, getUser, loadProfile, role, canEdit, displayName } from "./auth.js?v=20261026-login";
     import { firebaseConfig } from "./firebase-config.js";
 
     const DB_URL = firebaseConfig.databaseURL;
@@ -416,10 +416,15 @@
 
     async function login(event) {
       if (event) { event.preventDefault(); event.stopPropagation(); }
+      if (manualLoginInProgress) return false;
+      manualLoginInProgress = true;
+      els.submitLoginBtn.disabled = true;
+      els.toggleRegistrationBtn.disabled = true;
       const userVal = els.emailInput.value.trim();
       const passVal = els.passwordInput.value;
       els.loginError.textContent = "";
       try {
+        await initialSessionReady;
         if (registrationMode) {
           if (passVal !== els.confirmPasswordInput.value) throw new Error("password-mismatch");
           if (passVal.length < 6) throw new Error("weak-password");
@@ -429,34 +434,46 @@
           els.loginError.textContent = "Tài khoản đã tạo. Hãy xác minh email rồi đăng nhập.";
           return false;
         }
-        manualLoginInProgress = true;
         const credential = await signIn(userVal, passVal);
         if (!credential.user.emailVerified) {
           await sendVerification(credential.user);
           await signOutUser();
-          manualLoginInProgress = false;
           els.loginError.textContent = "Email chưa được xác minh. Liên kết xác minh đã được gửi lại, vui lòng mở email rồi đăng nhập lại.";
           return false;
         }
         sessionStorage.setItem("ltd_explicit_cmms_login", "1");
-        await unlockApp();
+        if (!await unlockApp()) {
+          sessionStorage.removeItem("ltd_explicit_cmms_login");
+          return false;
+        }
         await writeAccountHistory("Đăng nhập thành công");
-        manualLoginInProgress = false;
       } catch (error) {
-        manualLoginInProgress = false;
         const messages = {
+          "auth/invalid-credential": "Email hoặc mật khẩu không hợp lệ.",
+          "auth/invalid-login-credentials": "Email hoặc mật khẩu không hợp lệ.",
+          "auth/wrong-password": "Email hoặc mật khẩu không hợp lệ.",
+          "auth/user-not-found": "Email hoặc mật khẩu không hợp lệ.",
+          "auth/invalid-email": "Địa chỉ email không hợp lệ.",
+          "auth/network-request-failed": "Không thể kết nối máy chủ đăng nhập. Vui lòng kiểm tra mạng rồi thử lại.",
+          "auth/too-many-requests": "Có quá nhiều lần đăng nhập. Vui lòng chờ một lúc rồi thử lại.",
+          "auth/user-disabled": "Tài khoản đã bị vô hiệu hóa. Vui lòng liên hệ quản trị viên.",
           "auth/email-already-in-use": "Email này đã được đăng ký.",
           "auth/weak-password": "Mật khẩu cần có ít nhất 6 ký tự.",
+          "weak-password": "Mật khẩu cần có ít nhất 6 ký tự.",
           "password-mismatch": "Mật khẩu xác nhận không khớp."
         };
-        els.loginError.textContent = messages[error.code || error.message] || "Email hoặc mật khẩu không hợp lệ.";
+        els.loginError.textContent = messages[error.code || error.message] || "Không thể hoàn tất đăng nhập. Vui lòng thử lại hoặc liên hệ quản trị viên.";
         return false;
+      } finally {
+        manualLoginInProgress = false;
+        els.submitLoginBtn.disabled = false;
+        els.toggleRegistrationBtn.disabled = false;
       }
       return false;
     }
 
     async function unlockApp() {
-      if (appStarted) return;
+      if (appStarted) return true;
       appStarted = true;
       try {
         await loadProfile();
@@ -464,7 +481,7 @@
         appStarted = false;
         await signOutUser();
         els.loginError.textContent = "Tài khoản chưa được cấp quyền CMMS. Vui lòng liên hệ quản trị viên.";
-        return;
+        return false;
       }
       document.body.classList.remove("locked"); 
       document.body.dataset.role = role();
@@ -473,6 +490,7 @@
       render();
       loadCloudData();
       showToast(`Chào mừng, ${displayName()}. Vai trò: ${role()}.`);
+      return true;
     }
     
     async function logout() {
@@ -1819,13 +1837,15 @@
     });
 
     // Chỉ khôi phục phiên sau một lần đăng nhập chủ động trong tab hiện tại.
+    const initialSessionReady = initializeSession();
+    initialSessionReady.catch(() => {}); // Login reports initialization errors.
     onSessionChanged(user => {
+      if (manualLoginInProgress) return;
       const hasExplicitLogin = sessionStorage.getItem("ltd_explicit_cmms_login") === "1";
-      if (user?.emailVerified && (hasExplicitLogin || manualLoginInProgress)) {
+      if (user?.emailVerified && hasExplicitLogin) {
         unlockApp();
         return;
       }
-      if (!manualLoginInProgress && user) void signOutUser();
       document.body.classList.add("locked");
     });
     els.toggleRegistrationBtn.addEventListener("click", () => setRegistrationMode(!registrationMode));
