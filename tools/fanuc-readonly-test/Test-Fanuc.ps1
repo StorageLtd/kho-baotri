@@ -12,7 +12,7 @@ try {
     Write-Host 'FANUC READ-ONLY TEST - no CNC write/control commands, no cloud upload.'
     Write-Host "Connecting to ${CncIp}:$Port (10 second FOCAS timeout)..."
     Add-Type -Path (Join-Path $PSScriptRoot 'FanucReader.cs')
-    $snapshot = [FanucReader]::Read($CncIp, [ushort]$Port, (Join-Path $PSScriptRoot 'lib'))
+    $snapshot = [FanucReader]::Read($CncIp, [uint16]$Port, (Join-Path $PSScriptRoot 'lib'))
     $json = $snapshot | ConvertTo-Json -Depth 4
     Write-Host 'SUCCESS: CNC system information and raw status read; connection released.' -ForegroundColor Green
     Write-Output $json
