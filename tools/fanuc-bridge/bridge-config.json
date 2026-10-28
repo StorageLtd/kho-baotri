@@ -1,7 +1,7 @@
 {
   "machineId": "neway-1260s",
   "machineName": "Neway 1260S",
-  "cncIp": "169.254.85.99",
+  "cncIp": "192.168.1.1",
   "port": 8193,
   "intervalSeconds": 5,
   "model": "FANUC 0i-MF Plus",

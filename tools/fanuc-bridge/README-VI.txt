@@ -1,7 +1,7 @@
 CẦU NỐI NEWAY 1260S - WINDOWS 11 X64
 
 Máy: Neway 1260S | ID cố định: neway-1260s
-FANUC 0i-MF Plus | IP: 169.254.85.99 | TCP: 8193
+FANUC 0i-MF Plus | IP: 192.168.1.1 | TCP: 8193
 
 BẢN NÀY LÀM GÌ?
 - Chỉ đọc thông tin và trạng thái CNC bằng bốn API của bản thử đã chạy thành công.
@@ -22,7 +22,9 @@ CHUẨN BỊ
    technician, manager hoặc admin. Có thể dùng tài khoản hiện đang đăng nhập web.
    Nên dùng tài khoản riêng cho cầu nối khi vận hành lâu dài.
    Không gửi mật khẩu cho người khác, không lưu mật khẩu trong config.
-5. IP 169.254.x.x là cấu hình thử; nếu IP Ethernet tự thay đổi, phải kiểm tra lại.
+5. CNC dùng IP 192.168.1.1; Ethernet laptop dùng IP 192.168.1.10.
+   Cả hai dùng subnet mask 255.255.255.0. IP laptop không cần khai báo trong cầu nối.
+   Có thể kiểm tra: Test-NetConnection 192.168.1.1 -Port 8193
 
 CÁCH CHẠY
 1. Trong File Explorer, mở thư mục có Start-FanucBridge.ps1, bấm thanh địa chỉ,
