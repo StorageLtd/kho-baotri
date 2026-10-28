@@ -1,4 +1,5 @@
-﻿
+﻿import { cncDisplayState, cncIsFresh, cncMeasurement } from "./cnc-status.js?v=20261028-neway";
+
     import { initializeSession, onSessionChanged, signIn, signOutUser, sendVerification, registerAccount, getToken, getUser, loadProfile, role, canEdit, displayName } from "./auth.js?v=20261026-login";
     import { firebaseConfig } from "./firebase-config.js";
 
@@ -188,7 +189,7 @@
       weekday: "long", day: "2-digit", month: "2-digit", year: "numeric"
     }).format(new Date());
 
-    async function fbFetch(path, method = "GET", body = null) {
+    async function fbFetch(path, method = "GET", body = null, strict = false) {
       const token = await getToken();
       if (!token) throw new Error("Phiên đăng nhập đã hết hạn.");
       const isPresence = path.startsWith("online_users/");
@@ -207,6 +208,7 @@
         return await res.json();
       } catch (err) {
         console.error("Lỗi đám mây:", err);
+        if (strict) throw err;
         return null;
       }
     }
@@ -257,16 +259,6 @@
         cncs = cloudCncs ? Object.values(cloudCncs) : [];
         cncAlarmHistory = cloudCncAlarms ? Object.values(cloudCncAlarms) : [];
 
-        // Nếu lần đầu chưa có máy CNC, tự động tạo máy CNC demo
-        if (cncs.length === 0) {
-          cncs = [
-            { id: "cnc-1", name: "Máy Tiện CNC Fanuc 01 (0i-F)", ip: "192.168.1.101", port: 8193, model: "Fanuc 0i-F", location: "Khu vực CNC - Lô A1", status: "running", activeProgram: "O1024 (LTD_SHAFT_CUT)", currentBlock: "N140 G01 X45.2 Z-20.5 F0.18", spindleSpeed: 1800, targetSpindleSpeed: 1800, feedrate: 150, targetFeedrate: 150, override: 100, alarm: "" },
-            { id: "cnc-2", name: "Máy Phay CNC Fanuc 02 (0i-F)", ip: "192.168.1.102", port: 8193, model: "Fanuc 0i-F", location: "Khu vực CNC - Lô A2", status: "hold", activeProgram: "O3005 (LTD_MOLD_BASE)", currentBlock: "N80 M01 (PAUSE CHECK)", spindleSpeed: 0, targetSpindleSpeed: 3200, feedrate: 0, targetFeedrate: 450, override: 0, alarm: "" },
-            { id: "cnc-3", name: "Trung Tâm Gia Công 03 (31i-B)", ip: "192.168.1.103", port: 8193, model: "Fanuc 31i-B", location: "Khu vực CNC - Lô B1", status: "alarm", activeProgram: "O8890 (LTD_IMPELLER_5AX)", currentBlock: "N420 G43 H02 Z10.0", spindleSpeed: 0, targetSpindleSpeed: 8000, feedrate: 0, targetFeedrate: 1200, override: 100, alarm: "ALARM SV0311 - LỖI QUÁ DÒNG SERVO MOTOR TRỤC X" }
-          ];
-          await syncNode("cncs", cncs);
-        }
-
         cncs.forEach(c => ensureAlarmRecorded(c));
         if (cncs.some(c => c.status === "alarm" && c.alarm)) {
           await syncNode("cncAlarms", cncAlarmHistory);
@@ -284,8 +276,7 @@
         setTimeout(checkOnlineUsers, 500);
         setInterval(checkOnlineUsers, 12000);
 
-        // Bắt đầu vòng lặp cập nhật IoT máy CNC (để tạo cảm giác thời gian thực)
-        startCncSimulationLoop();
+        // Live telemetry is supplied only by an authenticated external bridge.
         startCncRealtimeSync();
       } catch (e) {
         console.error("Lỗi kết nối máy chủ:", e);
@@ -296,31 +287,29 @@
       if (cncRealtimeSyncStarted) return;
       cncRealtimeSyncStarted = true;
       setInterval(async () => {
+        if (!getUser()) return;
         try {
-          const [cloudCncs, cloudCncAlarms] = await Promise.all([fbFetch("cncs"), fbFetch("cncAlarms")]);
-          if (cloudCncs) cncs = Object.values(cloudCncs);
-          if (cloudCncAlarms) cncAlarmHistory = Object.values(cloudCncAlarms);
-
+          const [cloudCncs, cloudCncAlarms] = await Promise.all([
+            fbFetch("cncs", "GET", null, true), fbFetch("cncAlarms", "GET", null, true)
+          ]);
+          cncs = cloudCncs ? Object.values(cloudCncs) : [];
+          cncAlarmHistory = cloudCncAlarms ? Object.values(cloudCncAlarms) : [];
           let hasNewAlarm = false;
           cncs.forEach(c => { if (ensureAlarmRecorded(c)) hasNewAlarm = true; });
           if (hasNewAlarm) await syncNode("cncAlarms", cncAlarmHistory);
-
-          if (!els.cncMonitoringPage.hidden) {
-            els.statCncTotal.textContent = number.format(cncs.length);
-            els.statCncRunning.textContent = number.format(cncs.filter(c => c.status === "running").length);
-            els.statCncHold.textContent = number.format(cncs.filter(c => c.status === "hold").length);
-            els.statCncAlarm.textContent = number.format(cncs.filter(c => c.status === "alarm").length);
-            renderCncTable();
-          }
-
-          if (!els.overviewPage.hidden) {
-            updateOverviewQuickStats();
-          }
-
-          if (cncAlarmHistoryViewId && els.cncAlarmHistoryDialog.open) {
-            renderCncMachineAlarmHistory(cncAlarmHistoryViewId);
-          }
-        } catch (e) {}
+        } catch (error) {
+          // Preserve the last snapshot; freshness checks below expire it independently.
+        } finally {
+          els.statCncTotal.textContent = number.format(cncs.length);
+          els.statCncRunning.textContent = number.format(cncs.filter(c => cncDisplayState(c).status === "running").length);
+          els.statCncHold.textContent = number.format(cncs.filter(c => cncDisplayState(c).status === "hold").length);
+          els.statCncAlarm.textContent = number.format(cncs.filter(c => cncDisplayState(c).status === "alarm").length);
+          if (els.cncConnectionReady) els.cncConnectionReady.textContent = `${cncs.filter(c => cncIsFresh(c)).length} / ${cncs.length}`;
+          if (!els.cncMonitoringPage.hidden) renderCncTable();
+          updateOverviewQuickStats();
+          renderAlertsAndActivities();
+          if (cncAlarmHistoryViewId && els.cncAlarmHistoryDialog.open) renderCncMachineAlarmHistory(cncAlarmHistoryViewId);
+        }
       }, 5000);
     }
 
@@ -330,7 +319,7 @@
     }
 
     function ensureAlarmRecorded(c) {
-      if (c.status !== "alarm" || !c.alarm) return false;
+      if (c.source === "focas" || cncDisplayState(c).status !== "alarm" || !c.alarm) return false;
       const exists = cncAlarmHistory.some(a =>
         a.cncId === c.id && !a.resolvedAt && a.description === c.alarm
       );
@@ -345,34 +334,6 @@
         description: c.alarm
       });
       return true;
-    }
-
-    // Giả lập cập nhật các giá trị của CNC theo thời gian thực (giống FOCAS thật)
-    function startCncSimulationLoop() {
-      setInterval(async () => {
-        let hasChanges = false;
-        cncs.forEach(c => {
-          if (c.status === "running") {
-            // Dao động tốc độ trục chính và feedrate thực tế quanh mức target
-            const deltaSpindle = Math.floor((Math.random() - 0.5) * 10);
-            c.spindleSpeed = Math.max(0, c.targetSpindleSpeed + deltaSpindle);
-            
-            const deltaFeed = Math.floor((Math.random() - 0.5) * 4);
-            c.feedrate = Math.max(0, c.targetFeedrate + deltaFeed);
-            c.lastSeen = new Date().toISOString();
-            
-            // Thay đổi block N-code ngẫu nhiên
-            if (Math.random() > 0.7) {
-              const blocks = ["G01", "G02", "G03", "G00"];
-              c.currentBlock = `N${Math.floor(Math.random() * 500)} ${blocks[Math.floor(Math.random() * 4)]} X${(Math.random()*100).toFixed(1)} Z${(Math.random()*-50).toFixed(1)}`;
-            }
-            hasChanges = true;
-          }
-        });
-        if (hasChanges && document.getElementById("cncMonitoringPage").hidden === false) {
-          renderCncGridOnly();
-        }
-      }, 3000);
     }
 
     async function checkOnlineUsers() {
@@ -588,9 +549,9 @@
 
       // Cập nhật stats CNC
       els.statCncTotal.textContent = number.format(cncs.length);
-      els.statCncRunning.textContent = number.format(cncs.filter(c => c.status === "running").length);
-      els.statCncHold.textContent = number.format(cncs.filter(c => c.status === "hold").length);
-      els.statCncAlarm.textContent = number.format(cncs.filter(c => c.status === "alarm").length);
+      els.statCncRunning.textContent = number.format(cncs.filter(c => cncDisplayState(c).status === "running").length);
+      els.statCncHold.textContent = number.format(cncs.filter(c => cncDisplayState(c).status === "hold").length);
+      els.statCncAlarm.textContent = number.format(cncs.filter(c => cncDisplayState(c).status === "alarm").length);
 
       updateOverviewQuickStats();
       renderInventoryTable();
@@ -610,7 +571,7 @@
       const accountRows = [...accountHistory].sort((a, b) => new Date(b.at) - new Date(a.at)).slice(0, 12);
       els.deviceHistoryList.innerHTML = deviceRows.length ? deviceRows.map(row => `<tr><td>${formatDateDisplay(row.at)} ${new Date(row.at).toLocaleTimeString("vi-VN")}</td><td>${escapeHtml(row.device || "-")}</td><td>${escapeHtml(row.action || "-")}</td><td>${escapeHtml(row.actor || "-")}</td></tr>`).join("") : `<tr><td colspan="4" class="empty">Chưa có thao tác thiết bị.</td></tr>`;
       els.accountHistoryList.innerHTML = accountRows.length ? accountRows.map(row => `<tr><td>${formatDateDisplay(row.at)} ${new Date(row.at).toLocaleTimeString("vi-VN")}</td><td>${escapeHtml(row.email || "-")}</td><td>${escapeHtml(row.action || "-")}</td></tr>`).join("") : `<tr><td colspan="3" class="empty">Chưa có lịch sử truy cập.</td></tr>`;
-      if (els.cncConnectionReady) els.cncConnectionReady.textContent = `${cncs.filter(c => c.status !== "alarm").length} / ${cncs.length}`;
+      if (els.cncConnectionReady) els.cncConnectionReady.textContent = `${cncs.filter(c => cncIsFresh(c)).length} / ${cncs.length}`;
     }
 
     async function toggleAdminAudit() {
@@ -674,9 +635,9 @@
       const overviewJobOverdue = document.querySelector("#overviewJobOverdue");
 
       if (overviewCncTotal) overviewCncTotal.textContent = number.format(cncs.length);
-      if (overviewCncRun) overviewCncRun.textContent = number.format(cncs.filter(c => c.status === "running").length);
-      if (overviewCncHold) overviewCncHold.textContent = number.format(cncs.filter(c => c.status === "hold").length);
-      if (overviewCncAlarm) overviewCncAlarm.textContent = number.format(cncs.filter(c => c.status === "alarm").length);
+      if (overviewCncRun) overviewCncRun.textContent = number.format(cncs.filter(c => cncDisplayState(c).status === "running").length);
+      if (overviewCncHold) overviewCncHold.textContent = number.format(cncs.filter(c => cncDisplayState(c).status === "hold").length);
+      if (overviewCncAlarm) overviewCncAlarm.textContent = number.format(cncs.filter(c => cncDisplayState(c).status === "alarm").length);
       if (overviewMachineTotal) overviewMachineTotal.textContent = number.format(machines.length);
       if (overviewJobOverdue) overviewJobOverdue.textContent = number.format(maintenanceJobs.filter(j => j.nextDate && j.nextDate <= todayStr).length);
     }
@@ -770,6 +731,7 @@
 
     // VẼ BẢNG GIÁM SÁT MÁY CNC REALTIME & TỔNG QUAN ALARM
     function renderCncTable() {
+      if (els.cncConnectionReady) els.cncConnectionReady.textContent = `${cncs.filter(c => cncIsFresh(c)).length} / ${cncs.length}`;
       renderCncGridOnly();
       renderCncAlarmsOnly();
     }
@@ -781,20 +743,19 @@
       });
 
       if (filteredCncs.length === 0) {
-        document.querySelector("#cncListGrid").innerHTML = `<div class="empty" style="grid-column: 1/-1;">Không tìm thấy máy CNC kết nối FOCAS nào phù hợp.</div>`;
+        document.querySelector("#cncListGrid").innerHTML = `<div class="empty" style="grid-column: 1/-1;">Chưa có máy phù hợp. Máy mới chỉ có dữ liệu thật sau khi chạy cầu nối.</div>`;
         return;
       }
 
       document.querySelector("#cncListGrid").innerHTML = filteredCncs.map(c => {
-        let statusText = "MẤT KẾT NỐI";
-        let statusClass = "offline";
-        if (c.status === "running") { statusText = "ĐANG CHẠY (RUN)"; statusClass = "running"; }
-        else if (c.status === "hold") { statusText = "TẠM DỪNG (HOLD)"; statusClass = "hold"; }
-        else if (c.status === "alarm") { statusText = "🚨 CẢNH BÁO LỖI (ALARM)"; statusClass = "alarm"; }
-
+        const signal = cncDisplayState(c);
+        const statusText = signal.label;
+        const statusClass = signal.css;
+        const showTelemetry = cncIsFresh(c) || c.source === "demo";
+        const sourceLabel = c.source === "focas" ? "Dữ liệu thật · FOCAS" : c.source === "demo" ? "Dữ liệu mô phỏng" : "Chưa xác minh nguồn dữ liệu";
         // Tìm kiếm tự động linh kiện khắc phục lỗi trong kho LTD tương ứng với loại alarm
         let matchedPartInfo = "";
-        if (c.status === "alarm" && c.alarm) {
+        if (c.source !== "focas" && signal.status === "alarm" && c.alarm) {
           matchedPartInfo = checkAvailablePartsInInventory(c.alarm);
         }
         const lastSignal = c.lastSeen ? `${formatDateDisplay(c.lastSeen)} ${new Date(c.lastSeen).toLocaleTimeString("vi-VN")}` : "Chờ tín hiệu đầu tiên";
@@ -807,30 +768,31 @@
             </div>
             <div style="display:flex; justify-content:space-between; gap:12px; padding:8px 0 12px; color:var(--muted); font-size:11px; border-bottom:1px solid var(--line);">
               <span><strong style="color:var(--ink)">FOCAS endpoint</strong> · ${escapeHtml(c.ip)}:${c.port}</span>
-              <span><strong style="color:var(--ink)">Tín hiệu</strong> · ${escapeHtml(lastSignal)}</span>
+              <span><strong style="color:var(--ink)">${sourceLabel}</strong> · ${escapeHtml(lastSignal)}</span>
             </div>
             
             <div class="cnc-details">
+              ${c.source === "focas" ? `<span class="cnc-label">Chế độ / RUN / Alarm (mã gốc):</span><span class="cnc-value">${showTelemetry ? `${cncMeasurement(c.rawStatus?.aut)} / ${cncMeasurement(c.rawStatus?.run)} / ${cncMeasurement(c.rawStatus?.alarm)}` : "—"}</span>` : ""}
               <span class="cnc-label">Model CNC:</span>
               <span class="cnc-value">${escapeHtml(c.model)}</span>
               
               <span class="cnc-label">Chương trình chạy:</span>
-              <span class="cnc-value" style="color: var(--accent); font-weight:800;">${escapeHtml(c.activeProgram || "None")}</span>
+              <span class="cnc-value" style="color: var(--accent); font-weight:800;">${escapeHtml(showTelemetry ? c.activeProgram || "Chưa đọc" : "—")}</span>
               
               <span class="cnc-label">Dòng lệnh hiện tại:</span>
-              <span class="cnc-value" style="font-size:12px; font-weight: 500">${escapeHtml(c.currentBlock || "None")}</span>
+              <span class="cnc-value" style="font-size:12px; font-weight: 500">${escapeHtml(showTelemetry ? c.currentBlock || "Chưa đọc" : "—")}</span>
               
               <span class="cnc-label">Vòng quay trục chính:</span>
-              <span class="cnc-value" style="color: var(--ok)">${c.spindleSpeed} / ${c.targetSpindleSpeed} RPM</span>
+              <span class="cnc-value" style="color: var(--ok)">${showTelemetry ? cncMeasurement(c.spindleSpeed) : "—"} / ${showTelemetry ? cncMeasurement(c.targetSpindleSpeed) : "—"} RPM</span>
               
               <span class="cnc-label">Tốc độ ăn dao (Feedrate):</span>
-              <span class="cnc-value">${c.feedrate} mm/min (Ovr: ${c.override}%)</span>
+              <span class="cnc-value">${showTelemetry ? cncMeasurement(c.feedrate) : "—"} mm/min (Ovr: ${showTelemetry ? cncMeasurement(c.override) : "—"}%)</span>
               
               <span class="cnc-label">Vị trí nhà xưởng:</span>
-              <span class="cnc-value">${escapeHtml(c.location)}</span>
+              <span class="cnc-value">${escapeHtml(c.location || "Chưa thiết lập")}</span>
             </div>
 
-            ${c.status === "alarm" ? `
+            ${signal.status === "alarm" ? `
               <div class="cnc-alarm-banner">
                 <strong style="color: var(--danger); font-size:13px;">⚠️ PHÁT HIỆN LỖI CNC:</strong>
                 <span class="cnc-value" style="color: var(--danger); font-size:12px; font-weight:bold;">${escapeHtml(c.alarm)}</span>
@@ -841,7 +803,7 @@
             <div class="row-actions" style="margin-top:auto; border-top:1px solid var(--line); padding-top:10px;">
               <button class="btn" style="min-height:30px; font-size:12px;" onclick="openCncMachineAlarmHistory('${c.id}')">Lịch sử lỗi</button>
               <button class="btn" style="min-height:30px; font-size:12px;" onclick="openCncDialog('${c.id}')">Sửa IP</button>
-              ${c.status === "alarm" ? `
+              ${c.source !== "focas" && signal.status === "alarm" ? `
                 <button class="btn primary" style="min-height:30px; font-size:12px; background:var(--ok); border-color:var(--ok)" onclick="resolveCncAlarm('${c.id}')">Xử lý xong (Clear)</button>
               ` : ''}
               <button class="icon-btn danger" onclick="deleteCnc('${c.id}')">${deleteIcon}</button>
@@ -1002,11 +964,11 @@
 
     // Xóa máy CNC
     async function deleteCnc(id) {
-      if (!confirm("Bạn chắc chắn muốn ngắt kết nối và xóa máy CNC này?")) return;
+      if (!confirm("Bạn chắc chắn muốn xóa máy CNC này? Hãy dừng cầu nối trước, nếu không bản ghi có thể được tạo lại.")) return;
       cncs = cncs.filter(c => c.id !== id);
       addAct("Xóa máy CNC khỏi hệ thống giám sát.");
       render();
-      await Promise.all([syncNode("cncs", cncs), syncNode("activities", activities)]);
+      await Promise.all([fbFetch(`cncs/${id}`, "DELETE"), syncNode("activities", activities)]);
     }
 
     // Cập nhật hoặc lưu thông tin CNC
@@ -1020,16 +982,7 @@
         port: Number(els.cncPortInput.value),
         model: els.cncModelInput.value,
         location: els.cncLocationInput.value.trim(),
-        status: "running", // Mặc định máy mới kết nối trạng thái RUNNING
-        activeProgram: "O1000 (DEMO_PROGRAM)",
-        currentBlock: "N10 G00 G90 G21",
-        spindleSpeed: 1200,
-        targetSpindleSpeed: 1200,
-        feedrate: 100,
-        targetFeedrate: 100,
-        override: 100,
-        alarm: "",
-        lastSeen: new Date().toISOString()
+        ...(els.cncId.value ? {} : { source: "pending", connected: false, status: "offline" })
       };
 
       const idx = cncs.findIndex(x => x.id === id);
@@ -1042,7 +995,7 @@
       }
       closeCncDialog();
       render();
-      await Promise.all([syncNode("cncs", cncs), syncNode("activities", activities)]);
+      await Promise.all([fbFetch(`cncs/${id}`, "PATCH", payload), syncNode("activities", activities)]);
     }
 
     function openCncDialog(id = "") {
@@ -1062,6 +1015,7 @@
     async function resolveCncAlarm(id) {
       const c = cncs.find(x => x.id === id);
       if (!c) return;
+      if (c.source === "focas") { showToast("Alarm máy thật chỉ cập nhật từ tín hiệu CNC; web không xóa lỗi trên máy."); return; }
 
       cncAlarmHistory.forEach(a => {
         if (a.cncId === id && !a.resolvedAt) a.resolvedAt = new Date().toISOString();
@@ -1075,7 +1029,7 @@
       addAct(`Đã xử lý xong (Clear Alarm) cho máy CNC: ${c.name}`);
       render();
       showToast(`Đã xóa lỗi cho máy ${c.name}. Máy trở lại trạng thái Sẵn Sàng (RUN).`);
-      await Promise.all([syncNode("cncs", cncs), syncNode("cncAlarms", cncAlarmHistory), syncNode("activities", activities)]);
+      await Promise.all([fbFetch(`cncs/${id}`, "PATCH", { status: c.status, alarm: c.alarm, spindleSpeed: c.spindleSpeed ?? null, feedrate: c.feedrate ?? null }), syncNode("cncAlarms", cncAlarmHistory), syncNode("activities", activities)]);
 
       if (cncAlarmHistoryViewId === id && els.cncAlarmHistoryDialog.open) {
         renderCncMachineAlarmHistory(id);
@@ -1260,13 +1214,13 @@
 
       // 2. Quét máy CNC đang trong trạng thái Alarm
       cncs.forEach(c => {
-        if (c.status === "alarm") {
+        if (cncDisplayState(c).status === "alarm") {
           alertHtml += `
             <div class="alert-item" style="border-left: 4px solid var(--danger); background: #fff8f8;">
               <strong style="color: var(--danger)">🚨 CNC ALARM (FANUC IoT)</strong>
               <div style="font-weight:800; margin-top:2px;">${escapeHtml(c.name)}</div>
               <div style="font-size:12px; color: var(--danger); font-family: monospace;">${escapeHtml(c.alarm)}</div>
-              <div class="meta">IP: ${escapeHtml(c.ip)}. Hãy kiểm tra linh kiện LTD để sửa đổi khẩn cấp.</div>
+              <div class="meta">IP: ${escapeHtml(c.ip)}. Hãy kiểm tra thông báo trực tiếp trên CNC.</div>
             </div>
           `;
         }
@@ -1707,7 +1661,7 @@
     });
     els.exportCncBtn.addEventListener("click", () => {
       const h = ["Tên máy CNC", "Địa chỉ IP", "Port FOCAS", "Model Bộ điều khiển", "Vị trí lắp đặt", "Trạng thái", "Chương trình hiện tại"];
-      const r = cncs.map(c => [c.name, c.ip, c.port, c.model, c.location, c.status, c.activeProgram]);
+      const r = cncs.map(c => [c.name, c.ip, c.port, c.model, c.location, cncDisplayState(c).label, c.activeProgram || ""]);
       downloadCsv(h, r, "danh-sach-may-cnc-ltd");
     });
 

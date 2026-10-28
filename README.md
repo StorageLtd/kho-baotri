@@ -24,3 +24,11 @@ Vai trò: `admin` quản trị người dùng và dữ liệu; `manager` đượ
 ## Chạy ứng dụng
 
 Mở bằng máy chủ tĩnh, ví dụ `npx serve .`, vì JavaScript module không được trình duyệt cho phép chạy ổn định qua đường dẫn file trực tiếp.
+
+## Cầu nối máy CNC Neway 1260S
+
+- Tải [gói Windows](downloads/Neway-1260S-Bridge.zip), đọc [hướng dẫn](tools/fanuc-bridge/README-VI.txt).
+- Cầu nối chỉ đọc thông tin/trạng thái CNC, đăng nhập Firebase bằng tài khoản CMMS đã xác minh và PATCH riêng `cncs/neway-1260s`. Không đóng kèm DLL hoặc thông tin đăng nhập.
+- Dữ liệu FOCAS thật có nhãn riêng và hết hạn sau 30 giây không nhận tín hiệu mới. Không tự tạo số liệu mô phỏng khi thêm máy. Các bản ghi cũ chưa rõ nguồn vẫn được giữ nhưng không coi là tín hiệu thật.
+- Tốc độ trục chính, chương trình, feedrate và alarm chi tiết chưa được cầu nối này đọc.
+- Kiểm thử: `node --test tests/cnc-status.test.mjs`, `pwsh -NoProfile -File tests/fanuc-bridge.Tests.ps1`, `python3 tests/cnc-browser-smoke.py` (cần Playwright/Chromium). Các kiểm thử dùng dữ liệu giả, không truy cập CNC hoặc Firebase thật.

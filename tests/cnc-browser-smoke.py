@@ -1,0 +1,84 @@
+"""Browser smoke test using isolated fixtures. Never contacts Firebase or CNC."""
+import asyncio
+import functools
+import http.server
+from pathlib import Path
+import threading
+from playwright.async_api import async_playwright
+
+ROOT = Path(__file__).resolve().parents[1]
+AUTH_FIXTURE = '''
+export const initializeSession = async () => {};
+export const onSessionChanged = cb => cb(null);
+export const signIn = async () => ({});
+export const signOutUser = async () => {};
+export const sendVerification = async () => {};
+export const registerAccount = async () => {};
+export const getToken = async () => 'fixture-token';
+export const getUser = () => ({uid:'fixture',emailVerified:true});
+export const loadProfile = async () => ({});
+export const role = () => 'admin';
+export const canEdit = () => true;
+export const displayName = () => 'Fixture';
+'''
+class QuietHandler(http.server.SimpleHTTPRequestHandler):
+    def log_message(self, *_):
+        pass
+
+async def run():
+    handler = functools.partial(QuietHandler, directory=str(ROOT))
+    server = http.server.ThreadingHTTPServer(('127.0.0.1', 0), handler)
+    threading.Thread(target=server.serve_forever, daemon=True).start()
+    try:
+        async with async_playwright() as p:
+            browser = await p.chromium.launch(executable_path='/usr/bin/chromium', args=['--no-sandbox'])
+            page = await browser.new_page()
+            errors = []
+            page.on('pageerror', lambda e: errors.append(str(e)))
+            await page.clock.install()
+            await page.route('**/assets/js/auth.js*', lambda route: route.fulfill(status=200, content_type='text/javascript', body=AUTH_FIXTURE))
+            # Exercise network-failure freshness independently of an available Firebase server.
+            await page.route('https://*.firebasedatabase.app/**', lambda route: route.fulfill(status=503, content_type='application/json', body='{}'))
+            source = (ROOT/'assets/js/app.js').read_text(encoding='utf-8-sig')
+            hook = '''
+window.renderFixture = (records) => {
+  cncs=records; render(); switchPage('cncMonitoringPage');
+  document.body.classList.remove('locked');
+};
+window.startFixturePolling = startCncRealtimeSync;
+'''
+            await page.route('**/assets/js/app.js*', lambda route: route.fulfill(status=200, content_type='text/javascript', body=source+hook))
+            await page.goto(f'http://127.0.0.1:{server.server_port}/', wait_until='networkidle')
+            await page.wait_for_function("typeof window.renderFixture === 'function'")
+            await page.evaluate('''renderFixture([
+              {id:'neway-1260s',name:'Neway 1260S',source:'focas',connected:true,lastSeen:Date.now(),rawStatus:{run:3,alarm:0,emergency:0,aut:1},ip:'169.254.85.99',port:8193,model:'FANUC 0i-MF Plus'},
+              {id:'old',name:'Old demo data',status:'running',spindleSpeed:1200,ip:'192.168.1.101',port:8193}
+            ])''')
+            card = page.locator('#card-neway-1260s')
+            assert 'Dữ liệu thật' in await card.inner_text()
+            assert 'ĐANG CHẠY (START)' in await card.inner_text()
+            assert '— / — RPM' in await card.inner_text()
+            assert 'Chưa đọc' in await card.inner_text()
+            assert await card.get_by_text('Xử lý xong (Clear)').count() == 0
+            assert await page.locator('#statCncRunning').inner_text() == '1'
+            assert await page.locator('#cncConnectionReady').inner_text() == '1 / 2'
+            assert 'CHƯA CÓ TÍN HIỆU THẬT' in await page.locator('#card-old').inner_text()
+            await page.evaluate('startFixturePolling()')
+            await page.clock.fast_forward(35000)
+            await page.wait_for_function("document.querySelector('#card-neway-1260s').textContent.includes('MẤT KẾT NỐI')")
+            assert await page.locator('#statCncRunning').inner_text() == '0'
+            assert await page.locator('#cncConnectionReady').inner_text() == '0 / 2'
+            await page.evaluate('''renderFixture([{id:'neway-1260s',name:'Neway 1260S',source:'focas',connected:true,lastSeen:Date.now(),rawStatus:{run:0,alarm:1,emergency:0,aut:0},alarm:'CNC flag only',ip:'169.254.85.99',port:8193,model:'FANUC 0i-MF Plus'}])''')
+            assert 'CÓ TÍN HIỆU ALARM' in await card.inner_text()
+            assert await card.get_by_text('Xử lý xong (Clear)').count() == 0
+            assert await card.locator('.cnc-parts-link').count() == 0
+            await page.set_viewport_size({'width':390,'height':844})
+            assert await card.is_visible()
+            assert not errors, errors
+            await browser.close()
+            print('PASS: live Neway card; legacy source unverified; no invented measurements; freshness expires during HTTP failure; no clear action or guessed parts on actual alarm; mobile; no page errors.')
+    finally:
+        server.shutdown()
+        server.server_close()
+
+asyncio.run(run())
