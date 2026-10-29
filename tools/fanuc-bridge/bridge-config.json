@@ -8,7 +8,5 @@
   "firebaseApiKey": "AIzaSyAvpguQWSOCpNiCFej27hwK5ulZSPSBRk4",
   "databaseUrl": "https://ltdst-80b3e-default-rtdb.asia-southeast1.firebasedatabase.app",
   "partCounterVerified": false,
-  "partsPerCount": 1,
-  "pmcCycleSignals": true,
-  "pmcPollMilliseconds": 200
+  "partsPerCount": 1
 }

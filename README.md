@@ -45,12 +45,12 @@ Chỉ đọc tham số 6711 để thử lấy bộ đếm. Mặc định chưa q
 
 Kiểm thử bổ sung: `node tests/cnc-reports.test.mjs`, `pwsh -NoProfile -File tests/cnc-collector.Tests.ps1`. Báo cáo XLSX đã được kiểm tra ZIP/XML và mở bằng OpenPyXL; UI/browser dùng dữ liệu giả, không tạo số liệu trong Firebase thật.
 
-### Chu kỳ và thời gian CNC
+### Chu kỳ và thời gian CNC — bản không đọc PMC
 
-Giao diện dùng tên PART COUNT, RUN TIME, CYCLE TIME; chế độ hiển thị chữ thay mã thô. Bỏ vị trí CNC và sidebar gợi ý lỗi/vật tư chưa được xác minh. Timer đọc qua `cnc_rdtimer` hoặc cặp tham số chỉ đọc cho 0i-F (operating 6752/6751, cycle 6758/6757), cần kiểm chứng trên máy thật.
+Bản hiện tại chỉ dùng FOCAS CNC; đã loại bỏ hoàn toàn API đọc PMC và luồng nền, không chỉ tắt cấu hình. Reader có `AccessMode=FOCAS_STATUS_ONLY_V1`; PowerShell từ chối tái sử dụng lớp C# cũ. Config cũ bật PMC không có tác dụng. Khi cập nhật phải đóng PowerShell cũ trước.
 
-Excel chỉ Tổng quan / Theo ngày. Cầu nối lưu chu kỳ quan sát trong `cncReports/<machine>/<day>/<session>/cycles`; Rules đã thêm ở bản báo cáo trước tiếp tục cho phép các trường này, không cần mở quyền mới. HOLD/resume không tạo chu kỳ mới; có START/STOP, RUN/hold/alarm, PART COUNT delta và trạng thái thiếu dữ liệu. Đã thêm đọc PMC theo địa chỉ người dùng cung cấp: X10.1 Cycle Start, R423.6 M30; chỉ xác nhận M30 nếu đọc được cạnh lên. Các mốc vẫn là thời điểm lấy mẫu, xung ngắn có thể bị bỏ lỡ. Chu kỳ nhanh hoặc auto-repeat có thể không tách được; cần tín hiệu xác nhận trước khi cam kết đếm từng lần bấm.
+Giao diện PART COUNT, RUN TIME, CYCLE TIME và đèn logic từ trạng thái FOCAS. START bắt đầu, STOP/RESET kết thúc hàng; HOLD/resume không tạo hàng mới. Không khẳng định nút Cycle Start hoặc M30; sai số theo chu kỳ đọc, chu kỳ quá ngắn có thể bị bỏ lỡ. Đây không phải đọc bóng đèn vật lý. Không có chức năng sửa ladder/ghi tham số hay điều khiển CNC.
 
-Kiểm thử chu kỳ: `pwsh -NoProfile -File tests/cnc-cycles.Tests.ps1`. Giữ outbox cũ khi cập nhật; mở PowerShell mới để nạp C# mới.
+Excel chỉ Tổng quan và Theo ngày. Dữ liệu lịch sử vẫn giữ, không dựng lại chu kỳ từ tổng hợp ngày. Đèn xanh RUN, vàng HOLD, đỏ alarm, xám dừng/mất tín hiệu.
 
-PMC được đọc riêng khoảng 200 ms/lượt với baseline và hàng đợi giới hạn; luồng dừng/đứt kết nối đánh dấu gap thay vì tự suy ra sự kiện. Bắt được M30 thì hàng có nguồn PMC; thiếu xung dùng trạng thái dừng nhưng ghi chưa xác nhận. Không ghi PMC/ladder. Cần đối chiếu máy thật và tín hiệu giữ/counter sự kiện để bảo đảm đầy đủ với xung ngắn. Kiểm thử: `pwsh -NoProfile -File tests/cnc-pmc.Tests.ps1`.
+Kiểm thử: `pwsh -NoProfile -File tests/fanuc-access.Tests.ps1` xác nhận allowlist native và không có PMC/thread; `pwsh -NoProfile -File tests/cnc-cycles.Tests.ps1` kiểm tra START/HOLD/STOP/RESET và dữ liệu thiếu. Bản ZIP StatusOnly là đường tải ưu tiên để tránh nhầm với bản cũ.

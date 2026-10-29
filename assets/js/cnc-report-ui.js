@@ -1,5 +1,5 @@
-import {reportPeriod,buildCncReport,reportSheets,hours,vnDate} from './cnc-reports.js?v=20261029-cycles';
-import {createCncWorkbook} from './cnc-xlsx.js?v=20261029-cycles';
+import {reportPeriod,buildCncReport,reportSheets,hours,vnDate} from './cnc-reports.js?v=20261029-status-only';
+import {createCncWorkbook} from './cnc-xlsx.js?v=20261029-status-only';
 const esc=s=>String(s??'').replaceAll('&','&amp;').replaceAll('<','&lt;').replaceAll('>','&gt;').replaceAll('"','&quot;');
 const n=v=>v===null||v===undefined?'—':Number(v).toLocaleString('vi-VN',{maximumFractionDigits:2});
 const pct=v=>v===null?'—':n(v*100)+'%';
@@ -18,7 +18,7 @@ function renderReport(report){
  const table=sheet=>`<div class="cr-scroll"><table><thead><tr>${sheet.rows[sheet.header].map(v=>`<th>${esc(v)}</th>`).join('')}</tr></thead><tbody>${sheet.rows.slice(sheet.header+1).map(row=>`<tr>${row.map(v=>`<td>${typeof v==='number'?n(v):esc(v??'—')}</td>`).join('')}</tr>`).join('')}</tbody></table></div>`;
  return `<header class="cr-heading"><h2>Báo cáo CNC</h2><p>${esc(report.period.startDate)} — ${esc(report.period.endDate)} · Giờ Việt Nam</p></header>
  <div class="cr-kpis"><article><span>RUN</span><strong>${n(hours(run))} h</strong></article><article><span>Alarm</span><strong>${n(hours(alarm))} h</strong></article><article><span>HOLD</span><strong>${n(hours(hold))} h</strong></article><article><span>PART COUNT tăng</span><strong>${n(count)}</strong></article></div>
- <p class="cr-notice">Cycle Start X10.1 và M30 R423.6 được đọc PMC; xung ngắn có thể bị bỏ lỡ. Hàng không bắt được M30 sẽ ghi rõ. Không tính thời gian mất dữ liệu thành giờ dừng. HOLD rồi chạy tiếp vẫn cùng một chu kỳ.</p>
+ <p class="cr-notice">Bắt đầu khi quan sát START; kết thúc khi quan sát STOP/RESET. Chỉ đọc trạng thái CNC qua FOCAS, không đọc PMC. Không xác nhận lệnh M30. Không tính thời gian mất dữ liệu thành giờ dừng. HOLD rồi chạy tiếp vẫn cùng một chu kỳ.</p>
  <h3>Tổng quan theo chương trình</h3>${table(sheets[0])}<h3>Theo ngày · mỗi chu kỳ một hàng</h3>${report.cycles.length?table(sheets[1]):'<p>Chưa có nhật ký chu kỳ trong kỳ này. Cần chạy cầu nối bản mới; tổng hợp cũ không thể tách lại thành từng chu kỳ.</p>'}`;
 }
 function ensureDialog(){

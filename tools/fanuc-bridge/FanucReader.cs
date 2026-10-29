@@ -48,10 +48,6 @@ public static class FanucReader
         public double? spindleSpeed, feedrate;
         public int? partCounter;
         public long? runTimeMs, cycleTimeMs;
-        public bool pmcEnabled;
-        public int cycleStartBit=-1,m30Bit=-1;
-        public string pmcStatus;
-        public PmcEvent[] pmcEvents;
         public string timerSource;
         public string spindleUnit, feedrateUnit, activeProgram, mainProgram;
         public Dictionary<string, string> readErrors = new Dictionary<string, string>();
@@ -110,99 +106,7 @@ public static class FanucReader
         return null;
     }
 
-    public sealed class PmcEvent {
-        public string kind, atUtc, message;
-        public Snapshot sample;
-    }
-    private static readonly System.Collections.Concurrent.ConcurrentQueue<PmcEvent> PmcQueue = new System.Collections.Concurrent.ConcurrentQueue<PmcEvent>();
-    private static System.Threading.Thread pmcThread;
-    private static volatile bool pmcStop;
-    private static volatile string pmcMessage = "Not started";
-    private static volatile int startBitValue = -1, endBitValue = -1;
-    private static int eventCount;
-    [DllImport("Fwlib64.dll", CallingConvention = CallingConvention.Winapi, ExactSpelling = true)]
-    private static extern short pmc_rdpmcrng(ushort handle, short area, short dataType, ushort start, ushort end, ushort length, [Out] byte[] data);
-    public static bool DecodePmcBit(byte[] data, int bit) {
-        if(data == null || data.Length < 9 || bit < 0 || bit > 7) throw new ArgumentException("Invalid PMC bit buffer");
-        return (data[8] & (1 << bit)) != 0;
-    }
-    private static bool ReadPmcBit(ushort handle, short area, ushort address, int bit) {
-        byte[] buffer = new byte[12];
-        Check("pmc_rdpmcrng", pmc_rdpmcrng(handle,area,0,address,address,9,buffer));
-        return DecodePmcBit(buffer,bit);
-    }
-    private static void QueuePmc(string kind, string at, Snapshot sample, string message) {
-        // A long blocked main loop must not consume unbounded memory or silently hide dropped events.
-        if(System.Threading.Interlocked.Increment(ref eventCount)>20000) {
-            PmcEvent discarded; while(PmcQueue.TryDequeue(out discarded)) { }
-            System.Threading.Interlocked.Exchange(ref eventCount,0);
-            PmcQueue.Enqueue(new PmcEvent {kind="gap",atUtc=at,message="PMC event queue overflow"});
-        }
-        PmcQueue.Enqueue(new PmcEvent {kind=kind,atUtc=at,sample=sample,message=message});
-    }
-    public static PmcEvent[] DrainPmcEvents() {
-        var events = new List<PmcEvent>(); PmcEvent item;
-        while(PmcQueue.TryDequeue(out item)) events.Add(item);
-        System.Threading.Interlocked.Exchange(ref eventCount,0);
-        return events.ToArray();
-    }
-    public static void StartPmcMonitor(string ip, ushort port, int pollMilliseconds) {
-        if(pollMilliseconds<100 || pollMilliseconds>1000) throw new ArgumentException("PMC interval must be 100..1000 ms");
-        if(pmcThread!=null) throw new InvalidOperationException("PMC monitor already started; use only one bridge");
-        pmcStop=false; DrainPmcEvents();
-        pmcThread=new System.Threading.Thread(()=>MonitorPmc(ip,port,pollMilliseconds));
-        pmcThread.IsBackground=true;pmcThread.Name="Read-only X10.1 / R423.6";pmcThread.Start();
-    }
-    public static void StopPmcMonitor() {
-        pmcStop=true;
-        if(pmcThread!=null && pmcThread.Join(15000))pmcThread=null;
-    }
-    private static Snapshot PmcSnapshot(ushort handle, Status status, bool full) {
-        var result=new Snapshot {timestampUtc=DateTime.UtcNow.ToString("o"),rawStatus=status};
-        if(full) ReadOptionalTelemetry(handle,result);
-        else {
-            CounterParameter counter;
-            short rc=cnc_rdparam(handle,6711,0,8,out counter);
-            if(rc==0 && counter.datano==6711 && counter.value>=0)result.partCounter=counter.value;
-            ProgramReading8 program;
-            try { if(cnc_rdprgnumo8(handle,out program)==0) result.mainProgram=ProgramNumber(program.mdata); }
-            catch(EntryPointNotFoundException) { }
-        }
-        return result;
-    }
-    private static void MonitorPmc(string ip, ushort port, int interval) {
-        while(!pmcStop) {
-            ushort handle=0; bool allocated=false;
-            try {
-                Check("PMC connection",cnc_allclibhndl3(ip,port,2,out handle)); allocated=true;
-                bool? previousStart=null,previousEnd=null; DateTime lastState=DateTime.MinValue;
-                while(!pmcStop) {
-                    bool start=ReadPmcBit(handle,3,10,1);   // X10.1: user-supplied Cycle Start input.
-                    bool end=ReadPmcBit(handle,5,423,6);    // R0423.6: user-supplied M30 internal relay.
-                    string at=DateTime.UtcNow.ToString("o");
-                    bool startEdge=previousStart.HasValue && !previousStart.Value && start;
-                    bool endEdge=previousEnd.HasValue && !previousEnd.Value && end;
-                    startBitValue=start?1:0;endBitValue=end?1:0;pmcMessage="Reading PMC (sampled; short pulses may be missed)";
-                    if(startEdge || endEdge || (DateTime.UtcNow-lastState).TotalSeconds>=1) {
-                        Status status;Check("PMC status",cnc_statinfo(handle,out status));
-                        Snapshot sample=PmcSnapshot(handle,status,startEdge||endEdge);
-                        if(startEdge&&endEdge)QueuePmc("gap",at,null,"Cycle Start and M30 both changed between samples; order unknown");
-                        else if(startEdge)QueuePmc("start",at,sample,null);
-                        else if(endEdge)QueuePmc("end",at,sample,null);
-                        else QueuePmc("state",at,sample,null);
-                        lastState=DateTime.UtcNow;
-                    }
-                    previousStart=start;previousEnd=end;
-                    System.Threading.Thread.Sleep(interval);
-                }
-            } catch(Exception error) {
-                pmcMessage=error is EntryPointNotFoundException?"PMC API missing in DLL":error.Message;
-                QueuePmc("gap",DateTime.UtcNow.ToString("o"),null,pmcMessage);
-                startBitValue=-1;endBitValue=-1;
-                if(!pmcStop)System.Threading.Thread.Sleep(1000);
-            } finally { if(allocated)cnc_freelibhndl(handle); }
-        }
-    }
+    public static string AccessMode { get { return "FOCAS_STATUS_ONLY_V1"; } }
 
     public static string SpeedUnit(short unit)
     {
@@ -329,9 +233,6 @@ public static class FanucReader
                 maximumAxes = info.max_axis, rawStatus = status
             };
             ReadOptionalTelemetry(handle, snapshot);
-            snapshot.pmcEnabled=pmcThread!=null;
-            snapshot.pmcEvents=DrainPmcEvents();
-            snapshot.cycleStartBit=startBitValue;snapshot.m30Bit=endBitValue;snapshot.pmcStatus=pmcMessage;
             snapshot.timestampUtc=DateTime.UtcNow.ToString("o");
             return snapshot;
         }

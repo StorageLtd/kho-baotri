@@ -32,7 +32,4 @@ Assert-True ($null -eq [FanucReader]::ProgramNumber(100000000)) 'Out-of-range pr
 $timer=New-Object FanucReader+TimerReading;$timer.minute=123;$timer.msec=4567
 Assert-True ([FanucReader]::TimerMilliseconds($timer) -eq 7384567) 'Timer minutes/milliseconds conversion wrong'
 $timer.msec=60000;Assert-True ($null -eq [FanucReader]::TimerMilliseconds($timer)) 'Invalid timer accepted'
-$buffer=New-Object byte[] 12;$buffer[8]=2
-Assert-True ([FanucReader]::DecodePmcBit($buffer,1) -and -not [FanucReader]::DecodePmcBit($buffer,6)) 'X10.1 bit decoding incorrect'
-$buffer[8]=64;Assert-True ([FanucReader]::DecodePmcBit($buffer,6)) 'R423.6 bit decoding incorrect'
 Write-Output 'PASS: C# compilation, native structure sizes, decimal scaling, actual zero, feed units, failed/invalid API data, 4/8-digit program formatting.'

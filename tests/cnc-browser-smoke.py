@@ -63,6 +63,8 @@ window.startFixturePolling = startCncRealtimeSync;
             assert 'Vị trí nhà xưởng' not in await card.inner_text()
             assert 'RUN TIME:' in await card.inner_text()
             assert 'CYCLE TIME:' in await card.inner_text()
+            assert await card.locator('.cnc-state-light.running').count()==1
+            assert 'Chẩn đoán tín hiệu chu kỳ' not in await card.inner_text()
             assert 'Các nhóm mã lỗi liên kết kho' not in await page.locator('#cncMonitoringPage').inner_text()
             assert await card.get_by_text('Xử lý xong (Clear)').count() == 0
             assert await page.locator('#statCncRunning').inner_text() == '1'

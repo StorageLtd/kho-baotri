@@ -1,5 +1,5 @@
-﻿import { openCncReports } from "./cnc-report-ui.js?v=20261029-cycles";
-import { cncDisplayState, cncIsFresh, cncMeasurement, cncMode, cncDuration } from "./cnc-status.js?v=20261029-cycles";
+﻿import { openCncReports } from "./cnc-report-ui.js?v=20261029-status-only";
+import { cncDisplayState, cncIsFresh, cncMeasurement, cncMode, cncDuration } from "./cnc-status.js?v=20261029-status-only";
 
     import { initializeSession, onSessionChanged, signIn, signOutUser, sendVerification, registerAccount, getToken, getUser, loadProfile, role, canEdit, displayName } from "./auth.js?v=20261026-login";
     import { firebaseConfig } from "./firebase-config.js";
@@ -764,7 +764,7 @@ import { cncDisplayState, cncIsFresh, cncMeasurement, cncMode, cncDuration } fro
           <div class="cnc-card" id="card-${c.id}">
             <div class="cnc-header">
               <span class="cnc-title">💻 ${escapeHtml(c.name)}</span>
-              <span class="cnc-status ${statusClass}">${statusText}</span>
+              <span class="cnc-status ${statusClass}"><span class="cnc-state-light ${statusClass}" aria-hidden="true"></span>${statusText}</span>
             </div>
             <div style="display:flex; justify-content:space-between; gap:12px; padding:8px 0 12px; color:var(--muted); font-size:11px; border-bottom:1px solid var(--line);">
               <span><strong style="color:var(--ink)">FOCAS endpoint</strong> · ${escapeHtml(c.ip)}:${c.port}</span>
@@ -801,7 +801,6 @@ import { cncDisplayState, cncIsFresh, cncMeasurement, cncMode, cncDuration } fro
               ${matchedPartInfo}
             ` : ''}
 
-            ${c.pmcEnabled ? `<details class="meta"><summary>Chẩn đoán tín hiệu chu kỳ</summary><div>Cycle Start X10.1: ${c.cycleStartBit===1?"ON":c.cycleStartBit===0?"OFF":"—"} · M30 R423.6: ${c.m30Bit===1?"ON":c.m30Bit===0?"OFF":"—"}</div><div>${escapeHtml(c.pmcStatus || "Chờ PMC")}</div><div>Xung ngắn có thể bị bỏ lỡ; chỉ ghi M30 khi bắt được tín hiệu.</div></details>` : ""}
             ${showTelemetry && c.readErrors && Object.keys(c.readErrors).length ? `<div class="meta" role="status">Một số mục chưa đọc được: ${escapeHtml(Object.values(c.readErrors).join("; "))}</div>` : ""}
             <div class="row-actions" style="margin-top:auto; border-top:1px solid var(--line); padding-top:10px;">
               <button class="btn" style="min-height:30px; font-size:12px;" onclick="openCncMachineAlarmHistory('${c.id}')">Lịch sử lỗi</button>

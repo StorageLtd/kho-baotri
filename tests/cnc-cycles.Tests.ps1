@@ -20,7 +20,7 @@ try{
  $cycle=$cycles[0]
  Assert-True ($cycle.runMs -eq 15000 -and $cycle.holdMs -eq 5000 -and $cycle.alarmMs -eq 5000 -and $cycle.wallMs -eq 25000) 'Cycle durations incorrect'
  Assert-True ($cycle.partCountDelta -eq 1 -and $cycle.partCountEnd -eq 11) 'Cycle part count incorrect'
- Assert-True (-not $cycle.m30Confirmed -and $cycle.status -match 'M30') 'STOP falsely claimed M30 confirmation'
+ Assert-True (-not $cycle.m30Confirmed -and $cycle.status -match 'FOCAS') 'STOP falsely claimed M30 confirmation'
  Add-CncReportSample (Sample 35 3 11)
  Add-CncReportSample (Sample 40 0 12)
  Assert-True ($script:ReportDays['2026-10-29'].cycles.Count -eq 2) 'Next observed START did not create another row'
@@ -33,5 +33,11 @@ try{
  Add-CncReportSample (Sample 80 0 13 0 'O0003')
  $partial=@($script:ReportDays['2026-10-29'].cycles.Values|Where-Object {$_.program -eq 'O0003'})[0]
  Assert-True ($null -eq $partial.startMs -and $null -eq $partial.partCountDelta) 'Mid-run program switch fabricated a START/count'
+ Add-CncReportSample (Sample 85 3 13 0 'O0003')
+ Add-CncReportSample (Sample 90 1 14 0 'O0003')
+ $stopped=@($script:ReportDays['2026-10-29'].cycles.Values|Where-Object {$_.program -eq 'O0003' -and $null -ne $_.startMs -and $null -ne $_.endMs})
+ Assert-True ($stopped.Count -eq 1 -and $stopped[0].wallMs -eq 5000) 'STOP=1 did not close the observed interval'
+ Add-CncReportSample (Sample 95 3 14 0 'O0003')
+ Assert-True ($null -ne $script:ActiveCycle.startMs) 'START after STOP did not create a new row'
  Write-Output 'PASS: cycle rows; HOLD/resume kept together; RUN/alarm/HOLD durations; part deltas; no false M30; gaps and mid-run startup remain incomplete.'
 }finally{Close-CncReports;if(Test-Path $folder){Remove-Item $folder -Recurse -Force}}

@@ -84,12 +84,12 @@ export const hours = ms => ms / 3600000;
 export function cycleClock(ms){return Number.isFinite(ms)?new Date(ms).toLocaleString('sv-SE',{timeZone:'Asia/Ho_Chi_Minh'}):''}
 export function cycleDuration(ms){if(!Number.isFinite(ms)||ms<0)return '';const sec=Math.floor(ms/1000);return `${Math.floor(sec/3600)}:${String(Math.floor(sec/60)%60).padStart(2,'0')}:${String(sec%60).padStart(2,'0')}`}
 export function reportSheets(report) {
-  const p=report.period,meta=[['LTD VIET NAM · BÁO CÁO CNC'],[`Kỳ: ${p.startDate} → ${p.endDate} · Giờ Việt Nam`],['Mốc giờ là thời điểm quan sát FOCAS/PMC. M30 chỉ xác nhận khi bắt được xung R423.6; ô trống: chưa đủ dữ liệu.'],[]];
+  const p=report.period,meta=[['LTD VIET NAM · BÁO CÁO CNC'],[`Kỳ: ${p.startDate} → ${p.endDate} · Giờ Việt Nam`],['Mốc giờ quan sát FOCAS: START → STOP/RESET. Không đọc PMC, không xác nhận M30; HOLD rồi chạy tiếp cùng hàng.'],[]];
   const overview=[['Máy','Chương trình','Chu kỳ quan sát','Tổng RUN (h)','Alarm (h)','HOLD (h)','PART COUNT tăng','Ghi chú']];
-  for(const g of report.programs)overview.push([g.name,g.program,g.cycles,hours(g.runMs),hours(g.alarmMs),hours(g.holdMs),g.knownCounts?g.partCountDelta:null,`${g.m30Observed}/${g.cycles} hàng bắt được M30${g.incomplete?`; ${g.incomplete} thiếu đầu/cuối`:''}`]);
+  for(const g of report.programs)overview.push([g.name,g.program,g.cycles,hours(g.runMs),hours(g.alarmMs),hours(g.holdMs),g.knownCounts?g.partCountDelta:null,`START → STOP/RESET${g.incomplete?`; ${g.incomplete} thiếu đầu/cuối`:''}`]);
   // Preserve historical day totals without inventing cycle rows for old data.
   if(!report.programs.length)for(const r of report.summary)overview.push([r.name,'Tổng hợp ngày (chưa có nhật ký chu kỳ)',null,hours(r.runningMs),hours(r.alarmMs),hours(r.holdMs),r.rawCount,r.quality]);
-  const detail=[['Ngày','Máy','Chương trình','Start (quan sát)','Dừng (quan sát)','Tổng RUN (h)','Start → dừng (h)','CYCLE TIME CNC (quan sát)','Alarm (h)','HOLD (h)','PART COUNT tăng','PART COUNT cuối','Ghi chú kết thúc']];
+  const detail=[['Ngày','Máy','Chương trình','Bắt đầu chạy (quan sát)','Dừng (quan sát)','Tổng RUN (h)','Start → dừng (h)','CYCLE TIME CNC (quan sát)','Alarm (h)','HOLD (h)','PART COUNT tăng','PART COUNT cuối','Ghi chú kết thúc']];
   for(const c of report.cycles)detail.push([c.day,c.name,c.program||'',cycleClock(c.startMs),cycleClock(c.endMs),hours(c.runMs),Number.isFinite(c.wallMs)?hours(c.wallMs):null,cycleDuration(c.cncCycleTimeMs),hours(c.alarmMs),hours(c.holdMs),Number.isSafeInteger(c.partCountDelta)?c.partCountDelta:null,c.partCountEnd??null,c.status||'Chưa biết']);
   return [{name:'Tổng quan',rows:[...meta,...overview],header:4},{name:'Theo ngày',rows:[...meta,...detail],header:4}];
 }

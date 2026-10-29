@@ -16,11 +16,11 @@ export function cncDisplayState(cnc, now = Date.now()) {
   if (raw.emergency !== 0) return { status: 'alarm', label: 'TÍN HIỆU EMERGENCY: ' + raw.emergency, css: 'alarm' };
   if (raw.alarm !== 0) return { status: 'alarm', label: 'CÓ TÍN HIỆU ALARM', css: 'alarm' };
   const states = {
-    0: { status: 'idle', label: 'DỪNG / RESET', css: 'hold' },
-    1: { status: 'idle', label: 'DỪNG (STOP)', css: 'hold' },
+    0: { status: 'idle', label: 'DỪNG / RESET', css: 'idle' },
+    1: { status: 'idle', label: 'DỪNG (STOP)', css: 'idle' },
     2: { status: 'hold', label: 'TẠM DỪNG (HOLD)', css: 'hold' },
     3: { status: 'running', label: 'ĐANG CHẠY (START)', css: 'running' },
-    4: { status: 'idle', label: 'MSTR · CHỜ THAO TÁC', css: 'hold' }
+    4: { status: 'idle', label: 'MSTR / JOG MDI', css: 'idle' }
   };
   return states[raw.run] || { status: 'unknown', label: 'RUN (MÃ GỐC): ' + raw.run, css: 'offline' };
 }
