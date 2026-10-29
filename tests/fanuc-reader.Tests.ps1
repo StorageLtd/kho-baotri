@@ -1,7 +1,7 @@
 $ErrorActionPreference='Stop'
 Add-Type -Path (Join-Path (Split-Path $PSScriptRoot -Parent) 'tools/fanuc-bridge/FanucReader.cs')
 function Assert-True($Value,$Message) { if(-not $Value) { throw $Message } }
-foreach($pair in @(@([FanucReader+SysInfo],18),@([FanucReader+Status],18),@([FanucReader+SpeedElement],12),@([FanucReader+SpeedReading],24),@([FanucReader+ProgramReading],8),@([FanucReader+ProgramReading8],12))) {
+foreach($pair in @(@([FanucReader+CounterParameter],8),@([FanucReader+SysInfo],18),@([FanucReader+Status],18),@([FanucReader+SpeedElement],12),@([FanucReader+SpeedReading],24),@([FanucReader+ProgramReading],8),@([FanucReader+ProgramReading8],12))) {
  Assert-True ([Runtime.InteropServices.Marshal]::SizeOf([type]$pair[0]) -eq $pair[1]) ('Invalid layout: '+$pair[0])
 }
 $reading=New-Object FanucReader+SpeedReading

@@ -80,9 +80,34 @@ window.startFixturePolling = startCncRealtimeSync;
             assert await card.locator('.cnc-parts-link').count() == 0
             await page.set_viewport_size({'width':390,'height':844})
             assert await card.is_visible()
+            # Report creation/export uses daily session fixtures, never the production database.
+            import datetime, json
+            report_start=int(datetime.datetime(2026,10,28,tzinfo=datetime.timezone(datetime.timedelta(hours=7))).timestamp()*1000)
+            history={'2026-10-28':{'fixture':{'schemaVersion':1,'source':'focas','machineId':'neway-1260s','sessionId':'fixture','date':'2026-10-28','firstMs':report_start,'lastMs':report_start+3600000,'observedMs':3600000,'runningMs':1800000,'idleMs':600000,'holdMs':600000,'alarmMs':600000,'unknownStateMs':0,'counterDelta':12,'counterObservedMs':3600000,'counterResets':0,'counterVerified':True,'partsPerCount':2}}}
+            await page.route('**/cncReports/**',lambda route: route.fulfill(status=200,content_type='application/json',body=json.dumps(history)))
+            await page.locator('#exportCncBtn').click()
+            report=page.locator('#cncReportDialog')
+            await report.locator('[name=anchor]').fill('2026-10-28')
+            await report.get_by_role('button',name='Xem báo cáo').click()
+            await page.wait_for_function("document.querySelector('#cncReportDialog .cr-report').textContent.includes('Tổng hợp theo máy')")
+            assert 'Neway 1260S' in await report.inner_text()
+            assert '24' in await report.locator('.cr-kpis').inner_text()
+            async with page.expect_download() as download_info:
+                await report.get_by_role('button',name='Xuất Excel (.xlsx)').click()
+            download=await download_info.value
+            assert download.suggested_filename.endswith('.xlsx')
+            await download.save_as('/tmp/cnc-browser-report.xlsx')
+            # An empty period is explicitly unavailable, never a fabricated zero-production report.
+            await page.route('**/cncReports/**',lambda route: route.fulfill(status=200,content_type='application/json',body='null'))
+            await report.get_by_role('button',name='Xem báo cáo').click()
+            await page.wait_for_function("document.querySelector('#cncReportDialog .cr-status').textContent.includes('Chưa có lịch sử')")
+            assert await report.get_by_role('button',name='Xuất Excel (.xlsx)').is_disabled()
+            await page.route('**/cncReports/**',lambda route: route.fulfill(status=403,content_type='application/json',body='{}'))
+            await report.get_by_role('button',name='Xem báo cáo').click()
+            await page.wait_for_function("document.querySelector('#cncReportDialog .cr-status').textContent.includes('Rules cncReports')")
             assert not errors, errors
             await browser.close()
-            print('PASS: live Neway card; legacy source unverified; no invented measurements; freshness expires during HTTP failure; no clear action or guessed parts on actual alarm; mobile; no page errors.')
+            print('PASS: live telemetry, unit-aware display, freshness, mobile; report summary/verified production, real XLSX download, empty period, and Firebase permission errors; no page errors.')
     finally:
         server.shutdown()
         server.server_close()

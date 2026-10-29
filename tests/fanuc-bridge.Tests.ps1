@@ -75,7 +75,7 @@ using System;
 public class FixtureRaw { public int run=3, alarm=0, emergency=0, aut=1; }
 public class FixtureSnapshot {
  public string timestampUtc=DateTime.UtcNow.ToString("o"),cncType="0",series="D4G5",version="05.0",axes="03";
- public double? spindleSpeed=1800, feedrate=12.5;
+ public int? partCounter=100; public double? spindleSpeed=1800, feedrate=12.5;
  public string spindleUnit="rpm", feedrateUnit="inch/min", activeProgram="O12345678", mainProgram="O0001";
  public System.Collections.Generic.Dictionary<string,string> readErrors=new System.Collections.Generic.Dictionary<string,string>();
  public FixtureRaw rawStatus=new FixtureRaw();
@@ -86,6 +86,7 @@ $fixtureDirectory=Join-Path ([IO.Path]::GetTempPath()) ('fanuc-bridge-test-'+[gu
 $null=New-Item -ItemType Directory -Path $fixtureDirectory
 try {
     Copy-Item $scriptPath (Join-Path $fixtureDirectory 'Start-FanucBridge.ps1')
+    Copy-Item (Join-Path $root 'tools/fanuc-bridge/ReportCollector.ps1') (Join-Path $fixtureDirectory 'ReportCollector.ps1')
     Copy-Item (Join-Path $root 'tools/fanuc-bridge/bridge-config.json') (Join-Path $fixtureDirectory 'bridge-config.json')
     $global:BridgeTest_failHttp=$false;$global:BridgeTest_role='technician';$global:BridgeTest_verified=$true;$global:BridgeTest_calls=@()
     function Read-Host { param($Prompt,[switch]$AsSecureString); if($AsSecureString){return (ConvertTo-SecureString 'fixture-password' -AsPlainText -Force)};return 'fixture@example.invalid' }

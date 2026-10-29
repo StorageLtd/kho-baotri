@@ -9,6 +9,8 @@ $ErrorActionPreference = 'Stop'
 $script:Auth = $null
 $script:BridgeFailed = $false
 $machineRegistered = $false
+$reportingStarted = $false
+. (Join-Path $PSScriptRoot "ReportCollector.ps1")
 function Invoke-BridgeHttp {
     param([string]$Uri, [string]$Method, $Body, [string]$Operation, [string]$ContentType = 'application/json')
     $parameters = @{ Uri = $Uri; Method = $Method; TimeoutSec = 20; ErrorAction = 'Stop'; Verbose = $false; Debug = $false }
@@ -78,7 +80,8 @@ function New-BridgePayload {
         activeProgram = $Snapshot.activeProgram; mainProgram = $Snapshot.mainProgram
         spindleSpeed = $Snapshot.spindleSpeed; spindleUnit = $Snapshot.spindleUnit
         feedrate = $Snapshot.feedrate; feedrateUnit = $Snapshot.feedrateUnit
-        readErrors = $Snapshot.readErrors
+        readErrors = $Snapshot.readErrors; partCounter = $Snapshot.partCounter
+        reportingVersion = 1
         # Setpoints, override and current NC block are not read by this bridge.
         currentBlock = $null; targetSpindleSpeed = $null; targetFeedrate = $null; override = $null
     }
@@ -86,6 +89,8 @@ function New-BridgePayload {
 try {
     if (-not [Environment]::Is64BitProcess) { throw 'Use 64-bit Windows PowerShell, not PowerShell (x86).' }
     $config = Get-Content -LiteralPath $ConfigPath -Raw | ConvertFrom-Json
+    if(-not $config.PSObject.Properties['partsPerCount']){$config|Add-Member -NotePropertyName partsPerCount -NotePropertyValue 1}
+    if(-not $config.PSObject.Properties['partCounterVerified']){$config|Add-Member -NotePropertyName partCounterVerified -NotePropertyValue $false}
     if ($config.machineId -notmatch '^[a-z0-9][a-z0-9-]{0,63}$') { throw 'Invalid machineId.' }
     $ip = $null
     if (-not [Net.IPAddress]::TryParse([string]$config.cncIp, [ref]$ip) -or $ip.AddressFamily -ne [Net.Sockets.AddressFamily]::InterNetwork) { throw 'Invalid CNC IPv4 address.' }
@@ -95,8 +100,8 @@ try {
     if ($config.databaseUrl -cne 'https://ltdst-80b3e-default-rtdb.asia-southeast1.firebasedatabase.app') { throw 'Unexpected database URL. No credentials will be sent.' }
     if ($config.firebaseApiKey -notmatch '^[A-Za-z0-9_-]+$') { throw 'Invalid Firebase Web API key.' }
     if (-not ('FanucReader' -as [type])) { Add-Type -Path (Join-Path $PSScriptRoot 'FanucReader.cs') }
-    if (-not ([FanucReader].GetMethod('ProgramNumber'))) { throw 'Old FanucReader loaded. Close this PowerShell window and open a new one to use the updated reader.' }
-    Write-Host "Bridge build: 20261029-speed-program"
+    if (-not ([FanucReader].GetMethod('ProgramNumber')) -or -not ([FanucReader].GetMethod('Read').ReturnType.GetField('partCounter'))) { throw 'Old FanucReader loaded. Close this PowerShell window and open a new one to use the updated reader.' }
+    Write-Host "Bridge build: 20261029-reports"
     Write-Host "Machine: $($config.machineName) | CNC $($config.cncIp):$($config.port)"
     Write-Host 'Read-only CNC access. Reading status, actual spindle/feed and current/main O-number. Detailed alarm text is not read.'
     # Test a real FOCAS read before requesting any credentials or creating the cloud record.
@@ -116,6 +121,9 @@ try {
         }
         Send-BridgePatch $config @{ id = $config.machineId; name = $config.machineName; ip = $config.cncIp; port = [int]$config.port; model = $config.model; source = 'focas'; connected = $false; status = 'offline' }
         $machineRegistered = $true
+        if($config.partsPerCount -lt 1 -or $config.partsPerCount -gt 1000 -or [double]$config.partsPerCount -ne [Math]::Truncate([double]$config.partsPerCount)){throw 'partsPerCount must be an integer from 1 to 1000.'}
+        Initialize-CncReports (Join-Path $PSScriptRoot 'report-outbox') $config.machineId $script:Auth.uid $config
+        $reportingStarted = $true
         $sample = $null # Authentication may take minutes; never upload that old initial sample.
     }
     Write-Host 'Bridge active. Keep this window open. Ctrl+C stops it.'
@@ -123,12 +131,14 @@ try {
         if ($null -eq $sample) {
             try { $sample = [FanucReader]::Read([string]$config.cncIp, [uint16]$config.port, (Join-Path $PSScriptRoot 'lib')) }
             catch {
+                if($reportingStarted){Break-CncReportObservation}
                 Write-Warning ('CNC read failed: ' + $_.Exception.GetBaseException().Message)
                 if (-not $LocalOnly) { try { Send-BridgePatch $config @{ source = 'focas'; connected = $false; status = 'offline' } } catch { Write-Warning $_.Exception.Message } }
                 if ($Once) { throw 'CNC sample was not obtained.' }
             }
         }
         if ($null -ne $sample) {
+            if($reportingStarted){Add-CncReportSample $sample}
             $payload = New-BridgePayload $sample
             $uploaded = $false
             if (-not $LocalOnly) {
@@ -143,6 +153,7 @@ try {
             Write-Host ("{0} | {1} | RUN={2} ALARM={3} EMERGENCY={4}" -f (Get-Date -Format 'HH:mm:ss'), $destination, $sample.rawStatus.run, $sample.rawStatus.alarm, $sample.rawStatus.emergency)
             Write-Host ("Spindle={0} {1} | Feed={2} {3} | Program={4} | Main={5}" -f $sample.spindleSpeed, $sample.spindleUnit, $sample.feedrate, $sample.feedrateUnit, $sample.activeProgram, $sample.mainProgram)
         }
+        if($reportingStarted){try{Send-PendingCncReports $config -Force:$Once}catch{Write-Warning ('Report upload failed; saved locally. '+$_.Exception.Message)}}
         $sample = $null
         if (-not $Once) { Start-Sleep -Seconds ([int]$config.intervalSeconds) }
     } while (-not $Once)
@@ -154,6 +165,7 @@ try {
     if ($script:Auth -and $machineRegistered -and -not $LocalOnly) {
         try { Send-BridgePatch $config @{ connected = $false; status = 'offline' } } catch { }
     }
+    if($reportingStarted){try{Send-PendingCncReports $config -Force}catch{ };Close-CncReports}
     $script:Auth = $null
 }
 if ($script:BridgeFailed) { exit 1 }

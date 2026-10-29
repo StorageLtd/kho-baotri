@@ -32,3 +32,15 @@ Mở bằng máy chủ tĩnh, ví dụ `npx serve .`, vì JavaScript module khô
 - Dữ liệu FOCAS thật có nhãn riêng và hết hạn sau 30 giây không nhận tín hiệu mới. Không tự tạo số liệu mô phỏng khi thêm máy. Các bản ghi cũ chưa rõ nguồn vẫn được giữ nhưng không coi là tín hiệu thật.
 - Cầu nối đọc thêm tốc độ trục chính/chạy dao thực tế (đúng đơn vị và số thập phân), số O hiện tại/chính; API tùy chọn lỗi không làm mất trạng thái cơ bản. Tốc độ đặt, override, dòng lệnh NC, bộ đếm và alarm chi tiết chưa được đọc.
 - Kiểm thử: `node --test tests/cnc-status.test.mjs`, `pwsh -NoProfile -File tests/fanuc-bridge.Tests.ps1`, `pwsh -NoProfile -File tests/fanuc-reader.Tests.ps1`, `python3 tests/cnc-browser-smoke.py` (cần Playwright/Chromium). Các kiểm thử dùng dữ liệu giả, không truy cập CNC hoặc Firebase thật.
+
+## Báo cáo vận hành CNC theo tuần, tháng, quý
+
+Nút **Báo cáo vận hành CNC** thay xuất danh sách CSV. Có KPI, biểu đồ ngày, bảng máy/ngày, chất lượng dữ liệu, Excel OOXML 4 sheet và in/PDF. Tính RUN/STOP/HOLD/alarm từ phiên quan sát FOCAS; không coi mất dữ liệu là dừng hoặc setup.
+
+Cập nhật cầu nối kèm `ReportCollector.ps1`, giữ `lib`, config và `report-outbox` cũ. Quản trị viên cần thêm **chỉ nhánh** trong [mảnh Rules](firebase/cnc-reports.rules-fragment.json) vào Rules đang chạy rồi Publish. Không thay Rules sản xuất bằng bản cũ trong repository, không mở quyền công khai. `FIREBASE UPDATED` chỉ xác nhận telemetry; `REPORTS UPDATED` xác nhận thống kê đã lưu.
+
+Cầu nối giữ tổng tích lũy theo ngày/phiên và lưu cục bộ trước khi gửi. Gửi lại cùng phiên không cộng đôi. Khoảng đọc >15 giây/mất tín hiệu/đồng hồ quay lùi không được ngoại suy. Các phiên chồng nhau bị loại khỏi báo cáo. Không khôi phục số liệu cũ từ trạng thái mới nhất. Đây chưa phải OEE theo lịch ca.
+
+Chỉ đọc tham số 6711 để thử lấy bộ đếm. Mặc định chưa quy đổi thành sản lượng: cần đối chiếu trên CNC và xác nhận `partCounterVerified`/`partsPerCount`. Không dùng số lần Cycle Start thay số sản phẩm; chưa phân loại đạt/lỗi hoặc setup. Có thể xuất tăng bộ đếm thô và độ phủ quan sát.
+
+Kiểm thử bổ sung: `node tests/cnc-reports.test.mjs`, `pwsh -NoProfile -File tests/cnc-collector.Tests.ps1`. Báo cáo XLSX đã được kiểm tra ZIP/XML và mở bằng OpenPyXL; UI/browser dùng dữ liệu giả, không tạo số liệu trong Firebase thật.

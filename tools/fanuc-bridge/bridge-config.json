@@ -6,5 +6,7 @@
   "intervalSeconds": 5,
   "model": "FANUC 0i-MF Plus",
   "firebaseApiKey": "AIzaSyAvpguQWSOCpNiCFej27hwK5ulZSPSBRk4",
-  "databaseUrl": "https://ltdst-80b3e-default-rtdb.asia-southeast1.firebasedatabase.app"
+  "databaseUrl": "https://ltdst-80b3e-default-rtdb.asia-southeast1.firebasedatabase.app",
+  "partCounterVerified": false,
+  "partsPerCount": 1
 }

@@ -36,12 +36,15 @@ public static class FanucReader
     public struct ProgramReading { public short dummy1, dummy2; public ushort data, mdata; }
     [StructLayout(LayoutKind.Sequential, Pack = 4)]
     public struct ProgramReading8 { public short dummy1, dummy2; public uint data, mdata; }
+    [StructLayout(LayoutKind.Sequential, Pack = 4)]
+    public struct CounterParameter { public short datano, type; public int value; }
     public sealed class Snapshot
     {
         public string timestampUtc, ip, cncType, machineType, series, version, axes;
         public int port, maximumAxes;
         public Status rawStatus;
         public double? spindleSpeed, feedrate;
+        public int? partCounter;
         public string spindleUnit, feedrateUnit, activeProgram, mainProgram;
         public Dictionary<string, string> readErrors = new Dictionary<string, string>();
     }
@@ -63,6 +66,10 @@ public static class FanucReader
     private static extern short cnc_rdprgnumo8(ushort handle, out ProgramReading8 program);
     [DllImport("Fwlib64.dll", CallingConvention = CallingConvention.Winapi, ExactSpelling = true)]
     private static extern short cnc_rdprgnum(ushort handle, out ProgramReading program);
+
+    // Parameter 6711: CNC machined-parts counter. Read only; never write/reset it.
+    [DllImport("Fwlib64.dll", CallingConvention = CallingConvention.Winapi, ExactSpelling = true)]
+    private static extern short cnc_rdparam(ushort handle, short number, short axis, short length, out CounterParameter parameter);
 
     public static string SpeedUnit(short unit)
     {
@@ -100,6 +107,12 @@ public static class FanucReader
             short result = cnc_rdspeed(handle, -1, out speed);
             ApplySpeed(result, speed, snapshot);
         } catch (EntryPointNotFoundException) { snapshot.readErrors["speed"] = "cnc_rdspeed unavailable in this DLL"; }
+        try {
+            CounterParameter counter;
+            short code = cnc_rdparam(handle, 6711, 0, 8, out counter);
+            if (code == 0 && counter.datano == 6711 && counter.value >= 0) snapshot.partCounter = counter.value;
+            else snapshot.readErrors["parts"] = "cnc_rdparam(6711): " + (code == 0 ? "Invalid counter data" : "FOCAS " + code);
+        } catch (EntryPointNotFoundException) { snapshot.readErrors["parts"] = "Counter API unavailable in this DLL"; }
         bool useFourDigits = false;
         try {
             ProgramReading8 program;
@@ -144,7 +157,7 @@ public static class FanucReader
         if (IntPtr.Size != 8) throw new InvalidOperationException("Use 64-bit Windows PowerShell.");
         if (Marshal.SizeOf(typeof(SysInfo)) != 18 || Marshal.SizeOf(typeof(Status)) != 18 ||
             Marshal.SizeOf(typeof(SpeedElement)) != 12 || Marshal.SizeOf(typeof(SpeedReading)) != 24 ||
-            Marshal.SizeOf(typeof(ProgramReading)) != 8 || Marshal.SizeOf(typeof(ProgramReading8)) != 12)
+            Marshal.SizeOf(typeof(ProgramReading)) != 8 || Marshal.SizeOf(typeof(ProgramReading8)) != 12 || Marshal.SizeOf(typeof(CounterParameter)) != 8)
             throw new InvalidOperationException("FOCAS structure size mismatch; connection cancelled.");
         // Load the supplied DLLs once, not on every poll (LoadLibrary increments native reference counts).
         string fullDirectory = Path.GetFullPath(libraryDirectory);

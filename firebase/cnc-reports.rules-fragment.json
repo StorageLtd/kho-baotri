@@ -1,0 +1,37 @@
+{
+  "cncReports": {
+    ".read": "auth != null && auth.token.email_verified === true",
+    "$machineId": {
+      "$day": {
+        "$sessionId": {
+          ".write": "auth != null && auth.token.email_verified === true && (root.child('users').child(auth.uid).child('role').val() === 'admin' || root.child('users').child(auth.uid).child('role').val() === 'manager' || root.child('users').child(auth.uid).child('role').val() === 'technician') && newData.exists() && (!data.exists() || data.child('ownerUid').val() === auth.uid)",
+          ".validate": "newData.child('schemaVersion').val() === 1 && newData.child('source').val() === 'focas' && newData.child('machineId').val() === $machineId && newData.child('date').val() === $day && newData.child('sessionId').val() === $sessionId && newData.child('ownerUid').val() === auth.uid && newData.child('observedMs').isNumber() && newData.child('observedMs').val() >= 0 && newData.child('observedMs').val() <= 86400000 && (!data.exists() || newData.child('observedMs').val() >= data.child('observedMs').val()) && newData.child('firstMs').isNumber() && newData.child('lastMs').isNumber() && newData.child('firstMs').val() <= newData.child('lastMs').val() && newData.child('observedMs').val() <= newData.child('lastMs').val() - newData.child('firstMs').val() && newData.child('observedMs').val() === newData.child('runningMs').val() + newData.child('idleMs').val() + newData.child('holdMs').val() + newData.child('alarmMs').val() + newData.child('unknownStateMs').val()",
+          "runningMs": {
+            ".validate": "newData.isNumber() && newData.val() >= 0"
+          },
+          "idleMs": {
+            ".validate": "newData.isNumber() && newData.val() >= 0"
+          },
+          "holdMs": {
+            ".validate": "newData.isNumber() && newData.val() >= 0"
+          },
+          "alarmMs": {
+            ".validate": "newData.isNumber() && newData.val() >= 0"
+          },
+          "unknownStateMs": {
+            ".validate": "newData.isNumber() && newData.val() >= 0"
+          },
+          "counterDelta": {
+            ".validate": "newData.isNumber() && newData.val() >= 0"
+          },
+          "counterObservedMs": {
+            ".validate": "newData.isNumber() && newData.val() >= 0"
+          },
+          "counterResets": {
+            ".validate": "newData.isNumber() && newData.val() >= 0"
+          }
+        }
+      }
+    }
+  }
+}

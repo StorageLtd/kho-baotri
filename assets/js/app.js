@@ -1,4 +1,5 @@
-﻿import { cncDisplayState, cncIsFresh, cncMeasurement } from "./cnc-status.js?v=20261028-neway";
+﻿import { openCncReports } from "./cnc-report-ui.js?v=20261029-reports";
+import { cncDisplayState, cncIsFresh, cncMeasurement } from "./cnc-status.js?v=20261028-neway";
 
     import { initializeSession, onSessionChanged, signIn, signOutUser, sendVerification, registerAccount, getToken, getUser, loadProfile, role, canEdit, displayName } from "./auth.js?v=20261026-login";
     import { firebaseConfig } from "./firebase-config.js";
@@ -789,6 +790,7 @@
               <span class="cnc-label">Tốc độ ăn dao (Feedrate):</span>
               <span class="cnc-value">${showTelemetry ? cncMeasurement(c.feedrate) : "—"} ${escapeHtml(c.source === "focas" ? c.feedrateUnit || "" : "mm/min")}${c.source !== "focas" && showTelemetry ? ` (Ovr: ${cncMeasurement(c.override)}%)` : ""}</span>
               
+              ${c.source === "focas" ? `<span class="cnc-label">Bộ đếm CNC (6711):</span><span class="cnc-value">${showTelemetry ? cncMeasurement(c.partCounter) : "—"} · cần đối chiếu quy đổi sản phẩm</span>` : ""}
               <span class="cnc-label">Vị trí nhà xưởng:</span>
               <span class="cnc-value">${escapeHtml(c.location || "Chưa thiết lập")}</span>
             </div>
@@ -1662,9 +1664,7 @@
       downloadCsv(h, r, "danh-sach-may-ltd");
     });
     els.exportCncBtn.addEventListener("click", () => {
-      const h = ["Tên máy CNC", "Địa chỉ IP", "Port FOCAS", "Model Bộ điều khiển", "Vị trí lắp đặt", "Trạng thái", "Chương trình hiện tại"];
-      const r = cncs.map(c => [c.name, c.ip, c.port, c.model, c.location, cncDisplayState(c).label, c.activeProgram || ""]);
-      downloadCsv(h, r, "danh-sach-may-cnc-ltd");
+      openCncReports({ getMachines: () => cncs, getToken, databaseUrl: DB_URL });
     });
 
     function exportCncAlarmExcel() {

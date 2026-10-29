@@ -12,7 +12,7 @@ BẢN NÀY LÀM GÌ?
 - Web báo mất kết nối khi tín hiệu quá 30 giây. Không sử dụng để quyết định an toàn máy.
 - Tốc độ chạy dao giữ đúng đơn vị do CNC trả về (mm/min, inch/min, mm/rev hoặc inch/rev).
 - Số O là chương trình đang được chọn/đang thực hiện; không đọc nội dung chương trình.
-- Chưa đọc tốc độ đặt, override, dòng lệnh NC, bộ đếm sản phẩm hoặc nội dung alarm chi tiết.
+- Chưa đọc tốc độ đặt, override, dòng lệnh NC, nội dung alarm chi tiết.
   Các mục chưa đo hoặc API bị lỗi sẽ để trống và hiện chẩn đoán, không tạo số liệu giả.
 
 CHUẨN BỊ
@@ -33,7 +33,9 @@ CẬP NHẬT TỪ BẢN CŨ
 Dừng cầu nối bằng Ctrl+C rồi đóng cửa sổ PowerShell cũ (để bỏ lớp C# đã nạp).
 Thay CẢ HAI file FanucReader.cs và Start-FanucBridge.ps1 bằng bản mới.
 Giữ ba DLL và bridge-config.json hiện có. Mở PowerShell mới và làm các bước dưới.
-Bản mới phải hiện Bridge build: 20261029-speed-program.
+Bản mới phải hiện Bridge build: 20261029-reports.
+Chép thêm ReportCollector.ps1 cùng thư mục với Start-FanucBridge.ps1.
+Mở quyền chạy cho đúng file này bằng Unblock-File -LiteralPath .\ReportCollector.ps1.
 
 CÁCH CHẠY
 1. Trong File Explorer, mở thư mục có Start-FanucBridge.ps1, bấm thanh địa chỉ,
@@ -84,3 +86,31 @@ một lần trước đây đã chạy thành công trên CNC của bạn; bản
 chạy trên Windows 11 để xác nhận việc gửi Firebase thật.
 last-result.json chỉ lưu bản đọc CNC gần nhất, không chứa mật khẩu/token.
 DLL được bạn cung cấp, chưa xác minh nguồn/chữ ký hoặc bảo đảm phiên bản từ nhà sản xuất.
+
+BÁO CÁO TUẦN / THÁNG / QUÝ - CẦN BẬT QUYỀN FIREBASE MỘT LẦN
+1. Sao lưu Rules hiện có trong Firebase Console > Realtime Database > Rules.
+2. Thêm nhánh cncReports từ FIREBASE-REPORTS-RULES.json vào trong rules,
+   cùng cấp với cncs. Đây là mảnh cấu hình, không thay toàn bộ Rules hiện có.
+3. Publish Rules. Không đặt .read/.write công khai, không cung cấp khóa quản trị.
+4. Chạy cầu nối. FIREBASE UPDATED là tín hiệu hiện tại; REPORTS UPDATED mới là
+   báo tổng hợp ngày đã được lưu. Nếu thiếu quyền, file chờ vẫn nằm trong report-outbox.
+5. Trên web bấm Báo cáo vận hành CNC (thay Xuất CNC CSV), chọn máy và kỳ,
+   bấm Xem báo cáo, xuất Excel 4 sheet hoặc in/PDF.
+
+CÁCH TÍNH VÀ SẢN LƯỢNG
+- Đọc trạng thái theo chu kỳ; cộng khoảng giữa hai mẫu chỉ khi cách nhau <=15 giây.
+- Giờ RUN là trạng thái START, không phải riêng thời gian cắt gọt. Giờ setup chưa thu thập.
+- Kỳ theo lịch Việt Nam; phần trước khi cài hoặc mất kết nối là chưa có dữ liệu, không phải dừng.
+- Tham số 6711 được CHỈ ĐỌC để lấy bộ đếm CNC; cần đối chiếu giá trị và cách tăng
+  với màn hình máy trước khi gọi đó là sản lượng. Không ghi/reset tham số trên CNC.
+- Mặc định partCounterVerified=false: báo mức tăng bộ đếm nhưng không coi là thành phẩm.
+- Sau khi người phụ trách xác nhận, đặt partCounterVerified=true, partsPerCount
+  bằng số chi tiết tương ứng một lần tăng (mặc định 1), rồi khởi động lại cầu nối.
+  Chỉ phiên mới áp dụng quy đổi. Sản phẩm đạt/lỗi chưa được phân loại.
+- Bộ đếm giảm/reset hoặc mất dữ liệu: không suy diễn sản lượng qua khoảng đó.
+- Tổng hợp ngày/phiên gửi lại cùng ID, không cộng đôi. Chỉ chạy một cầu nối/máy.
+- Giữ report-outbox khi cập nhật; chứa số liệu vận hành chờ gửi, không chứa mật khẩu/token.
+  Mất Internet sau khi đã đăng nhập vẫn có thể thu thập cục bộ. Khởi động mới vẫn cần
+  Internet để xác thực trước khi thu thập. Không tự chạy nền khi laptop ngủ/đóng PowerShell.
+- Dữ liệu nhánh cncReports lưu dài hạn trên Firebase đến khi quản trị viên sao lưu/xóa;
+  cần theo dõi dung lượng và thiết lập chính sách lưu trữ phù hợp quy định công ty.
