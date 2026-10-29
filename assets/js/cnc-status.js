@@ -1,11 +1,16 @@
 // A cloud record alone does not establish a live connection to the CNC.
 export const CNC_SIGNAL_MAX_AGE_MS = 30000;
-export function cncIsFresh(cnc, now = Date.now()) {
+let serverClockOffsetMs = 0;
+export const cncServerNow = () => Date.now() + serverClockOffsetMs;
+export function setCncClockOffset(offset) {
+  if (Number.isFinite(offset)) serverClockOffsetMs = offset;
+}
+export function cncIsFresh(cnc, now = cncServerNow()) {
   if (cnc.source !== 'focas' || cnc.connected !== true || !cnc.lastSeen) return false;
   const age = now - new Date(cnc.lastSeen).getTime();
   return Number.isFinite(age) && age >= -5000 && age <= CNC_SIGNAL_MAX_AGE_MS;
 }
-export function cncDisplayState(cnc, now = Date.now()) {
+export function cncDisplayState(cnc, now = cncServerNow()) {
   if (cnc.source === 'demo') return { status: 'demo', label: 'MÔ PHỎNG · ' + (cnc.status || 'Chưa rõ'), css: 'offline' };
   if (cnc.source !== 'focas') return { status: 'offline', label: 'CHƯA CÓ TÍN HIỆU THẬT', css: 'offline' };
   if (!cncIsFresh(cnc, now)) return { status: 'offline', label: 'MẤT KẾT NỐI / TÍN HIỆU QUÁ HẠN', css: 'offline' };

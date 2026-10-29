@@ -54,3 +54,9 @@ Giao diện PART COUNT, RUN TIME, CYCLE TIME và đèn logic từ trạng thái 
 Excel chỉ Tổng quan và Theo ngày. Dữ liệu lịch sử vẫn giữ, không dựng lại chu kỳ từ tổng hợp ngày. Đèn xanh RUN, vàng HOLD, đỏ alarm, xám dừng/mất tín hiệu.
 
 Kiểm thử: `pwsh -NoProfile -File tests/fanuc-access.Tests.ps1` xác nhận allowlist native và không có PMC/thread; `pwsh -NoProfile -File tests/cnc-cycles.Tests.ps1` kiểm tra START/HOLD/STOP/RESET và dữ liệu thiếu. Bản ZIP StatusOnly là đường tải ưu tiên để tránh nhầm với bản cũ.
+
+### Đồng bộ web và đồng hồ
+
+Telemetry CNC được đọc ngay sau đăng nhập, độc lập với kho, presence và lịch sử alarm. GET không dùng cache, có timeout và chặn yêu cầu chồng. Mỗi nhánh lỗi không ngăn hiển thị nhánh khác. Dòng trạng thái đồng bộ trên trang CNC phân biệt lỗi đọc Firebase với tín hiệu quá hạn.
+
+Độ mới tín hiệu dùng độ lệch thời gian đo từ server timestamp trên presence của chính phiên đăng nhập; không sửa đồng hồ Windows. Khi máy tính lệch hơn một phút, web hiển thị cảnh báo để sửa giờ thiết bị (nhật ký do cầu nối vẫn dùng giờ Windows). Không thay đổi API CNC/cầu nối/PMC. Kiểm thử trình duyệt tái hiện alarm endpoint lỗi và đồng hồ lệch 11 phút.

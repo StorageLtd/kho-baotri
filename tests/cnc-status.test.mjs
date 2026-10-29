@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import test from 'node:test';
 const source = await readFile(new URL('../assets/js/cnc-status.js', import.meta.url), 'utf8');
-const { cncDisplayState, cncIsFresh, cncMeasurement } = await import('data:text/javascript;base64,' + Buffer.from(source).toString('base64'));
+const { cncDisplayState, cncIsFresh, cncMeasurement, setCncClockOffset, cncServerNow } = await import('data:text/javascript;base64,' + Buffer.from(source).toString('base64'));
 const now = Date.parse('2026-10-28T08:30:00Z');
 const live = { source: 'focas', connected: true, lastSeen: now, rawStatus: { run: 3, alarm: 0, emergency: 0 } };
 test('actual stopped machine is idle; RUN/HOLD and flags use measured raw status', () => {
@@ -29,4 +29,15 @@ test('legacy and pending records are never represented as verified live data', (
 test('missing measurements remain unavailable rather than invented zero values', () => {
   assert.equal(cncMeasurement(0),'0');
   for (const value of [null, undefined, NaN, Infinity, '1200', '<img>']) assert.equal(cncMeasurement(value),'—');
+});
+
+test('clock calibration does not mistake a fresh server heartbeat for a stale one', () => {
+ const offset=-11*60000;
+ setCncClockOffset(offset);
+ const fresh={...live,lastSeen:Date.now()+offset};
+ assert.equal(cncIsFresh(fresh),true);
+ assert.equal(cncDisplayState(fresh).status,'running');
+ assert.equal(cncDisplayState({...fresh,lastSeen:fresh.lastSeen-31000}).status,'offline');
+ assert.ok(Math.abs(cncServerNow()-Date.now()-offset)<10);
+ setCncClockOffset(0);
 });

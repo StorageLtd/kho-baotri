@@ -1,5 +1,5 @@
-﻿import { openCncReports } from "./cnc-report-ui.js?v=20261029-status-only";
-import { cncDisplayState, cncIsFresh, cncMeasurement, cncMode, cncDuration } from "./cnc-status.js?v=20261029-status-only";
+﻿import { openCncReports } from "./cnc-report-ui.js?v=20261029-web-sync";
+import { cncDisplayState, cncIsFresh, cncMeasurement, cncMode, cncDuration, cncServerNow, setCncClockOffset } from "./cnc-status.js?v=20261029-web-sync";
 
     import { initializeSession, onSessionChanged, signIn, signOutUser, sendVerification, registerAccount, getToken, getUser, loadProfile, role, canEdit, displayName } from "./auth.js?v=20261026-login";
     import { firebaseConfig } from "./firebase-config.js";
@@ -197,7 +197,7 @@ import { cncDisplayState, cncIsFresh, cncMeasurement, cncMode, cncDuration } fro
         showToast("Tài khoản của bạn chỉ có quyền xem dữ liệu.");
         return null;
       }
-      const options = { method };
+      const options = { method, cache: "no-store", signal: AbortSignal.timeout(12000) };
       if (body) {
         options.headers = { "Content-Type": "application/json" };
         options.body = JSON.stringify(body);
@@ -239,15 +239,13 @@ import { cncDisplayState, cncIsFresh, cncMeasurement, cncMode, cncDuration } fro
     async function loadCloudData() {
       if(els.resultCount) els.resultCount.textContent = "Đang đồng bộ dữ liệu đám mây...";
       try {
-        const [cloudItems, cloudActivities, cloudHistory, cloudMovements, cloudMachines, cloudJobs, cloudCncs, cloudCncAlarms] = await Promise.all([
+        const [cloudItems, cloudActivities, cloudHistory, cloudMovements, cloudMachines, cloudJobs] = await Promise.all([
           fbFetch("items"),
           fbFetch("activities"),
           fbFetch("repairHistory"),
           fbFetch("stockMovements"),
           fbFetch("machines"),
-          fbFetch("maintenanceJobs"),
-          fbFetch("cncs"), // Tải dữ liệu CNC
-          fbFetch("cncAlarms") // Tải dữ liệu lịch sử Alarm CNC
+          fbFetch("maintenanceJobs")
         ]);
 
         items = cloudItems ? Object.values(cloudItems) : [];
@@ -256,61 +254,87 @@ import { cncDisplayState, cncIsFresh, cncMeasurement, cncMode, cncDuration } fro
         stockMovements = cloudMovements ? Object.values(cloudMovements) : [];
         machines = cloudMachines ? Object.values(cloudMachines) : [];
         maintenanceJobs = cloudJobs ? Object.values(cloudJobs) : [];
-        cncs = cloudCncs ? Object.values(cloudCncs) : [];
-        cncAlarmHistory = cloudCncAlarms ? Object.values(cloudCncAlarms) : [];
-
-        cncs.forEach(c => ensureAlarmRecorded(c));
-        if (cncs.some(c => c.status === "alarm" && c.alarm)) {
-          await syncNode("cncAlarms", cncAlarmHistory);
-        }
-
         render();
         showToast("Đã cập nhật dữ liệu trực tuyến mới nhất.");
 
-        // Quản lý số người trực tuyến bằng cách gửi ping mỗi 15s
-        await fbFetch(`online_users/${mySessionId}`, "PUT", { uid: getUser().uid, timestamp: Date.now() });
-        setInterval(async () => {
-          try { await fbFetch(`online_users/${mySessionId}`, "PUT", { uid: getUser().uid, timestamp: Date.now() }); } catch(e){}
-        }, 15000);
-
+        // Presence is written with server timestamps by the independent clock synchronizer.
         setTimeout(checkOnlineUsers, 500);
         setInterval(checkOnlineUsers, 12000);
 
-        // Live telemetry is supplied only by an authenticated external bridge.
-        startCncRealtimeSync();
       } catch (e) {
         console.error("Lỗi kết nối máy chủ:", e);
       }
     }
 
+    function refreshCncTelemetryView() {
+      els.statCncTotal.textContent = number.format(cncs.length);
+      els.statCncRunning.textContent = number.format(cncs.filter(c => cncDisplayState(c).status === "running").length);
+      els.statCncHold.textContent = number.format(cncs.filter(c => cncDisplayState(c).status === "hold").length);
+      els.statCncAlarm.textContent = number.format(cncs.filter(c => cncDisplayState(c).status === "alarm").length);
+      if (els.cncConnectionReady) els.cncConnectionReady.textContent = `${cncs.filter(c => cncIsFresh(c)).length} / ${cncs.length}`;
+      if (!els.cncMonitoringPage.hidden) renderCncTable();
+      updateOverviewQuickStats();
+      renderAlertsAndActivities();
+    }
+
     function startCncRealtimeSync() {
       if (cncRealtimeSyncStarted) return;
       cncRealtimeSyncStarted = true;
-      setInterval(async () => {
-        if (!getUser()) return;
+      let reading = false, readingAlarms = false, syncingClock = false, clockOffset = null;
+      let readState = "Đang đọc tín hiệu Firebase…";
+      const showStatus = () => {
+        const label = document.querySelector("#cncSyncStatus");
+        if (label) label.textContent = readState + (clockOffset !== null && Math.abs(clockOffset) > 60000
+          ? ` Đồng hồ máy tính lệch khoảng ${Math.round(Math.abs(clockOffset) / 60000)} phút so với Firebase; hãy bật đồng bộ giờ Windows.` : "");
+      };
+      const readMachines = async () => {
+        if (reading || !getUser()) return;
+        reading = true;
+        const uid = getUser().uid;
         try {
-          const [cloudCncs, cloudCncAlarms] = await Promise.all([
-            fbFetch("cncs", "GET", null, true), fbFetch("cncAlarms", "GET", null, true)
-          ]);
-          cncs = cloudCncs ? Object.values(cloudCncs) : [];
-          cncAlarmHistory = cloudCncAlarms ? Object.values(cloudCncAlarms) : [];
-          let hasNewAlarm = false;
-          cncs.forEach(c => { if (ensureAlarmRecorded(c)) hasNewAlarm = true; });
-          if (hasNewAlarm) await syncNode("cncAlarms", cncAlarmHistory);
+          const data = await fbFetch("cncs", "GET", null, true);
+          if (getUser()?.uid !== uid) return;
+          cncs = data ? Object.values(data) : [];
+          readState = `Web đã nhận Firebase: ${new Date(cncServerNow()).toLocaleTimeString("vi-VN")}.`;
         } catch (error) {
-          // Preserve the last snapshot; freshness checks below expire it independently.
+          readState = `Web chưa đọc được tín hiệu Firebase: ${error.message}. Kiểm tra mạng/quyền đọc hoặc đăng nhập lại.`;
         } finally {
-          els.statCncTotal.textContent = number.format(cncs.length);
-          els.statCncRunning.textContent = number.format(cncs.filter(c => cncDisplayState(c).status === "running").length);
-          els.statCncHold.textContent = number.format(cncs.filter(c => cncDisplayState(c).status === "hold").length);
-          els.statCncAlarm.textContent = number.format(cncs.filter(c => cncDisplayState(c).status === "alarm").length);
-          if (els.cncConnectionReady) els.cncConnectionReady.textContent = `${cncs.filter(c => cncIsFresh(c)).length} / ${cncs.length}`;
-          if (!els.cncMonitoringPage.hidden) renderCncTable();
-          updateOverviewQuickStats();
-          renderAlertsAndActivities();
-          if (cncAlarmHistoryViewId && els.cncAlarmHistoryDialog.open) renderCncMachineAlarmHistory(cncAlarmHistoryViewId);
+          reading = false; showStatus(); refreshCncTelemetryView();
         }
-      }, 5000);
+      };
+      const readAlarms = async () => {
+        if (readingAlarms || !getUser()) return;
+        readingAlarms = true;
+        const uid = getUser().uid;
+        try {
+          const data = await fbFetch("cncAlarms", "GET", null, true);
+          if (getUser()?.uid !== uid) return;
+          cncAlarmHistory = data ? Object.values(data) : [];
+          if (!els.cncMonitoringPage.hidden) renderCncAlarmsOnly();
+          if (cncAlarmHistoryViewId && els.cncAlarmHistoryDialog.open) renderCncMachineAlarmHistory(cncAlarmHistoryViewId);
+        } catch (error) { /* History failure must never suppress live machine data. */ }
+        finally { readingAlarms = false; }
+      };
+      const syncClock = async () => {
+        if (syncingClock || !getUser()) return;
+        syncingClock = true;
+        const uid = getUser().uid, sentAt = Date.now();
+        try {
+          const presence = await fbFetch(`online_users/${mySessionId}`, "PUT", { uid, timestamp: { ".sv": "timestamp" } }, true);
+          if (getUser()?.uid !== uid) return;
+          if (typeof presence?.timestamp === "number") {
+            clockOffset = presence.timestamp - (sentAt + Date.now()) / 2;
+            setCncClockOffset(clockOffset);
+          }
+        } catch (error) { /* Presence/clock permissions must never block live reads. */ }
+        finally { syncingClock = false; showStatus(); refreshCncTelemetryView(); }
+      };
+      void readMachines(); void readAlarms(); void syncClock();
+      setInterval(() => { refreshCncTelemetryView(); void readMachines(); }, 5000);
+      setInterval(() => { void readAlarms(); void syncClock(); }, 15000);
+      document.addEventListener("visibilitychange", () => {
+        if (!document.hidden) { void syncClock(); void readMachines(); }
+      });
     }
 
     function extractAlarmCode(alarmText) {
@@ -340,7 +364,7 @@ import { cncDisplayState, cncIsFresh, cncMeasurement, cncMode, cncDuration } fro
       try {
         const allSessions = await fbFetch("online_users");
         if (allSessions) {
-          const now = Date.now();
+          const now = cncServerNow();
           let activeCount = 0;
           for (const id in allSessions) {
             if (now - allSessions[id].timestamp < 45000) { activeCount++; } 
@@ -449,6 +473,7 @@ import { cncDisplayState, cncIsFresh, cncMeasurement, cncMode, cncDuration } fro
       els.sessionBadge.textContent = `${displayName()} · ${role().toUpperCase()}`;
       applyAuthorization();
       render();
+      startCncRealtimeSync();
       loadCloudData();
       showToast(`Chào mừng, ${displayName()}. Vai trò: ${role()}.`);
       return true;

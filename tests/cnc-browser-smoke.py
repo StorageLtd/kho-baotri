@@ -46,6 +46,7 @@ window.renderFixture = (records) => {
   document.body.classList.remove('locked');
 };
 window.startFixturePolling = startCncRealtimeSync;
+window.restoreFixtureClock = () => setCncClockOffset(0);
 '''
             await page.route('**/assets/js/app.js*', lambda route: route.fulfill(status=200, content_type='text/javascript', body=source+hook))
             await page.goto(f'http://127.0.0.1:{server.server_port}/', wait_until='networkidle')
@@ -81,6 +82,29 @@ window.startFixturePolling = startCncRealtimeSync;
             await page.wait_for_function("document.querySelector('#card-neway-1260s').textContent.includes('MẤT KẾT NỐI')")
             assert await page.locator('#statCncRunning').inner_text() == '0'
             assert await page.locator('#cncConnectionReady').inner_text() == '0 / 1'
+            # Live CNC reads must succeed even when alarm-history/presence endpoints fail.
+            import json
+            at=await page.evaluate('Date.now()')
+            live={'neway-1260s':{'id':'neway-1260s','name':'Neway 1260S','source':'focas','connected':True,'lastSeen':at,'rawStatus':{'run':3,'alarm':0,'emergency':0,'aut':1},'ip':'192.168.1.1','port':8193,'spindleSpeed':250,'feedrate':100,'feedrateUnit':'inch/min'}}
+            await page.route('**/cncs.json?*',lambda route: route.fulfill(status=200,content_type='application/json',body=json.dumps(live)))
+            await page.clock.fast_forward(5000)
+            await page.wait_for_function("document.querySelector('#card-neway-1260s').textContent.includes('250 RPM')")
+            assert await page.locator('#statCncRunning').inner_text()=='1'
+            assert 'Web đã nhận Firebase' in await page.locator('#cncSyncStatus').inner_text()
+            # Reproduce a Windows clock 11 minutes ahead of Firebase's server clock.
+            live['neway-1260s']['lastSeen']=await page.evaluate('Date.now()')-660000
+            async def presence_reply(route):
+                clock=await page.evaluate('Date.now()')
+                await route.fulfill(status=200,content_type='application/json',body=json.dumps({'uid':'fixture','timestamp':clock-660000}))
+            await page.route('**/online_users/**',presence_reply)
+            await page.clock.fast_forward(15000)
+            await page.wait_for_function("document.querySelector('#cncSyncStatus').textContent.includes('11 phút')")
+            assert await page.locator('#statCncRunning').inner_text()=='1'
+            assert '250 RPM' in await card.inner_text()
+            await page.route('**/online_users/**',lambda route:route.fulfill(status=403,content_type='application/json',body='{}'))
+            await page.route('**/cncs.json?*',lambda route:route.fulfill(status=503,content_type='application/json',body='{}'))
+            await page.evaluate('restoreFixtureClock()')
+
             await page.evaluate('''renderFixture([{id:'neway-1260s',name:'Neway 1260S',source:'focas',connected:true,lastSeen:Date.now(),rawStatus:{run:0,alarm:1,emergency:0,aut:0},alarm:'CNC flag only',ip:'169.254.85.99',port:8193,model:'FANUC 0i-MF Plus'}])''')
             assert 'CÓ TÍN HIỆU ALARM' in await card.inner_text()
             assert await card.get_by_text('Xử lý xong (Clear)').count() == 0
