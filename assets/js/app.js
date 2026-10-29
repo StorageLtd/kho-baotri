@@ -795,16 +795,12 @@ import { cncDisplayState, cncIsFresh, cncMeasurement, cncMode, cncDuration, cncS
             </div>
             
             <div class="cnc-details">
-              ${c.source === "focas" ? `<span class="cnc-label">Chế độ vận hành:</span><span class="cnc-value">${showTelemetry ? cncMode(c.rawStatus?.aut) : "—"}</span><span class="cnc-label">Alarm:</span><span class="cnc-value">${showTelemetry ? (c.rawStatus?.alarm === 0 ? "Không có alarm" : "Có tín hiệu alarm") : "—"}</span>` : ""}
+              ${c.source === "focas" ? `<span class="cnc-label">Chế độ vận hành:</span><span class="cnc-value">${showTelemetry ? cncMode(c.rawStatus?.aut) : "—"}</span><span class="cnc-label">Alarm:</span><span class="cnc-value">${showTelemetry ? (Number.isInteger(c.rawStatus?.alarm) ? (c.rawStatus.alarm === 0 ? "Không có alarm" : "Có tín hiệu alarm") : "Chưa đọc được") : "Chưa có tín hiệu mới"}</span>` : ""}
               <span class="cnc-label">Model CNC:</span>
               <span class="cnc-value">${escapeHtml(c.model)}</span>
               
               <span class="cnc-label">Chương trình hiện tại:</span>
               <span class="cnc-value" style="color: var(--accent); font-weight:800;">${escapeHtml(showTelemetry ? c.activeProgram || "Chưa đọc" : "—")}</span>
-              
-              ${c.source === "focas" ? `<span class="cnc-label">Chương trình chính:</span><span class="cnc-value">${escapeHtml(showTelemetry ? c.mainProgram || "Chưa đọc" : "—")}</span>` : ""}
-              <span class="cnc-label">Dòng lệnh hiện tại:</span>
-              <span class="cnc-value" style="font-size:12px; font-weight: 500">${escapeHtml(showTelemetry ? c.currentBlock || "Chưa đọc" : "—")}</span>
               
               <span class="cnc-label">Vòng quay trục chính:</span>
               <span class="cnc-value" style="color: var(--ok)">${showTelemetry ? cncMeasurement(c.spindleSpeed) : "—"} RPM${c.source !== "focas" && showTelemetry ? ` / ${cncMeasurement(c.targetSpindleSpeed)} đặt` : ""}</span>
@@ -824,6 +820,7 @@ import { cncDisplayState, cncIsFresh, cncMeasurement, cncMode, cncDuration, cncS
               ${matchedPartInfo}
             ` : ''}
 
+            ${c.source === "focas" && !showTelemetry ? `<div class="meta" role="status">Dữ liệu chưa cập nhật: chưa xác định được Alarm hiện tại. Kiểm tra cầu nối và dòng đồng bộ Firebase trên trang.</div>` : ""}
             ${showTelemetry && c.readErrors && Object.keys(c.readErrors).length ? `<div class="meta" role="status">Một số mục chưa đọc được: ${escapeHtml(Object.values(c.readErrors).join("; "))}</div>` : ""}
             <div class="row-actions" style="margin-top:auto; border-top:1px solid var(--line); padding-top:10px;">
               <button class="btn" style="min-height:30px; font-size:12px;" onclick="openCncMachineAlarmHistory('${c.id}')">Alarm của máy</button>
