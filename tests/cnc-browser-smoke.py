@@ -57,17 +57,23 @@ window.startFixturePolling = startCncRealtimeSync;
             card = page.locator('#card-neway-1260s')
             assert 'Dữ liệu thật' in await card.inner_text()
             assert 'ĐANG CHẠY (START)' in await card.inner_text()
-            assert '— / — RPM' in await card.inner_text()
+            assert '— RPM' in await card.inner_text()
             assert 'Chưa đọc' in await card.inner_text()
             assert await card.get_by_text('Xử lý xong (Clear)').count() == 0
             assert await page.locator('#statCncRunning').inner_text() == '1'
             assert await page.locator('#cncConnectionReady').inner_text() == '1 / 2'
             assert 'CHƯA CÓ TÍN HIỆU THẬT' in await page.locator('#card-old').inner_text()
+            await page.evaluate('''renderFixture([{id:'neway-1260s',name:'Neway 1260S',source:'focas',connected:true,lastSeen:Date.now(),rawStatus:{run:3,alarm:0,emergency:0,aut:1},ip:'192.168.1.1',port:8193,model:'FANUC 0i-MF Plus',spindleSpeed:1800,feedrate:12.5,feedrateUnit:'inch/min',activeProgram:'O12345678',mainProgram:'O0001'}])''')
+            assert '1800 RPM' in await card.inner_text()
+            assert '12.5 inch/min' in await card.inner_text()
+            assert 'O12345678' in await card.inner_text()
+            assert 'O0001' in await card.inner_text()
+            assert '/ — RPM' not in await card.inner_text()
             await page.evaluate('startFixturePolling()')
             await page.clock.fast_forward(35000)
             await page.wait_for_function("document.querySelector('#card-neway-1260s').textContent.includes('MẤT KẾT NỐI')")
             assert await page.locator('#statCncRunning').inner_text() == '0'
-            assert await page.locator('#cncConnectionReady').inner_text() == '0 / 2'
+            assert await page.locator('#cncConnectionReady').inner_text() == '0 / 1'
             await page.evaluate('''renderFixture([{id:'neway-1260s',name:'Neway 1260S',source:'focas',connected:true,lastSeen:Date.now(),rawStatus:{run:0,alarm:1,emergency:0,aut:0},alarm:'CNC flag only',ip:'169.254.85.99',port:8193,model:'FANUC 0i-MF Plus'}])''')
             assert 'CÓ TÍN HIỆU ALARM' in await card.inner_text()
             assert await card.get_by_text('Xử lý xong (Clear)').count() == 0

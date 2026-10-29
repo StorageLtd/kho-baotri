@@ -75,9 +75,12 @@ using System;
 public class FixtureRaw { public int run=3, alarm=0, emergency=0, aut=1; }
 public class FixtureSnapshot {
  public string timestampUtc=DateTime.UtcNow.ToString("o"),cncType="0",series="D4G5",version="05.0",axes="03";
+ public double? spindleSpeed=1800, feedrate=12.5;
+ public string spindleUnit="rpm", feedrateUnit="inch/min", activeProgram="O12345678", mainProgram="O0001";
+ public System.Collections.Generic.Dictionary<string,string> readErrors=new System.Collections.Generic.Dictionary<string,string>();
  public FixtureRaw rawStatus=new FixtureRaw();
 }
-public static class FanucReader { public static int Calls; public static FixtureSnapshot Read(string ip,ushort port,string folder) { Calls++;return new FixtureSnapshot(); } }
+public static class FanucReader { public static string ProgramNumber(uint n) { return "O"+n.ToString(); } public static int Calls; public static FixtureSnapshot Read(string ip,ushort port,string folder) { Calls++;return new FixtureSnapshot(); } }
 '@
 $fixtureDirectory=Join-Path ([IO.Path]::GetTempPath()) ('fanuc-bridge-test-'+[guid]::NewGuid().ToString('N'))
 $null=New-Item -ItemType Directory -Path $fixtureDirectory
@@ -99,6 +102,7 @@ try {
     Assert-True ($patches.Count -eq 3) 'Expected metadata registration, live sample, and orderly offline patches'
     $telemetry=$patches[1].Body|ConvertFrom-Json
     Assert-True ($telemetry.status -eq 'running' -and $telemetry.connected -eq $true) 'Full bridge did not send measured telemetry'
+    Assert-True ($telemetry.spindleSpeed -eq 1800 -and $telemetry.feedrate -eq 12.5 -and $telemetry.feedrateUnit -eq 'inch/min' -and $telemetry.activeProgram -eq 'O12345678') 'Optional telemetry or its units were lost in the cloud payload'
     $metadata=$patches[0].Body|ConvertFrom-Json
     Assert-True ($metadata.name -eq 'Neway 1260S' -and $metadata.id -eq 'neway-1260s') 'Wrong machine registered'
     $offline=$patches[-1].Body|ConvertFrom-Json

@@ -4,13 +4,16 @@ Máy: Neway 1260S | ID cố định: neway-1260s
 FANUC 0i-MF Plus | IP: 192.168.1.1 | TCP: 8193
 
 BẢN NÀY LÀM GÌ?
-- Chỉ đọc thông tin và trạng thái CNC bằng bốn API của bản thử đã chạy thành công.
+- Chỉ đọc thông tin/trạng thái, tốc độ trục chính và chạy dao thực tế, số O hiện tại/chính.
+  API bổ sung: cnc_rdspeed, cnc_rdprgnumo8 và cnc_rdprgnum (dự phòng).
 - Đọc lại sau mỗi chu kỳ khoảng 5 giây (cộng thời gian đọc/gửi); không điều khiển CNC.
 - Gửi dữ liệu tới Firebase CMMS sau khi bạn đăng nhập tại laptop.
 - Tạo/cập nhật duy nhất bản ghi cncs/neway-1260s; không thay danh sách máy hay dữ liệu kho.
 - Web báo mất kết nối khi tín hiệu quá 30 giây. Không sử dụng để quyết định an toàn máy.
-- Chưa đọc tốc độ trục chính, feedrate, chương trình, nội dung alarm chi tiết.
-  Các mục chưa đo sẽ để trống, không tạo dữ liệu giả.
+- Tốc độ chạy dao giữ đúng đơn vị do CNC trả về (mm/min, inch/min, mm/rev hoặc inch/rev).
+- Số O là chương trình đang được chọn/đang thực hiện; không đọc nội dung chương trình.
+- Chưa đọc tốc độ đặt, override, dòng lệnh NC, bộ đếm sản phẩm hoặc nội dung alarm chi tiết.
+  Các mục chưa đo hoặc API bị lỗi sẽ để trống và hiện chẩn đoán, không tạo số liệu giả.
 
 CHUẨN BỊ
 1. Giải nén ZIP vào thư mục riêng, không chạy bên trong ZIP.
@@ -26,6 +29,12 @@ CHUẨN BỊ
    Cả hai dùng subnet mask 255.255.255.0. IP laptop không cần khai báo trong cầu nối.
    Có thể kiểm tra: Test-NetConnection 192.168.1.1 -Port 8193
 
+CẬP NHẬT TỪ BẢN CŨ
+Dừng cầu nối bằng Ctrl+C rồi đóng cửa sổ PowerShell cũ (để bỏ lớp C# đã nạp).
+Thay CẢ HAI file FanucReader.cs và Start-FanucBridge.ps1 bằng bản mới.
+Giữ ba DLL và bridge-config.json hiện có. Mở PowerShell mới và làm các bước dưới.
+Bản mới phải hiện Bridge build: 20261029-speed-program.
+
 CÁCH CHẠY
 1. Trong File Explorer, mở thư mục có Start-FanucBridge.ps1, bấm thanh địa chỉ,
    nhập powershell rồi Enter. Dùng Windows PowerShell 64-bit, không cần Run as administrator.
@@ -38,7 +47,8 @@ CÁCH CHẠY
    .\Start-FanucBridge.ps1
 4. Sau khi đọc CNC thành công, nhập email CMMS rồi mật khẩu trong ô nhập ẩn.
    Không nhập mật khẩu trong câu lệnh. Chương trình không lưu mật khẩu/token vào file.
-5. Dòng FIREBASE UPDATED xác nhận Firebase nhận bản cập nhật.
+5. Dòng FIREBASE UPDATED xác nhận Firebase nhận bản cập nhật. Dòng tiếp theo hiện
+   Spindle/Feed/Program/Main. Nếu WARNING, gửi mã lỗi; không đổi tham số CNC để ép API chạy.
 6. Mở web bảo trì, tải lại bằng Ctrl+Shift+R, vào Giám sát CNC.
    Máy Neway 1260S sẽ xuất hiện sau khi đăng nhập cầu nối và gửi thành công.
    Nếu máy chưa xuất hiện, gửi dòng lỗi, KHÔNG gửi mật khẩu/token.

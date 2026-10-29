@@ -75,9 +75,12 @@ function New-BridgePayload {
         sampledAt = $Snapshot.timestampUtc; rawStatus = $Snapshot.rawStatus
         controllerInfo = @{ cncType = $Snapshot.cncType; series = $Snapshot.series; version = $Snapshot.version; axes = $Snapshot.axes }
         alarm = $alarm
-        # Not measured yet: explicitly remove stale/demo readings rather than display fabricated values.
-        activeProgram = $null; currentBlock = $null; spindleSpeed = $null; targetSpindleSpeed = $null
-        feedrate = $null; targetFeedrate = $null; override = $null
+        activeProgram = $Snapshot.activeProgram; mainProgram = $Snapshot.mainProgram
+        spindleSpeed = $Snapshot.spindleSpeed; spindleUnit = $Snapshot.spindleUnit
+        feedrate = $Snapshot.feedrate; feedrateUnit = $Snapshot.feedrateUnit
+        readErrors = $Snapshot.readErrors
+        # Setpoints, override and current NC block are not read by this bridge.
+        currentBlock = $null; targetSpindleSpeed = $null; targetFeedrate = $null; override = $null
     }
 }
 try {
@@ -92,9 +95,10 @@ try {
     if ($config.databaseUrl -cne 'https://ltdst-80b3e-default-rtdb.asia-southeast1.firebasedatabase.app') { throw 'Unexpected database URL. No credentials will be sent.' }
     if ($config.firebaseApiKey -notmatch '^[A-Za-z0-9_-]+$') { throw 'Invalid Firebase Web API key.' }
     if (-not ('FanucReader' -as [type])) { Add-Type -Path (Join-Path $PSScriptRoot 'FanucReader.cs') }
-    Write-Host "Bridge build: 20261029-json-null"
+    if (-not ([FanucReader].GetMethod('ProgramNumber'))) { throw 'Old FanucReader loaded. Close this PowerShell window and open a new one to use the updated reader.' }
+    Write-Host "Bridge build: 20261029-speed-program"
     Write-Host "Machine: $($config.machineName) | CNC $($config.cncIp):$($config.port)"
-    Write-Host 'Read-only CNC access. Status only; spindle/program/alarm detail are NOT measured yet.'
+    Write-Host 'Read-only CNC access. Reading status, actual spindle/feed and current/main O-number. Detailed alarm text is not read.'
     # Test a real FOCAS read before requesting any credentials or creating the cloud record.
     $sample = [FanucReader]::Read([string]$config.cncIp, [uint16]$config.port, (Join-Path $PSScriptRoot 'lib'))
     if (-not $LocalOnly) {
@@ -132,8 +136,12 @@ try {
                 catch { Write-Warning $_.Exception.Message; if ($Once) { throw } }
             }
             $sample | ConvertTo-Json -Depth 5 | Set-Content -LiteralPath (Join-Path $PSScriptRoot 'last-result.json') -Encoding UTF8
+            if ($sample.readErrors -and $sample.readErrors.Count -gt 0) {
+                foreach ($item in $sample.readErrors.GetEnumerator()) { Write-Warning ("Telemetry {0}: {1}" -f $item.Key, $item.Value) }
+            }
             $destination = if ($LocalOnly) { 'LOCAL ONLY - not uploaded' } elseif ($uploaded) { 'FIREBASE UPDATED' } else { 'UPLOAD FAILED - will retry' }
             Write-Host ("{0} | {1} | RUN={2} ALARM={3} EMERGENCY={4}" -f (Get-Date -Format 'HH:mm:ss'), $destination, $sample.rawStatus.run, $sample.rawStatus.alarm, $sample.rawStatus.emergency)
+            Write-Host ("Spindle={0} {1} | Feed={2} {3} | Program={4} | Main={5}" -f $sample.spindleSpeed, $sample.spindleUnit, $sample.feedrate, $sample.feedrateUnit, $sample.activeProgram, $sample.mainProgram)
         }
         $sample = $null
         if (-not $Once) { Start-Sleep -Seconds ([int]$config.intervalSeconds) }

@@ -1,0 +1,32 @@
+$ErrorActionPreference='Stop'
+Add-Type -Path (Join-Path (Split-Path $PSScriptRoot -Parent) 'tools/fanuc-bridge/FanucReader.cs')
+function Assert-True($Value,$Message) { if(-not $Value) { throw $Message } }
+foreach($pair in @(@([FanucReader+SysInfo],18),@([FanucReader+Status],18),@([FanucReader+SpeedElement],12),@([FanucReader+SpeedReading],24),@([FanucReader+ProgramReading],8),@([FanucReader+ProgramReading8],12))) {
+ Assert-True ([Runtime.InteropServices.Marshal]::SizeOf([type]$pair[0]) -eq $pair[1]) ('Invalid layout: '+$pair[0])
+}
+$reading=New-Object FanucReader+SpeedReading
+$spindle=New-Object FanucReader+SpeedElement
+$spindle.data=18000;$spindle.dec=1;$spindle.unit=2;$spindle.name=[byte][char]'S'
+$feed=New-Object FanucReader+SpeedElement
+$feed.data=125;$feed.dec=1;$feed.unit=1;$feed.name=[byte][char]'F'
+$reading.acts=$spindle;$reading.actf=$feed
+$sample=New-Object FanucReader+Snapshot
+[FanucReader]::ApplySpeed(0,$reading,$sample)
+Assert-True ($sample.spindleSpeed -eq 1800 -and $sample.spindleUnit -eq 'rpm') 'Spindle decimal scaling incorrect'
+Assert-True ($sample.feedrate -eq 12.5 -and $sample.feedrateUnit -eq 'inch/min') 'Feed scaling/unit incorrect'
+$reading.actf=$feed;$feed.unit=3;$reading.actf=$feed
+[FanucReader]::ApplySpeed(0,$reading,$sample)
+Assert-True ($sample.feedrateUnit -eq 'mm/rev') 'Per-revolution feed incorrectly relabeled'
+$spindle.data=0;$reading.acts=$spindle
+[FanucReader]::ApplySpeed(0,$reading,$sample)
+Assert-True ($sample.spindleSpeed -eq 0) 'Measured zero must remain a valid measurement'
+[FanucReader]::ApplySpeed(6,$reading,$sample)
+Assert-True ($null -eq $sample.spindleSpeed -and $null -eq $sample.feedrate -and $sample.readErrors.speed -match 'FOCAS 6') 'Failed API retained stale readings'
+$spindle.unit=99;$reading.acts=$spindle
+[FanucReader]::ApplySpeed(0,$reading,$sample)
+Assert-True ($null -eq $sample.spindleSpeed) 'Invalid unit accepted'
+Assert-True ([FanucReader]::ProgramNumber(12345678) -eq 'O12345678') 'Eight-digit O-number truncated'
+Assert-True ([FanucReader]::ProgramNumber(12) -eq 'O0012') 'Four-digit program formatting incorrect'
+Assert-True ($null -eq [FanucReader]::ProgramNumber(0)) 'No selected program must not be fabricated'
+Assert-True ($null -eq [FanucReader]::ProgramNumber(100000000)) 'Out-of-range program accepted'
+Write-Output 'PASS: C# compilation, native structure sizes, decimal scaling, actual zero, feed units, failed/invalid API data, 4/8-digit program formatting.'

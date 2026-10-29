@@ -1,5 +1,6 @@
 using System;
 using System.ComponentModel;
+using System.Collections.Generic;
 using System.IO;
 using System.Runtime.InteropServices;
 using System.Text;
@@ -22,11 +23,27 @@ public static class FanucReader
     {
         public short hdck, tmmode, aut, run, motion, mstb, emergency, alarm, edit;
     }
+    [StructLayout(LayoutKind.Sequential, Pack = 4)]
+    public struct SpeedElement
+    {
+        public int data; // Windows C long is 32-bit, including on x64.
+        public short dec, unit, disp;
+        public byte name, suff;
+    }
+    [StructLayout(LayoutKind.Sequential, Pack = 4)]
+    public struct SpeedReading { public SpeedElement actf, acts; }
+    [StructLayout(LayoutKind.Sequential, Pack = 4)]
+    public struct ProgramReading { public short dummy1, dummy2; public ushort data, mdata; }
+    [StructLayout(LayoutKind.Sequential, Pack = 4)]
+    public struct ProgramReading8 { public short dummy1, dummy2; public uint data, mdata; }
     public sealed class Snapshot
     {
         public string timestampUtc, ip, cncType, machineType, series, version, axes;
         public int port, maximumAxes;
         public Status rawStatus;
+        public double? spindleSpeed, feedrate;
+        public string spindleUnit, feedrateUnit, activeProgram, mainProgram;
+        public Dictionary<string, string> readErrors = new Dictionary<string, string>();
     }
 
     [DllImport("kernel32.dll", EntryPoint = "LoadLibraryExW", CharSet = CharSet.Unicode, SetLastError = true)]
@@ -39,6 +56,67 @@ public static class FanucReader
     private static extern short cnc_statinfo(ushort handle, out Status status);
     [DllImport("Fwlib64.dll", CallingConvention = CallingConvention.Winapi, ExactSpelling = true)]
     private static extern short cnc_freelibhndl(ushort handle);
+
+    [DllImport("Fwlib64.dll", CallingConvention = CallingConvention.Winapi, ExactSpelling = true)]
+    private static extern short cnc_rdspeed(ushort handle, short type, out SpeedReading speed);
+    [DllImport("Fwlib64.dll", CallingConvention = CallingConvention.Winapi, ExactSpelling = true)]
+    private static extern short cnc_rdprgnumo8(ushort handle, out ProgramReading8 program);
+    [DllImport("Fwlib64.dll", CallingConvention = CallingConvention.Winapi, ExactSpelling = true)]
+    private static extern short cnc_rdprgnum(ushort handle, out ProgramReading program);
+
+    public static string SpeedUnit(short unit)
+    {
+        switch (unit) {
+            case 0: return "mm/min"; case 1: return "inch/min"; case 2: return "rpm";
+            case 3: return "mm/rev"; case 4: return "inch/rev"; default: return null;
+        }
+    }
+    public static double? ScaledSpeed(SpeedElement element, byte expectedName)
+    {
+        if (element.name != expectedName || element.dec < 0 || element.dec > 9 ||
+            element.data < 0 || SpeedUnit(element.unit) == null) return null;
+        return element.data / Math.Pow(10, element.dec);
+    }
+    public static void ApplySpeed(short result, SpeedReading speed, Snapshot snapshot)
+    {
+        snapshot.spindleSpeed = null; snapshot.feedrate = null;
+        snapshot.spindleUnit = null; snapshot.feedrateUnit = null;
+        if (result != 0) { snapshot.readErrors["speed"] = "cnc_rdspeed: FOCAS " + result; return; }
+        snapshot.spindleSpeed = ScaledSpeed(speed.acts, (byte)'S');
+        snapshot.feedrate = ScaledSpeed(speed.actf, (byte)'F');
+        if (snapshot.spindleSpeed.HasValue && speed.acts.unit == 2) snapshot.spindleUnit = "rpm";
+        else { snapshot.spindleSpeed = null; snapshot.readErrors["spindle"] = "Invalid spindle data/unit"; }
+        if (snapshot.feedrate.HasValue) snapshot.feedrateUnit = SpeedUnit(speed.actf.unit);
+        else snapshot.readErrors["feed"] = "Invalid feed data/unit";
+    }
+    public static string ProgramNumber(uint number)
+    {
+        return number > 0 && number <= 99999999 ? "O" + number.ToString("D4") : null;
+    }
+    private static void ReadOptionalTelemetry(ushort handle, Snapshot snapshot)
+    {
+        try {
+            SpeedReading speed;
+            short result = cnc_rdspeed(handle, -1, out speed);
+            ApplySpeed(result, speed, snapshot);
+        } catch (EntryPointNotFoundException) { snapshot.readErrors["speed"] = "cnc_rdspeed unavailable in this DLL"; }
+        bool useFourDigits = false;
+        try {
+            ProgramReading8 program;
+            short result = cnc_rdprgnumo8(handle, out program);
+            if (result == 0) { snapshot.activeProgram = ProgramNumber(program.data); snapshot.mainProgram = ProgramNumber(program.mdata); }
+            else if (result == 1) useFourDigits = true;
+            else snapshot.readErrors["program"] = "cnc_rdprgnumo8: FOCAS " + result;
+        } catch (EntryPointNotFoundException) { useFourDigits = true; }
+        if (useFourDigits) {
+            try {
+                ProgramReading program;
+                short result = cnc_rdprgnum(handle, out program);
+                if (result == 0) { snapshot.activeProgram = ProgramNumber(program.data); snapshot.mainProgram = ProgramNumber(program.mdata); }
+                else snapshot.readErrors["program"] = "cnc_rdprgnum: FOCAS " + result;
+            } catch (EntryPointNotFoundException) { snapshot.readErrors["program"] = "Program-number API unavailable in this DLL"; }
+        }
+    }
 
     private static readonly object LibraryLock = new object();
     private static string loadedDirectory;
@@ -64,7 +142,9 @@ public static class FanucReader
     public static Snapshot Read(string ip, ushort port, string libraryDirectory)
     {
         if (IntPtr.Size != 8) throw new InvalidOperationException("Use 64-bit Windows PowerShell.");
-        if (Marshal.SizeOf(typeof(SysInfo)) != 18 || Marshal.SizeOf(typeof(Status)) != 18)
+        if (Marshal.SizeOf(typeof(SysInfo)) != 18 || Marshal.SizeOf(typeof(Status)) != 18 ||
+            Marshal.SizeOf(typeof(SpeedElement)) != 12 || Marshal.SizeOf(typeof(SpeedReading)) != 24 ||
+            Marshal.SizeOf(typeof(ProgramReading)) != 8 || Marshal.SizeOf(typeof(ProgramReading8)) != 12)
             throw new InvalidOperationException("FOCAS structure size mismatch; connection cancelled.");
         // Load the supplied DLLs once, not on every poll (LoadLibrary increments native reference counts).
         string fullDirectory = Path.GetFullPath(libraryDirectory);
@@ -92,12 +172,14 @@ public static class FanucReader
             SysInfo info; Status status;
             Check("cnc_sysinfo", cnc_sysinfo(handle, out info));
             Check("cnc_statinfo", cnc_statinfo(handle, out status));
-            return new Snapshot {
+            Snapshot snapshot = new Snapshot {
                 timestampUtc = DateTime.UtcNow.ToString("o"), ip = ip, port = port,
                 cncType = Text(info.cnc_type), machineType = Text(info.mt_type),
                 series = Text(info.series), version = Text(info.version), axes = Text(info.axes),
                 maximumAxes = info.max_axis, rawStatus = status
             };
+            ReadOptionalTelemetry(handle, snapshot);
+            return snapshot;
         }
         finally
         {

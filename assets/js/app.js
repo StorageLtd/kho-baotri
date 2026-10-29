@@ -776,17 +776,18 @@
               <span class="cnc-label">Model CNC:</span>
               <span class="cnc-value">${escapeHtml(c.model)}</span>
               
-              <span class="cnc-label">Chương trình chạy:</span>
+              <span class="cnc-label">Chương trình hiện tại:</span>
               <span class="cnc-value" style="color: var(--accent); font-weight:800;">${escapeHtml(showTelemetry ? c.activeProgram || "Chưa đọc" : "—")}</span>
               
+              ${c.source === "focas" ? `<span class="cnc-label">Chương trình chính:</span><span class="cnc-value">${escapeHtml(showTelemetry ? c.mainProgram || "Chưa đọc" : "—")}</span>` : ""}
               <span class="cnc-label">Dòng lệnh hiện tại:</span>
               <span class="cnc-value" style="font-size:12px; font-weight: 500">${escapeHtml(showTelemetry ? c.currentBlock || "Chưa đọc" : "—")}</span>
               
               <span class="cnc-label">Vòng quay trục chính:</span>
-              <span class="cnc-value" style="color: var(--ok)">${showTelemetry ? cncMeasurement(c.spindleSpeed) : "—"} / ${showTelemetry ? cncMeasurement(c.targetSpindleSpeed) : "—"} RPM</span>
+              <span class="cnc-value" style="color: var(--ok)">${showTelemetry ? cncMeasurement(c.spindleSpeed) : "—"} RPM${c.source !== "focas" && showTelemetry ? ` / ${cncMeasurement(c.targetSpindleSpeed)} đặt` : ""}</span>
               
               <span class="cnc-label">Tốc độ ăn dao (Feedrate):</span>
-              <span class="cnc-value">${showTelemetry ? cncMeasurement(c.feedrate) : "—"} mm/min (Ovr: ${showTelemetry ? cncMeasurement(c.override) : "—"}%)</span>
+              <span class="cnc-value">${showTelemetry ? cncMeasurement(c.feedrate) : "—"} ${escapeHtml(c.source === "focas" ? c.feedrateUnit || "" : "mm/min")}${c.source !== "focas" && showTelemetry ? ` (Ovr: ${cncMeasurement(c.override)}%)` : ""}</span>
               
               <span class="cnc-label">Vị trí nhà xưởng:</span>
               <span class="cnc-value">${escapeHtml(c.location || "Chưa thiết lập")}</span>
@@ -800,6 +801,7 @@
               ${matchedPartInfo}
             ` : ''}
 
+            ${showTelemetry && c.readErrors && Object.keys(c.readErrors).length ? `<div class="meta" role="status">Một số mục chưa đọc được: ${escapeHtml(Object.values(c.readErrors).join("; "))}</div>` : ""}
             <div class="row-actions" style="margin-top:auto; border-top:1px solid var(--line); padding-top:10px;">
               <button class="btn" style="min-height:30px; font-size:12px;" onclick="openCncMachineAlarmHistory('${c.id}')">Lịch sử lỗi</button>
               <button class="btn" style="min-height:30px; font-size:12px;" onclick="openCncDialog('${c.id}')">Sửa IP</button>
