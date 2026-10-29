@@ -16,7 +16,13 @@ function Invoke-BridgeHttp {
         $parameters.Body = if ($ContentType -eq 'application/json') { $Body | ConvertTo-Json -Depth 8 -Compress } else { $Body }
         $parameters.ContentType = if ($ContentType -eq 'application/json') { 'application/json; charset=utf-8' } else { $ContentType }
     }
-    try { return Invoke-RestMethod @parameters }
+    try {
+        $response = Invoke-RestMethod @parameters
+        # Windows PowerShell may leave a top-level JSON scalar as a string.
+        # Firebase returns JSON null for a machine that has never been created.
+        if ($response -is [string]) { return (ConvertFrom-Json -InputObject $response -ErrorAction Stop) }
+        return $response
+    }
     catch {
         $status = 0
         if ($_.Exception.Response) { $status = [int]$_.Exception.Response.StatusCode }
@@ -86,6 +92,7 @@ try {
     if ($config.databaseUrl -cne 'https://ltdst-80b3e-default-rtdb.asia-southeast1.firebasedatabase.app') { throw 'Unexpected database URL. No credentials will be sent.' }
     if ($config.firebaseApiKey -notmatch '^[A-Za-z0-9_-]+$') { throw 'Invalid Firebase Web API key.' }
     if (-not ('FanucReader' -as [type])) { Add-Type -Path (Join-Path $PSScriptRoot 'FanucReader.cs') }
+    Write-Host "Bridge build: 20261029-json-null"
     Write-Host "Machine: $($config.machineName) | CNC $($config.cncIp):$($config.port)"
     Write-Host 'Read-only CNC access. Status only; spindle/program/alarm detail are NOT measured yet.'
     # Test a real FOCAS read before requesting any credentials or creating the cloud record.
@@ -96,7 +103,13 @@ try {
         try { Connect-BridgeAccount $config $email $password } finally { if ($password) { $password.Dispose(); $password = $null } }
         Update-BridgeToken $config
         $existing = Invoke-BridgeHttp "$($config.databaseUrl)/cncs/$($config.machineId).json?auth=$($script:Auth.idToken)" 'GET' $null 'Check machine identity'
-        if ($existing -and ($existing.id -ne $config.machineId -or $existing.name -ne $config.machineName)) { throw 'Machine ID is already assigned to another record. Nothing was overwritten.' }
+        if ($null -ne $existing) {
+            if (($existing -isnot [pscustomobject] -and $existing -isnot [Collections.IDictionary]) -or
+                $existing.id -ne $config.machineId -or $existing.name -ne $config.machineName) {
+                Write-Host ('Existing machine: id={0}; name={1}; source={2}' -f $existing.id, $existing.name, $existing.source)
+                throw 'Machine identity differs from bridge-config.json. Nothing was overwritten. Send only the Existing machine line for diagnosis.'
+            }
+        }
         Send-BridgePatch $config @{ id = $config.machineId; name = $config.machineName; ip = $config.cncIp; port = [int]$config.port; model = $config.model; source = 'focas'; connected = $false; status = 'offline' }
         $machineRegistered = $true
         $sample = $null # Authentication may take minutes; never upload that old initial sample.

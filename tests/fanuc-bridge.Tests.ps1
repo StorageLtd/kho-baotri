@@ -18,6 +18,7 @@ foreach ($case in @(@(0,'idle'),@(1,'idle'),@(2,'hold'),@(3,'running'),@(4,'idle
 }
 $sample.rawStatus.alarm = 1; Assert-True ((New-BridgePayload $sample).status -eq 'alarm') 'Alarm flag ignored'
 $sample.rawStatus.alarm = 0; $sample.rawStatus.emergency = 1; Assert-True ((New-BridgePayload $sample).status -eq 'alarm') 'Emergency flag ignored'
+$global:BridgeTest_existingResponse = $null
 $global:BridgeTest_collision = $false
 $global:BridgeTest_calls = @(); $global:BridgeTest_verified = $true; $global:BridgeTest_role = 'technician'; $global:BridgeTest_failHttp = $false
 function Invoke-RestMethod {
@@ -32,9 +33,19 @@ function Invoke-RestMethod {
     if ($Uri -like '*accounts:lookup*') { return [pscustomobject]@{users=@([pscustomobject]@{emailVerified=$global:BridgeTest_verified})} }
     if ($Uri -like '*/users/*') { return [pscustomobject]@{role=$global:BridgeTest_role} }
     if ($Uri -like '*securetoken.googleapis.com*') { return [pscustomobject]@{id_token='renewed-id';refresh_token='renewed-refresh';expires_in='3600'} }
-    if ($Uri -like '*/cncs/*' -and $Method -eq 'GET') { if($global:BridgeTest_collision){return [pscustomobject]@{id='someone-else';name='Another machine'}}; return $null }
+    if ($Uri -like '*/cncs/*' -and $Method -eq 'GET') { if($global:BridgeTest_collision){return [pscustomobject]@{id='someone-else';name='Another machine'}}; return $global:BridgeTest_existingResponse }
     return [pscustomobject]@{ok=$true}
 }
+# Reproduce the Windows PowerShell scalar response that previously caused a false collision.
+foreach ($raw in @('null', '  null  ')) {
+    $global:BridgeTest_existingResponse=$raw
+    $empty=Invoke-BridgeHttp 'https://example.invalid/cncs/neway-1260s.json' 'GET' $null 'Fixture'
+    Assert-True ($null -eq $empty) 'JSON null string must represent an absent record'
+}
+$global:BridgeTest_existingResponse='{"id":"neway-1260s","name":"Neway 1260S"}'
+$decoded=Invoke-BridgeHttp 'https://example.invalid/cncs/neway-1260s.json' 'GET' $null 'Fixture'
+Assert-True ($decoded.id -eq 'neway-1260s') 'JSON object string was not decoded'
+$global:BridgeTest_existingResponse=$null
 $password=ConvertTo-SecureString 'fixture-password' -AsPlainText -Force
 Connect-BridgeAccount $config 'fixture@example.invalid' $password
 Assert-True ($script:Auth.uid -eq 'fixture-uid') 'Account initialization failed'
@@ -80,6 +91,7 @@ try {
     Assert-True ([FanucReader]::Calls -eq $before+1) 'Local-only mode did not read exactly once'
     Assert-True ($global:BridgeTest_calls.Count -eq 0) 'Local-only mode unexpectedly accessed the network'
     Assert-True (Test-Path (Join-Path $fixtureDirectory 'last-result.json')) 'Local result was not saved'
+    $global:BridgeTest_existingResponse='null'
     $before=[FanucReader]::Calls
     & (Join-Path $fixtureDirectory 'Start-FanucBridge.ps1') -Once
     Assert-True ([FanucReader]::Calls -eq $before+2) 'Must discard sample taken before authentication and obtain a fresh one'
