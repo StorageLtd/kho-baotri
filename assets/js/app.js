@@ -54,7 +54,6 @@ import { cncDisplayState, cncIsFresh, cncMeasurement, cncMode, cncDuration, cncS
       exportBtn: document.querySelector("#exportBtn"),
       exportMachineBtn: document.querySelector("#exportMachineBtn"),
       exportCncBtn: document.querySelector("#exportCncBtn"), // NÚT MỚI
-      exportCncAlarmBtn: document.querySelector("#exportCncAlarmBtn"),
       exportJobBtn: document.querySelector("#exportJobBtn"),
       exportHistoryBtn: document.querySelector("#exportHistoryBtn"),
       statItems: document.querySelector("#statItems"),
@@ -528,7 +527,6 @@ import { cncDisplayState, cncIsFresh, cncMeasurement, cncMode, cncDuration, cncS
       els.addJobMainBtn.style.display = (pageId === "maintenanceJobsPage") ? "inline-flex" : "none";
       els.exportBtn.style.display = (pageId === "inventoryPage") ? "inline-flex" : "none";
       els.exportCncBtn.style.display = (pageId === "cncMonitoringPage") ? "inline-flex" : "none";
-      els.exportCncAlarmBtn.style.display = (pageId === "cncMonitoringPage") ? "inline-flex" : "none";
       els.exportMachineBtn.style.display = (pageId === "machinesPage") ? "inline-flex" : "none";
       els.exportJobBtn.style.display = (pageId === "maintenanceJobsPage") ? "inline-flex" : "none";
       els.exportHistoryBtn.style.display = (pageId === "historyPage") ? "inline-flex" : "none";
@@ -541,7 +539,7 @@ import { cncDisplayState, cncIsFresh, cncMeasurement, cncMode, cncDuration, cncS
         els.pageSubtitle.textContent = "Quản lý linh kiện bảo trì: mã linh kiện, vị trí kệ và số lượng còn trong kho.";
       } else if(pageId === "cncMonitoringPage") {
         els.pageHeading.textContent = "GIÁM SÁT MÁY CNC FANUC";
-        els.pageSubtitle.textContent = "Kết nối trực tiếp hệ điều khiển Fanuc 0i-F, theo dõi Feedrate, Tốc độ trục chính, Chương trình và Alarm liên kết kho.";
+        els.pageSubtitle.textContent = "Theo dõi trạng thái CNC FANUC, tốc độ trục chính, chương trình và báo cáo vận hành.";
       } else if(pageId === "machinesPage") {
         els.pageHeading.textContent = "HỒ SƠ MÁY XƯỞNG";
         els.pageSubtitle.textContent = "Hệ thống lưu giữ thông tin hồ sơ thiết bị, thời hạn bảo hành của toàn xưởng.";
@@ -828,7 +826,7 @@ import { cncDisplayState, cncIsFresh, cncMeasurement, cncMode, cncDuration, cncS
 
             ${showTelemetry && c.readErrors && Object.keys(c.readErrors).length ? `<div class="meta" role="status">Một số mục chưa đọc được: ${escapeHtml(Object.values(c.readErrors).join("; "))}</div>` : ""}
             <div class="row-actions" style="margin-top:auto; border-top:1px solid var(--line); padding-top:10px;">
-              <button class="btn" style="min-height:30px; font-size:12px;" onclick="openCncMachineAlarmHistory('${c.id}')">Lịch sử lỗi</button>
+              <button class="btn" style="min-height:30px; font-size:12px;" onclick="openCncMachineAlarmHistory('${c.id}')">Alarm của máy</button>
               <button class="btn" style="min-height:30px; font-size:12px;" onclick="openCncDialog('${c.id}')">Sửa IP</button>
               ${c.source !== "focas" && signal.status === "alarm" ? `
                 <button class="btn primary" style="min-height:30px; font-size:12px; background:var(--ok); border-color:var(--ok)" onclick="resolveCncAlarm('${c.id}')">Xử lý xong (Clear)</button>
@@ -894,34 +892,17 @@ import { cncDisplayState, cncIsFresh, cncMeasurement, cncMode, cncDuration, cncS
       document.querySelector("#cncAlarmCount").textContent = `${alarmList.length} sự cố`;
 
       if (alarmList.length === 0) {
-        document.querySelector("#cncAlarmHistoryBody").innerHTML = `<tr><td colspan="7" class="empty">Chưa ghi nhận lịch sử lỗi máy CNC nào từ hệ FOCAS kết nối.</td></tr>`;
+        document.querySelector("#cncAlarmHistoryBody").innerHTML = `<tr><td colspan="5" class="empty">Chưa có lịch sử Alarm được lưu. Cầu nối hiện chỉ đọc trạng thái alarm, chưa thu thập mã và nội dung lỗi.</td></tr>`;
         return;
       }
 
       document.querySelector("#cncAlarmHistoryBody").innerHTML = alarmList.map(a => {
-        let matchedPartInfo = "-";
-        
-        // Quét kho LTD xem có linh kiện khắc phục không
-        let keyword = getAlarmKeyword(a.alarmCode);
-
-        const matchedPart = items.find(i => i.name.toLowerCase().includes(keyword.toLowerCase()));
-        if (matchedPart) {
-          const isAvail = matchedPart.quantity > 0;
-          const labelColor = isAvail ? "var(--ok)" : "var(--danger)";
-          const labelText = isAvail ? `CÒN HÀNG (Kệ ${matchedPart.location})` : "HẾT HÀNG";
-          matchedPartInfo = `<strong style="color: ${labelColor}">${escapeHtml(matchedPart.name)}</strong><br><span style="font-size:11px; font-weight:700; color:${labelColor}">● ${labelText}</span>`;
-        } else {
-          matchedPartInfo = `<span style="color:var(--muted)">Cần nhập: ${keyword}</span>`;
-        }
-
         return `
           <tr>
             <td><strong>${formatDateDisplay(a.timestamp)}</strong><div style="font-size:11px; color:var(--muted)">${new Date(a.timestamp).toLocaleTimeString("vi-VN")}</div></td>
             <td><strong>${escapeHtml(a.cncName)}</strong></td>
             <td><span class="pill danger" style="font-size:11px; font-family:monospace">${escapeHtml(a.alarmCode)}</span></td>
             <td class="col-text-wide">${textEllipsisCell(a.description, "Mô tả chi tiết lỗi CNC")}</td>
-            <td><strong>${keyword}</strong></td>
-            <td>${matchedPartInfo}</td>
             <td>
               <div class="row-actions">
                 <button class="btn" style="min-height:28px; font-size:11px; padding:0 8px; background:var(--brand); color:#fff; border:0" onclick="autoCreateRepairHistoryFromCncAlarm('${a.id}')">Tạo Nhật ký sửa máy</button>
@@ -1592,7 +1573,6 @@ import { cncDisplayState, cncIsFresh, cncMeasurement, cncMode, cncDuration, cncS
     els.addJobMainBtn.addEventListener("click", () => openJobDialog());
     document.querySelector("#addMachineBtn").addEventListener("click", () => openMachineDialog());
     els.addMaintenanceMachineBtn.addEventListener("click", () => openMachineDialog());
-    document.querySelector("#addCncBtn").addEventListener("click", () => openCncDialog()); // Sự kiện thêm máy CNC nút trong tab
     document.querySelector("#addJobBtn").addEventListener("click", () => openJobDialog());
     els.toggleAdminAuditBtn.addEventListener("click", toggleAdminAudit);
     els.adminAuditEntry.querySelector(":scope > .section-head").addEventListener("click", event => {
@@ -1690,13 +1670,8 @@ import { cncDisplayState, cncIsFresh, cncMeasurement, cncMode, cncDuration, cncS
 
     function exportCncAlarmExcel() {
       const alarmList = [...cncAlarmHistory].sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
-      const h = ["Thời gian phát hiện", "Tên máy CNC", "Mã Alarm", "Mô tả chi tiết lỗi", "Nhóm linh kiện", "Trạng thái", "Thời gian xử lý", "Linh kiện kho LTD", "Tồn kho LTD"];
+      const h = ["Thời gian phát hiện", "Tên máy CNC", "Mã Alarm", "Mô tả chi tiết lỗi", "Trạng thái xử lý", "Thời gian xử lý"];
       const r = alarmList.map(a => {
-        const keyword = getAlarmKeyword(a.alarmCode);
-        const matchedPart = items.find(i => i.name.toLowerCase().includes(keyword.toLowerCase()));
-        const stockLabel = matchedPart
-          ? (matchedPart.quantity > 0 ? `Còn ${matchedPart.quantity} (Kệ ${matchedPart.location || "-"})` : "Hết hàng")
-          : "Chưa có trong kho";
         const timeStr = `${formatDateDisplay(a.timestamp)} ${new Date(a.timestamp).toLocaleTimeString("vi-VN")}`;
         const resolvedStr = a.resolvedAt
           ? `${formatDateDisplay(a.resolvedAt)} ${new Date(a.resolvedAt).toLocaleTimeString("vi-VN")}`
@@ -1706,18 +1681,14 @@ import { cncDisplayState, cncIsFresh, cncMeasurement, cncMode, cncDuration, cncS
           a.cncName,
           a.alarmCode,
           a.description,
-          keyword,
-          a.resolvedAt ? "Đã xử lý" : "Đang lỗi",
-          resolvedStr,
-          matchedPart ? matchedPart.name : "—",
-          stockLabel
+          a.resolvedAt ? "Đã xử lý" : "Chưa ghi nhận xử lý",
+          resolvedStr
         ];
       });
       downloadExcel(h, r, "lich-su-alarm-cnc-ltd");
       showToast("Đã xuất file Excel lịch sử Alarm CNC.");
     }
 
-    els.exportCncAlarmBtn.addEventListener("click", exportCncAlarmExcel);
     document.querySelector("#exportCncAlarmSectionBtn").addEventListener("click", exportCncAlarmExcel);
     els.exportJobBtn.addEventListener("click", () => {
       const h = ["Tên máy", "Model máy", "Số Serial", "Hạng mục bảo trì", "Chu kỳ", "Ngày thực hiện kế tiếp", "Người phụ trách", "Thời lượng dự kiến", "Người thiết lập", "Công việc cụ thể / Checklist"];

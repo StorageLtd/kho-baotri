@@ -111,7 +111,6 @@
           <button class="btn" id="exportBtn" type="button">Xuất Linh Kiện CSV</button>
           <button class="btn" id="exportMachineBtn" type="button" style="display:none;">Xuất Máy CSV</button>
           <button class="btn" id="exportCncBtn" type="button" style="display:none;">Báo cáo vận hành CNC</button>
-          <button class="btn" id="exportCncAlarmBtn" type="button" style="display:none;">Xuất Lịch Sử Alarm</button>
           <button class="btn" id="exportJobBtn" type="button" style="display:none;">Xuất Lịch Job CSV</button>
           <button class="btn" id="exportHistoryBtn" type="button" style="display:none;">Xuất Lịch Sử CSV</button>
           <button class="btn danger-btn" id="logoutBtn" type="button">Đăng xuất</button>
@@ -283,9 +282,6 @@
             <section class="section">
               <div class="section-head">
                 <h3>Bảng điều khiển & Giám sát CNC (Thời gian thực)</h3>
-                <div class="row-actions">
-                  <button class="btn primary" id="addCncBtn" type="button">Thêm máy CNC</button>
-                </div>
               </div>
               <div style="padding: 16px 20px; background: #fbfcfa; border-bottom: 1px solid var(--line); display: flex; gap: 12px; align-items: center;">
                 <div class="field" style="flex: 1;">
@@ -302,7 +298,7 @@
             <!-- Lịch sử lỗi của máy CNC liên kết kho -->
             <section class="section">
               <div class="section-head">
-                <h3>Thống kê lịch sử Alarm & Linh kiện khắc phục trong kho LTD</h3>
+                <h3>Lịch sử Alarm CNC</h3>
                 <div class="row-actions">
                   <button class="btn" id="exportCncAlarmSectionBtn" type="button">Xuất Excel Alarm</button>
                   <span class="meta" id="cncAlarmCount">0 sự cố</span>
@@ -314,10 +310,8 @@
                     <tr>
                       <th>Thời gian phát hiện</th>
                       <th>Tên máy CNC</th>
-                      <th>Mã Alarm (Hệ Fanuc 0i-F)</th>
+                      <th>Mã Alarm</th>
                       <th class="col-text-wide">Mô tả chi tiết lỗi</th>
-                      <th>Nhóm Linh kiện</th>
-                      <th class="col-text">Trạng thái tồn kho thực tế (LTD)</th>
                       <th class="col-actions" style="text-align: right;">Thao tác xử lý</th>
                     </tr>
                   </thead>
@@ -765,7 +759,7 @@
       </table>
     </div>
     <div class="modal-foot">
-      <span class="cnc-alarm-history-live" id="cncAlarmHistoryLiveLabel">Cập nhật realtime mỗi 5 giây</span>
+      <span class="cnc-alarm-history-live" id="cncAlarmHistoryLiveLabel">Cùng dữ liệu với bảng Lịch sử Alarm CNC · cập nhật mỗi 15 giây</span>
       <button class="btn" type="button" id="closeCncAlarmHistoryFootBtn">Đóng</button>
     </div>
   </dialog>
@@ -798,6 +792,6 @@
 
   <div class="toast" id="toast" role="status" aria-live="polite"></div>
 
-  <script type="module" src="assets/js/app.js?v=20261029-web-sync"></script>
+  <script type="module" src="assets/js/app.js?v=20261029-cnc-tidy"></script>
 </body>
 </html>
