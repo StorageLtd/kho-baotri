@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>LTD VIET NAM - Cloud Maintenance System</title>
   <link rel="stylesheet" href="assets/css/app.css?v=20261023-sku-search">
-  <link rel="stylesheet" href="assets/css/cnc-report.css?v=20261029-reports">
+  <link rel="stylesheet" href="assets/css/cnc-report.css?v=20261029-cycles">
 </head>
 <body class="locked">
   <!-- Screen Đăng Nhập -->
@@ -328,23 +328,7 @@
             </section>
           </div>
 
-          <aside class="side-panel">
-            <section class="section">
-              <div class="section-head"><h3>Thông tin Fanuc 0i-F</h3></div>
-              <div class="list" style="padding: 16px; font-size: 13.5px; line-height: 1.6; display: flex; flex-direction: column; gap: 10px;">
-                <p>Hệ điều hành <strong>Fanuc Series 0i-MODEL F</strong> được giám sát thông qua kết nối giao thức <strong>Ethernet (FOCAS 1/2 API)</strong> tại Port <code>8193</code>.</p>
-                <div style="border-top: 1px solid var(--line); padding-top: 10px;">
-                  <strong>Các nhóm mã lỗi liên kết kho:</strong>
-                  <ul style="padding-left: 20px; margin: 8px 0;">
-                    <li><code>SVxxxx</code> (Servo Drive/Motor) -> Liên kết cảm biến, cáp, motor trục.</li>
-                    <li><code>SPxxxx</code> (Spindle Drive) -> Liên kết Spindle inverter, chổi than.</li>
-                    <li><code>OTxxxx</code> (Overtravel) -> Liên kết công tắc hành trình.</li>
-                    <li><code>ALxxxx</code> (PMC Alarm) -> Liên kết relay, PLC board, nguồn 24VDC.</li>
-                  </ul>
-                </div>
-              </div>
-            </section>
-          </aside>
+
         </div>
       </section>
 
@@ -564,10 +548,6 @@
             <option value="Fanuc 31i-B">Fanuc Series 31i-MODEL B</option>
             <option value="Fanuc 0i-D">Fanuc Series 0i-MODEL D</option>
           </select>
-        </div>
-        <div class="field">
-          <label for="cncLocationInput">Vị trí trong xưởng</label>
-          <input class="input" id="cncLocationInput" placeholder="Ví dụ: Khu A - Máy 3">
         </div>
       </div>
       <div class="modal-foot">
@@ -817,6 +797,6 @@
 
   <div class="toast" id="toast" role="status" aria-live="polite"></div>
 
-  <script type="module" src="assets/js/app.js?v=20261029-reports"></script>
+  <script type="module" src="assets/js/app.js?v=20261029-cycles"></script>
 </body>
 </html>

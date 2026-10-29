@@ -24,9 +24,15 @@ test('overlapping collectors and corrupt totals excluded, adjacent sessions acce
  r=build({a,b:session({sessionId:'b',firstMs:start+3600000,lastMs:start+7200000})}).summary[0];assert.equal(r.observedMs,7200000);
  r=build({bad:session({runningMs:-1})}).summary[0];assert.equal(r.invalid,1);assert.equal(r.observedMs,0);
 });
-test('genuine XLSX contains four sheets and strings are not formulas',async()=>{
+test('genuine XLSX contains two sheets and strings are not formulas',async()=>{
  const report=build({a:session({counterVerified:true})});report.summary[0].name='=HYPERLINK("evil") <&>';
  const blob=createCncWorkbook(reportSheets(report));const bytes=new Uint8Array(await blob.arrayBuffer());assert.equal(bytes[0],0x50);assert.equal(bytes[1],0x4b);
  await writeFile('/tmp/cnc-report-fixture.xlsx',bytes);
- assert.equal(reportSheets(report).length,4);
+ assert.equal(reportSheets(report).length,2);
+});
+
+test('cycle rows preserve observed start/end, hold and alarm; summary groups by main program',()=>{
+ const a=session();a.cycles={one:{id:'cycle1',program:'O0002',observedFromMs:start+1000,observedToMs:start+26000,startMs:start+1000,endMs:start+26000,runMs:15000,holdMs:5000,alarmMs:5000,waitMs:0,wallMs:25000,partCountDelta:1,partCountEnd:11,status:'STOP/RESET; M30 not confirmed',days:{'2026-10-28':{runMs:15000,holdMs:5000,alarmMs:5000}}}};
+ const report=build({a});assert.equal(report.cycles.length,1);assert.equal(report.programs[0].runMs,15000);assert.equal(report.programs[0].partCountDelta,1);
+ const sheets=reportSheets(report);assert.deepEqual(sheets.map(s=>s.name),['Tổng quan','Theo ngày']);assert.equal(sheets[1].rows[5][10],1);assert.match(sheets[1].rows[5][12],/not confirmed/);
 });

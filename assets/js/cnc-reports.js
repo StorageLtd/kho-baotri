@@ -26,7 +26,7 @@ function valid(s, machine, day, from, until) {
     s.counterObservedMs <= s.observedMs && Number.isSafeInteger(s.counterDelta) && Number.isSafeInteger(s.counterResets);
 }
 export function buildCncReport(machines, history, period) {
-  const daily=[];
+  const daily=[],cycles=[];
   for (const machine of machines) for (let start=period.from; start<period.through; start+=DAY) {
     const end=Math.min(start+DAY,period.through), day=vnDate(start), row=empty(machine,day,end-start);
     const candidates=Object.values(history[machine.id]?.[day] || {}), accepted=[];
@@ -41,6 +41,13 @@ export function buildCncReport(machines, history, period) {
       if(conflict.has(i)) return;
       for(const f of fields) row[f]+=s[f];
       row.sessions++;
+      for(const cycle of Object.values(s.cycles||{})) {
+        if(typeof cycle?.id!=='string'||!Number.isFinite(cycle.observedFromMs)||vnDate(cycle.observedFromMs)!==day) continue;
+        if(!['runMs','holdMs','alarmMs','waitMs'].every(k=>Number.isFinite(cycle[k])&&cycle[k]>=0)) continue;
+        if(cycle.startMs!==null && (!Number.isFinite(cycle.startMs)||cycle.startMs!==cycle.observedFromMs))continue;
+        if(cycle.endMs!==null && (!Number.isFinite(cycle.endMs)||cycle.endMs<cycle.observedFromMs))continue;
+        cycles.push({...cycle,machineId:machine.id,name:machine.name,day});
+      }
       row.firstMs = row.firstMs===null?s.firstMs:Math.min(row.firstMs,s.firstMs);
       row.lastMs = row.lastMs===null?s.lastMs:Math.max(row.lastMs,s.lastMs);
       row.rawCounterMs+=s.counterObservedMs;
@@ -61,28 +68,28 @@ export function buildCncReport(machines, history, period) {
     total.quality=total.conflicts?'Xung đột phiên':total.invalid?'Có dữ liệu bị loại':!total.observedMs?'Chưa có dữ liệu':total.coverage<0.99?'Chưa đủ kỳ':'Đủ thời gian quan sát';
     return total;
   });
-  return {period,summary,daily,generatedAt:Date.now()};
+  cycles.sort((a,b)=>a.observedFromMs-b.observedFromMs||a.name.localeCompare(b.name));
+  const groups=new Map();
+  for(const c of cycles){
+    const key=c.machineId+'|'+(c.program||'Chưa đọc');
+    if(!groups.has(key))groups.set(key,{name:c.name,program:c.program||'Chưa đọc',cycles:0,runMs:0,holdMs:0,alarmMs:0,partCountDelta:0,knownCounts:0,incomplete:0,m30Observed:0});
+    const g=groups.get(key);g.cycles++;if(c.m30Confirmed===true)g.m30Observed++;
+    for(const [day,times] of Object.entries(c.days||{})) if(day>=period.startDate&&day<=period.endDate)for(const f of ['runMs','holdMs','alarmMs'])g[f]+=Number.isFinite(times[f])?times[f]:0;
+    if(Number.isSafeInteger(c.partCountDelta)&&c.partCountDelta>=0){g.partCountDelta+=c.partCountDelta;g.knownCounts++}
+    if(c.startMs===null||c.endMs===null)g.incomplete++;
+  }
+  return {period,summary,daily,cycles,programs:[...groups.values()],generatedAt:Date.now()};
 }
 export const hours = ms => ms / 3600000;
+export function cycleClock(ms){return Number.isFinite(ms)?new Date(ms).toLocaleString('sv-SE',{timeZone:'Asia/Ho_Chi_Minh'}):''}
+export function cycleDuration(ms){if(!Number.isFinite(ms)||ms<0)return '';const sec=Math.floor(ms/1000);return `${Math.floor(sec/3600)}:${String(Math.floor(sec/60)%60).padStart(2,'0')}:${String(sec%60).padStart(2,'0')}`}
 export function reportSheets(report) {
-  const p=report.period, meta=[['LTD VIET NAM · BÁO CÁO VẬN HÀNH CNC'],[`Kỳ: ${p.startDate} → ${p.endDate} · Giờ Việt Nam (UTC+7)`],[`Dữ liệu tới: ${new Date(p.through).toLocaleString('vi-VN',{timeZone:'Asia/Ho_Chi_Minh'})}`],[]];
-  const summary=[['Máy','Chạy (h)','Dừng/chờ (h)','HOLD (h)','Alarm (h)','Trạng thái chưa rõ (h)','Mất dữ liệu (h)','Phủ dữ liệu (%)','Tỷ lệ RUN trên dữ liệu (%)','Sản lượng đã xác nhận','Tăng bộ đếm CNC','Chất lượng']];
-  for(const r of report.summary) summary.push([r.name,hours(r.runningMs),hours(r.idleMs),hours(r.holdMs),hours(r.alarmMs),hours(r.unknownStateMs),hours(r.missingMs),r.coverage,r.runRatio,r.production,r.rawCount,r.quality]);
-  const daily=[['Ngày','Máy','Chạy (h)','Dừng/chờ (h)','HOLD (h)','Alarm (h)','Không rõ (h)','Mất dữ liệu (h)','Tăng bộ đếm CNC','Sản lượng đã xác nhận','Reset bộ đếm','Phiên xung đột']];
-  for(const r of report.daily) daily.push([r.day,r.name,hours(r.runningMs),hours(r.idleMs),hours(r.holdMs),hours(r.alarmMs),hours(r.unknownStateMs),hours(r.missingMs),r.rawCounterMs>0?r.counterDelta:null,r.verifiedCounterMs>0?r.verifiedParts:null,r.counterResets,r.conflicts]);
-  const quality=[['Máy','Giờ có dữ liệu','Giờ cần quan sát','Giờ đọc được bộ đếm','Giờ bộ đếm đã xác nhận','Số lần reset','Phiên xung đột bị loại','Bản ghi không hợp lệ bị loại']];
-  for(const r of report.summary) quality.push([r.name,hours(r.observedMs),hours(r.windowMs),hours(r.rawCounterMs),hours(r.verifiedCounterMs),r.counterResets,r.conflicts,r.invalid]);
-  const notes=[['Hạng mục','Quy tắc / giới hạn'],
-    ['Nguồn','Chỉ báo cáo các phiên do cầu nối FOCAS lưu; không suy diễn dữ liệu từ bản ghi hiện tại hoặc demo.'],
-    ['Thời gian','Trạng thái trước đó áp dụng tới lần đọc kế tiếp, chỉ nếu cách nhau không quá 15 giây. Sai số chuyển trạng thái khoảng một chu kỳ đọc. RUN là trạng thái START, không phải riêng thời gian cắt gọt.'],
-    ['Phạm vi','Tuần từ thứ Hai; tháng và quý theo lịch Việt Nam. Kỳ hiện tại chỉ tính tới thời điểm tạo báo cáo. Không có lịch ca nên đây không phải OEE hoặc tỷ lệ sử dụng theo kế hoạch.'],
-    ['Mất dữ liệu','Thời gian trong kỳ chưa được quan sát, kể cả trước khi lắp cầu nối. Không coi là dừng máy hay setup.'],
-    ['Setup','Chưa thu thập tín hiệu setup; không suy ra từ chế độ JOG/MDI hoặc trạng thái dừng.'],
-    ['Sản lượng','Dựa trên mức tăng tham số 6711 khi đọc được liên tiếp. Chỉ quy đổi thành sản phẩm khi partCounterVerified=true và đã đối chiếu partsPerCount. Không đồng nghĩa số sản phẩm đạt.'],
-    ['Reset / gián đoạn','Không cộng chênh lệch qua reset hoặc khoảng mất dữ liệu. Sản lượng có thể chỉ là phần đã quan sát; xem chất lượng và giờ phủ bộ đếm.'],
-    ['Ngày ghi sản lượng','Mức tăng bộ đếm được ghi vào ngày của lần đọc phát hiện tăng.'],
-    ['Phiên trùng','Loại các phiên có cửa sổ thời gian chồng nhau để tránh cộng đôi. Chỉ chạy một cầu nối cho mỗi máy.'],
-    ['Lưu trữ','Tổng hợp tích lũy theo ngày và phiên; gửi lại cùng phiên không cộng đôi. Không phải nhật ký từng phím thao tác.'],
-    ['Thiếu dữ liệu','Ô trống nghĩa là chưa đọc/chưa xác nhận, không phải số 0. Không khôi phục được lịch sử trước khi bật bản cầu nối thống kê.']];
-  return [{name:'Tổng quan',rows:[...meta,...summary],header:4,percent:[7,8]}, {name:'Theo ngày',rows:[...meta,...daily],header:4}, {name:'Chất lượng dữ liệu',rows:[...meta,...quality],header:4}, {name:'Quy ước',rows:[...meta,...notes],header:4}];
+  const p=report.period,meta=[['LTD VIET NAM · BÁO CÁO CNC'],[`Kỳ: ${p.startDate} → ${p.endDate} · Giờ Việt Nam`],['Mốc giờ là thời điểm quan sát FOCAS/PMC. M30 chỉ xác nhận khi bắt được xung R423.6; ô trống: chưa đủ dữ liệu.'],[]];
+  const overview=[['Máy','Chương trình','Chu kỳ quan sát','Tổng RUN (h)','Alarm (h)','HOLD (h)','PART COUNT tăng','Ghi chú']];
+  for(const g of report.programs)overview.push([g.name,g.program,g.cycles,hours(g.runMs),hours(g.alarmMs),hours(g.holdMs),g.knownCounts?g.partCountDelta:null,`${g.m30Observed}/${g.cycles} hàng bắt được M30${g.incomplete?`; ${g.incomplete} thiếu đầu/cuối`:''}`]);
+  // Preserve historical day totals without inventing cycle rows for old data.
+  if(!report.programs.length)for(const r of report.summary)overview.push([r.name,'Tổng hợp ngày (chưa có nhật ký chu kỳ)',null,hours(r.runningMs),hours(r.alarmMs),hours(r.holdMs),r.rawCount,r.quality]);
+  const detail=[['Ngày','Máy','Chương trình','Start (quan sát)','Dừng (quan sát)','Tổng RUN (h)','Start → dừng (h)','CYCLE TIME CNC (quan sát)','Alarm (h)','HOLD (h)','PART COUNT tăng','PART COUNT cuối','Ghi chú kết thúc']];
+  for(const c of report.cycles)detail.push([c.day,c.name,c.program||'',cycleClock(c.startMs),cycleClock(c.endMs),hours(c.runMs),Number.isFinite(c.wallMs)?hours(c.wallMs):null,cycleDuration(c.cncCycleTimeMs),hours(c.alarmMs),hours(c.holdMs),Number.isSafeInteger(c.partCountDelta)?c.partCountDelta:null,c.partCountEnd??null,c.status||'Chưa biết']);
+  return [{name:'Tổng quan',rows:[...meta,...overview],header:4},{name:'Theo ngày',rows:[...meta,...detail],header:4}];
 }

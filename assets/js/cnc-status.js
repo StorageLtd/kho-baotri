@@ -27,3 +27,12 @@ export function cncDisplayState(cnc, now = Date.now()) {
 export function cncMeasurement(value) {
   return typeof value === 'number' && Number.isFinite(value) ? String(value) : '—';
 }
+
+export function cncMode(raw) {
+  return ({0:'MDI',1:'MEM / AUTO',3:'EDIT',4:'HANDLE',5:'JOG',6:'TEACH JOG',7:'TEACH HANDLE',8:'INC',9:'REFERENCE',10:'REMOTE'})[raw] || 'Chưa rõ';
+}
+export function cncDuration(ms) {
+  if(typeof ms!=='number'||!Number.isFinite(ms)||ms<0)return '—';
+  const seconds=Math.floor(ms/1000);
+  return `${Math.floor(seconds/3600)}:${String(Math.floor(seconds/60)%60).padStart(2,'0')}:${String(seconds%60).padStart(2,'0')}`;
+}

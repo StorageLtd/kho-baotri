@@ -75,12 +75,12 @@ using System;
 public class FixtureRaw { public int run=3, alarm=0, emergency=0, aut=1; }
 public class FixtureSnapshot {
  public string timestampUtc=DateTime.UtcNow.ToString("o"),cncType="0",series="D4G5",version="05.0",axes="03";
- public int? partCounter=100; public double? spindleSpeed=1800, feedrate=12.5;
+ public bool pmcEnabled=false; public object[] pmcEvents=new object[0]; public int cycleStartBit=-1,m30Bit=-1; public string pmcStatus="fixture"; public long? runTimeMs=123000,cycleTimeMs=5000; public string timerSource="fixture"; public int? partCounter=100; public double? spindleSpeed=1800, feedrate=12.5;
  public string spindleUnit="rpm", feedrateUnit="inch/min", activeProgram="O12345678", mainProgram="O0001";
  public System.Collections.Generic.Dictionary<string,string> readErrors=new System.Collections.Generic.Dictionary<string,string>();
  public FixtureRaw rawStatus=new FixtureRaw();
 }
-public static class FanucReader { public static string ProgramNumber(uint n) { return "O"+n.ToString(); } public static int Calls; public static FixtureSnapshot Read(string ip,ushort port,string folder) { Calls++;return new FixtureSnapshot(); } }
+public static class FanucReader { public static void StartPmcMonitor(string ip,ushort port,int ms) {} public static void StopPmcMonitor() {} public static object[] DrainPmcEvents() { return new object[0]; } public static string ProgramNumber(uint n) { return "O"+n.ToString(); } public static int Calls; public static FixtureSnapshot Read(string ip,ushort port,string folder) { Calls++;return new FixtureSnapshot(); } }
 '@
 $fixtureDirectory=Join-Path ([IO.Path]::GetTempPath()) ('fanuc-bridge-test-'+[guid]::NewGuid().ToString('N'))
 $null=New-Item -ItemType Directory -Path $fixtureDirectory

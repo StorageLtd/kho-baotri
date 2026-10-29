@@ -1,5 +1,5 @@
-import {reportPeriod,buildCncReport,reportSheets,hours,vnDate} from './cnc-reports.js?v=20261029-reports';
-import {createCncWorkbook} from './cnc-xlsx.js?v=20261029-reports';
+import {reportPeriod,buildCncReport,reportSheets,hours,vnDate} from './cnc-reports.js?v=20261029-cycles';
+import {createCncWorkbook} from './cnc-xlsx.js?v=20261029-cycles';
 const esc=s=>String(s??'').replaceAll('&','&amp;').replaceAll('<','&lt;').replaceAll('>','&gt;').replaceAll('"','&quot;');
 const n=v=>v===null||v===undefined?'—':Number(v).toLocaleString('vi-VN',{maximumFractionDigits:2});
 const pct=v=>v===null?'—':n(v*100)+'%';
@@ -12,21 +12,19 @@ async function loadMachine(id,period,token){
  return await response.json()||{};
 }
 function renderReport(report){
- const rows=report.summary,observed=rows.reduce((s,r)=>s+r.observedMs,0),windowMs=rows.reduce((s,r)=>s+r.windowMs,0),run=rows.reduce((s,r)=>s+r.runningMs,0),allParts=rows.length>0&&rows.every(r=>r.production!==null);
- const totalsByDay=new Map();for(const r of report.daily){if(!totalsByDay.has(r.day))totalsByDay.set(r.day,{day:r.day,windowMs:0,runningMs:0,idleMs:0,holdMs:0,alarmMs:0,unknownStateMs:0,missingMs:0});const day=totalsByDay.get(r.day);for(const key of Object.keys(day))if(key!=='day')day[key]+=r[key]}
- const bars=[...totalsByDay.values()].map(r=>`<div class="cr-bar-row"><span>${esc(r.day.slice(5))}</span><div class="cr-bar" role="img" aria-label="${esc(r.day)}: chạy ${n(hours(r.runningMs))} giờ, mất dữ liệu ${n(hours(r.missingMs))} giờ">${['runningMs','idleMs','holdMs','alarmMs','unknownStateMs','missingMs'].map(key=>`<i class="cr-${key}" style="width:${r.windowMs?r[key]/r.windowMs*100:0}%" title="${esc(key)}: ${n(hours(r[key]))} h"></i>`).join('')}</div><strong>${n(hours(r.runningMs))} h RUN</strong></div>`).join('');
- return `<header class="cr-heading"><span>LTD VIET NAM · OPERATIONS REPORT</span><h2>Báo cáo vận hành CNC</h2><p>${esc(report.period.startDate)} — ${esc(report.period.endDate)} · Giờ Việt Nam</p><small>Dữ liệu tới ${esc(new Date(report.period.through).toLocaleString('vi-VN',{timeZone:'Asia/Ho_Chi_Minh'}))} · ${rows.length} máy</small></header>
- <div class="cr-kpis"><article><span>Thời gian RUN</span><strong>${n(hours(run))} <small>giờ</small></strong></article><article><span>Độ phủ dữ liệu theo lịch</span><strong>${pct(windowMs?observed/windowMs:0)}</strong></article><article><span>RUN / thời gian có dữ liệu</span><strong>${pct(observed?run/observed:null)}</strong></article><article><span>Sản lượng đã xác nhận</span><strong>${allParts?n(rows.reduce((s,r)=>s+r.production,0)):'Chưa xác nhận'}</strong></article></div>
- <p class="cr-notice">Không có dữ liệu không đồng nghĩa máy dừng. Chưa thu thập giờ setup hoặc lịch ca; tỷ lệ trên không phải OEE. Sản lượng chỉ là phần tăng bộ đếm đã quan sát, có thể thiếu khi mất kết nối/reset.</p>
- <h3>Thời gian vận hành theo ngày</h3><div class="cr-legend"><span class="cr-runningMs">RUN</span><span class="cr-idleMs">Dừng/chờ</span><span class="cr-holdMs">HOLD</span><span class="cr-alarmMs">Alarm</span><span class="cr-unknownStateMs">Không rõ trạng thái</span><span class="cr-missingMs">Mất dữ liệu</span></div><div class="cr-chart">${bars}</div>
- <h3>Tổng hợp theo máy</h3><div class="cr-scroll"><table><thead><tr><th>Máy</th><th>RUN (h)</th><th>Dừng/chờ (h)</th><th>HOLD (h)</th><th>Alarm (h)</th><th>Chưa rõ (h)</th><th>Mất dữ liệu (h)</th><th>Độ phủ</th><th>Tăng bộ đếm CNC</th><th>Sản lượng xác nhận</th><th>Chất lượng</th></tr></thead><tbody>${rows.map(r=>`<tr><td><strong>${esc(r.name)}</strong></td>${['runningMs','idleMs','holdMs','alarmMs','unknownStateMs','missingMs'].map(k=>`<td>${n(hours(r[k]))}</td>`).join('')}<td>${pct(r.coverage)}</td><td>${n(r.rawCount)}</td><td>${n(r.production)}</td><td>${esc(r.quality)}${r.counterResets?` · ${n(r.counterResets)} lần reset`:''}</td></tr>`).join('')}</tbody></table></div>
- <details><summary>Chi tiết theo ngày (${report.daily.length} dòng)</summary><div class="cr-scroll"><table><thead><tr><th>Ngày</th><th>Máy</th><th>RUN (h)</th><th>Dừng/chờ (h)</th><th>HOLD (h)</th><th>Alarm (h)</th><th>Mất dữ liệu (h)</th><th>Tăng bộ đếm</th></tr></thead><tbody>${report.daily.map(r=>`<tr><td>${esc(r.day)}</td><td>${esc(r.name)}</td>${['runningMs','idleMs','holdMs','alarmMs','missingMs'].map(k=>`<td>${n(hours(r[k]))}</td>`).join('')}<td>${n(r.rawCounterMs>0?r.counterDelta:null)}</td></tr>`).join('')}</tbody></table></div></details>
- <details><summary>Nguồn dữ liệu và quy tắc tính</summary><ul>${reportSheets(report)[3].rows.slice(5).map(r=>`<li><strong>${esc(r[0])}:</strong> ${esc(r[1])}</li>`).join('')}</ul></details>`;
+ const rows=report.summary,run=rows.reduce((s,r)=>s+r.runningMs,0),hold=rows.reduce((s,r)=>s+r.holdMs,0),alarm=rows.reduce((s,r)=>s+r.alarmMs,0);
+ const count=rows.every(r=>r.rawCount!==null)?rows.reduce((s,r)=>s+r.rawCount,0):null;
+ const sheets=reportSheets(report);
+ const table=sheet=>`<div class="cr-scroll"><table><thead><tr>${sheet.rows[sheet.header].map(v=>`<th>${esc(v)}</th>`).join('')}</tr></thead><tbody>${sheet.rows.slice(sheet.header+1).map(row=>`<tr>${row.map(v=>`<td>${typeof v==='number'?n(v):esc(v??'—')}</td>`).join('')}</tr>`).join('')}</tbody></table></div>`;
+ return `<header class="cr-heading"><h2>Báo cáo CNC</h2><p>${esc(report.period.startDate)} — ${esc(report.period.endDate)} · Giờ Việt Nam</p></header>
+ <div class="cr-kpis"><article><span>RUN</span><strong>${n(hours(run))} h</strong></article><article><span>Alarm</span><strong>${n(hours(alarm))} h</strong></article><article><span>HOLD</span><strong>${n(hours(hold))} h</strong></article><article><span>PART COUNT tăng</span><strong>${n(count)}</strong></article></div>
+ <p class="cr-notice">Cycle Start X10.1 và M30 R423.6 được đọc PMC; xung ngắn có thể bị bỏ lỡ. Hàng không bắt được M30 sẽ ghi rõ. Không tính thời gian mất dữ liệu thành giờ dừng. HOLD rồi chạy tiếp vẫn cùng một chu kỳ.</p>
+ <h3>Tổng quan theo chương trình</h3>${table(sheets[0])}<h3>Theo ngày · mỗi chu kỳ một hàng</h3>${report.cycles.length?table(sheets[1]):'<p>Chưa có nhật ký chu kỳ trong kỳ này. Cần chạy cầu nối bản mới; tổng hợp cũ không thể tách lại thành từng chu kỳ.</p>'}`;
 }
 function ensureDialog(){
  if(dialog)return;
  dialog=document.createElement('dialog');dialog.id='cncReportDialog';dialog.className='cr-dialog';
- dialog.innerHTML=`<div class="cr-toolbar"><h2>Báo cáo vận hành CNC</h2><button type="button" class="btn" data-action="close">Đóng</button></div><form class="cr-filters"><label>Máy<select name="machine"></select></label><label>Kỳ báo cáo<select name="period"><option value="week">Tuần (thứ Hai — Chủ nhật)</option><option value="month" selected>Tháng</option><option value="quarter">Quý</option></select></label><label>Ngày thuộc kỳ<input class="input" name="anchor" type="date" required></label><button class="btn primary" type="submit">Xem báo cáo</button></form><p class="cr-status" role="status"></p><div class="cr-actions"><button class="btn primary" type="button" data-action="xlsx" disabled>Xuất Excel (.xlsx)</button><button class="btn" type="button" data-action="csv" disabled>CSV chi tiết</button><button class="btn" type="button" data-action="print" disabled>In / Lưu PDF</button></div><section class="cr-report"></section>`;
+ dialog.innerHTML=`<div class="cr-toolbar"><h2>Báo cáo vận hành CNC</h2><button type="button" class="btn" data-action="close">Đóng</button></div><form class="cr-filters"><label>Máy<select name="machine"></select></label><label>Kỳ báo cáo<select name="period"><option value="week">Tuần (thứ Hai — Chủ nhật)</option><option value="month" selected>Tháng</option><option value="quarter">Quý</option></select></label><label>Ngày thuộc kỳ<input class="input" name="anchor" type="date" required></label><button class="btn primary" type="submit">Xem báo cáo</button></form><p class="cr-status" role="status"></p><div class="cr-actions"><button class="btn primary" type="button" data-action="xlsx" disabled>Xuất Excel (.xlsx)</button><button class="btn" type="button" data-action="print" disabled>In / Lưu PDF</button></div><section class="cr-report"></section>`;
  document.body.append(dialog);
  dialog.querySelector('[data-action=close]').onclick=()=>{revision++;dialog.close()};
  dialog.querySelector('form').onsubmit=async event=>{
@@ -46,11 +44,6 @@ function ensureDialog(){
   }catch(error){if(request===revision)status.textContent=error.message}finally{if(request===revision)button.disabled=false}
  };
  dialog.querySelector('[data-action=xlsx]').onclick=()=>{if(result)download(createCncWorkbook(reportSheets(result)),`LTD-CNC-${result.period.kind}-${result.period.startDate}.xlsx`)};
- dialog.querySelector('[data-action=csv]').onclick=()=>{
-  if(!result)return;const sheet=reportSheets(result)[1];
-  const csv=sheet.rows.slice(sheet.header).map(row=>row.map(v=>{let text=String(v??'');if(/^[\s]*[=+\-@]/.test(text))text="'"+text;return '"'+text.replaceAll('"','""')+'"'}).join(',')).join('\r\n');
-  download(new Blob(['\ufeff'+csv],{type:'text/csv;charset=utf-8'}),`LTD-CNC-chi-tiet-${result.period.startDate}.csv`);
- };
  dialog.querySelector('[data-action=print]').onclick=()=>{
   if(!result)return;const popup=window.open('','_blank');if(!popup){dialog.querySelector('.cr-status').textContent='Trình duyệt đang chặn cửa sổ in.';return}
   popup.document.write(`<!doctype html><html lang="vi"><head><meta charset="UTF-8"><title>LTD CNC Report</title><link rel="stylesheet" href="${new URL('assets/css/cnc-report.css',document.baseURI)}"></head><body class="cr-print">${renderReport(result)}</body></html>`);popup.document.close();popup.onload=()=>{popup.document.querySelectorAll('details').forEach(d=>d.open=true);popup.print()};

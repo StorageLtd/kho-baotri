@@ -1,4 +1,4 @@
-param(
+﻿param(
     [string]$ConfigPath = (Join-Path $PSScriptRoot 'bridge-config.json'),
     [switch]$Once,
     [switch]$LocalOnly
@@ -81,16 +81,18 @@ function New-BridgePayload {
         spindleSpeed = $Snapshot.spindleSpeed; spindleUnit = $Snapshot.spindleUnit
         feedrate = $Snapshot.feedrate; feedrateUnit = $Snapshot.feedrateUnit
         readErrors = $Snapshot.readErrors; partCounter = $Snapshot.partCounter
-        reportingVersion = 1
+        reportingVersion = 2; runTimeMs = $Snapshot.runTimeMs; cycleTimeMs = $Snapshot.cycleTimeMs; timerSource = $Snapshot.timerSource; pmcEnabled = $Snapshot.pmcEnabled; cycleStartBit = $Snapshot.cycleStartBit; m30Bit = $Snapshot.m30Bit; pmcStatus = $Snapshot.pmcStatus
         # Setpoints, override and current NC block are not read by this bridge.
         currentBlock = $null; targetSpindleSpeed = $null; targetFeedrate = $null; override = $null
     }
 }
 try {
     if (-not [Environment]::Is64BitProcess) { throw 'Use 64-bit Windows PowerShell, not PowerShell (x86).' }
-    $config = Get-Content -LiteralPath $ConfigPath -Raw | ConvertFrom-Json
+    $config = Get-Content -LiteralPath $ConfigPath -Raw -Encoding UTF8 | ConvertFrom-Json
     if(-not $config.PSObject.Properties['partsPerCount']){$config|Add-Member -NotePropertyName partsPerCount -NotePropertyValue 1}
     if(-not $config.PSObject.Properties['partCounterVerified']){$config|Add-Member -NotePropertyName partCounterVerified -NotePropertyValue $false}
+    if(-not $config.PSObject.Properties['pmcCycleSignals']){$config|Add-Member -NotePropertyName pmcCycleSignals -NotePropertyValue $false}
+    if(-not $config.PSObject.Properties['pmcPollMilliseconds']){$config|Add-Member -NotePropertyName pmcPollMilliseconds -NotePropertyValue 200}
     if ($config.machineId -notmatch '^[a-z0-9][a-z0-9-]{0,63}$') { throw 'Invalid machineId.' }
     $ip = $null
     if (-not [Net.IPAddress]::TryParse([string]$config.cncIp, [ref]$ip) -or $ip.AddressFamily -ne [Net.Sockets.AddressFamily]::InterNetwork) { throw 'Invalid CNC IPv4 address.' }
@@ -100,8 +102,8 @@ try {
     if ($config.databaseUrl -cne 'https://ltdst-80b3e-default-rtdb.asia-southeast1.firebasedatabase.app') { throw 'Unexpected database URL. No credentials will be sent.' }
     if ($config.firebaseApiKey -notmatch '^[A-Za-z0-9_-]+$') { throw 'Invalid Firebase Web API key.' }
     if (-not ('FanucReader' -as [type])) { Add-Type -Path (Join-Path $PSScriptRoot 'FanucReader.cs') }
-    if (-not ([FanucReader].GetMethod('ProgramNumber')) -or -not ([FanucReader].GetMethod('Read').ReturnType.GetField('partCounter'))) { throw 'Old FanucReader loaded. Close this PowerShell window and open a new one to use the updated reader.' }
-    Write-Host "Bridge build: 20261029-reports"
+    if (-not ([FanucReader].GetMethod('ProgramNumber')) -or -not ([FanucReader].GetMethod('Read').ReturnType.GetField('pmcEvents'))) { throw 'Old FanucReader loaded. Close this PowerShell window and open a new one to use the updated reader.' }
+    Write-Host "Bridge build: 20261029-pmc-cycles"
     Write-Host "Machine: $($config.machineName) | CNC $($config.cncIp):$($config.port)"
     Write-Host 'Read-only CNC access. Reading status, actual spindle/feed and current/main O-number. Detailed alarm text is not read.'
     # Test a real FOCAS read before requesting any credentials or creating the cloud record.
@@ -119,11 +121,12 @@ try {
                 throw 'Machine identity differs from bridge-config.json. Nothing was overwritten. Send only the Existing machine line for diagnosis.'
             }
         }
-        Send-BridgePatch $config @{ id = $config.machineId; name = $config.machineName; ip = $config.cncIp; port = [int]$config.port; model = $config.model; source = 'focas'; connected = $false; status = 'offline' }
-        $machineRegistered = $true
         if($config.partsPerCount -lt 1 -or $config.partsPerCount -gt 1000 -or [double]$config.partsPerCount -ne [Math]::Truncate([double]$config.partsPerCount)){throw 'partsPerCount must be an integer from 1 to 1000.'}
         Initialize-CncReports (Join-Path $PSScriptRoot 'report-outbox') $config.machineId $script:Auth.uid $config
         $reportingStarted = $true
+        Send-BridgePatch $config @{ id = $config.machineId; name = $config.machineName; ip = $config.cncIp; port = [int]$config.port; model = $config.model; source = 'focas'; connected = $false; status = 'offline' }
+        $machineRegistered = $true
+        if($config.pmcCycleSignals -eq $true){[FanucReader]::StartPmcMonitor([string]$config.cncIp,[uint16]$config.port,[int]$config.pmcPollMilliseconds);Write-Host 'PMC read-only: Cycle Start X10.1; M30 R423.6. Short pulses may be missed.'}
         $sample = $null # Authentication may take minutes; never upload that old initial sample.
     }
     Write-Host 'Bridge active. Keep this window open. Ctrl+C stops it.'
@@ -149,6 +152,11 @@ try {
             if ($sample.readErrors -and $sample.readErrors.Count -gt 0) {
                 foreach ($item in $sample.readErrors.GetEnumerator()) { Write-Warning ("Telemetry {0}: {1}" -f $item.Key, $item.Value) }
             }
+            if($sample.pmcEnabled){
+                $starts=@($sample.pmcEvents|Where-Object kind -eq 'start').Count;$ends=@($sample.pmcEvents|Where-Object kind -eq 'end').Count
+                if($starts -or $ends){Write-Host ("PMC CAPTURED: Cycle Start X10.1={0}; M30 R423.6={1}" -f $starts,$ends)}
+                if($sample.pmcStatus -and $sample.pmcStatus -notlike 'Reading PMC*'){Write-Warning ('PMC: '+$sample.pmcStatus)}
+            }
             $destination = if ($LocalOnly) { 'LOCAL ONLY - not uploaded' } elseif ($uploaded) { 'FIREBASE UPDATED' } else { 'UPLOAD FAILED - will retry' }
             Write-Host ("{0} | {1} | RUN={2} ALARM={3} EMERGENCY={4}" -f (Get-Date -Format 'HH:mm:ss'), $destination, $sample.rawStatus.run, $sample.rawStatus.alarm, $sample.rawStatus.emergency)
             Write-Host ("Spindle={0} {1} | Feed={2} {3} | Program={4} | Main={5}" -f $sample.spindleSpeed, $sample.spindleUnit, $sample.feedrate, $sample.feedrateUnit, $sample.activeProgram, $sample.mainProgram)
@@ -165,7 +173,7 @@ try {
     if ($script:Auth -and $machineRegistered -and -not $LocalOnly) {
         try { Send-BridgePatch $config @{ connected = $false; status = 'offline' } } catch { }
     }
-    if($reportingStarted){try{Send-PendingCncReports $config -Force}catch{ };Close-CncReports}
+    if($reportingStarted){[FanucReader]::StopPmcMonitor();Add-CncPmcEvents ([FanucReader]::DrainPmcEvents());Finish-CncCycle 'Dừng cầu nối; chưa biết kết thúc' $null;try{Send-PendingCncReports $config -Force}catch{ };Close-CncReports}
     $script:Auth = $null
 }
 if ($script:BridgeFailed) { exit 1 }

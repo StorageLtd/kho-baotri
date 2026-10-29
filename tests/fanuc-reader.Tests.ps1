@@ -1,7 +1,7 @@
 $ErrorActionPreference='Stop'
 Add-Type -Path (Join-Path (Split-Path $PSScriptRoot -Parent) 'tools/fanuc-bridge/FanucReader.cs')
 function Assert-True($Value,$Message) { if(-not $Value) { throw $Message } }
-foreach($pair in @(@([FanucReader+CounterParameter],8),@([FanucReader+SysInfo],18),@([FanucReader+Status],18),@([FanucReader+SpeedElement],12),@([FanucReader+SpeedReading],24),@([FanucReader+ProgramReading],8),@([FanucReader+ProgramReading8],12))) {
+foreach($pair in @(@([FanucReader+TimerReading],8),@([FanucReader+CounterParameter],8),@([FanucReader+SysInfo],18),@([FanucReader+Status],18),@([FanucReader+SpeedElement],12),@([FanucReader+SpeedReading],24),@([FanucReader+ProgramReading],8),@([FanucReader+ProgramReading8],12))) {
  Assert-True ([Runtime.InteropServices.Marshal]::SizeOf([type]$pair[0]) -eq $pair[1]) ('Invalid layout: '+$pair[0])
 }
 $reading=New-Object FanucReader+SpeedReading
@@ -29,4 +29,10 @@ Assert-True ([FanucReader]::ProgramNumber(12345678) -eq 'O12345678') 'Eight-digi
 Assert-True ([FanucReader]::ProgramNumber(12) -eq 'O0012') 'Four-digit program formatting incorrect'
 Assert-True ($null -eq [FanucReader]::ProgramNumber(0)) 'No selected program must not be fabricated'
 Assert-True ($null -eq [FanucReader]::ProgramNumber(100000000)) 'Out-of-range program accepted'
+$timer=New-Object FanucReader+TimerReading;$timer.minute=123;$timer.msec=4567
+Assert-True ([FanucReader]::TimerMilliseconds($timer) -eq 7384567) 'Timer minutes/milliseconds conversion wrong'
+$timer.msec=60000;Assert-True ($null -eq [FanucReader]::TimerMilliseconds($timer)) 'Invalid timer accepted'
+$buffer=New-Object byte[] 12;$buffer[8]=2
+Assert-True ([FanucReader]::DecodePmcBit($buffer,1) -and -not [FanucReader]::DecodePmcBit($buffer,6)) 'X10.1 bit decoding incorrect'
+$buffer[8]=64;Assert-True ([FanucReader]::DecodePmcBit($buffer,6)) 'R423.6 bit decoding incorrect'
 Write-Output 'PASS: C# compilation, native structure sizes, decimal scaling, actual zero, feed units, failed/invalid API data, 4/8-digit program formatting.'

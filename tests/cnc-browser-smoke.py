@@ -59,6 +59,11 @@ window.startFixturePolling = startCncRealtimeSync;
             assert 'ĐANG CHẠY (START)' in await card.inner_text()
             assert '— RPM' in await card.inner_text()
             assert 'Chưa đọc' in await card.inner_text()
+            assert 'PART COUNT:' in await card.inner_text()
+            assert 'Vị trí nhà xưởng' not in await card.inner_text()
+            assert 'RUN TIME:' in await card.inner_text()
+            assert 'CYCLE TIME:' in await card.inner_text()
+            assert 'Các nhóm mã lỗi liên kết kho' not in await page.locator('#cncMonitoringPage').inner_text()
             assert await card.get_by_text('Xử lý xong (Clear)').count() == 0
             assert await page.locator('#statCncRunning').inner_text() == '1'
             assert await page.locator('#cncConnectionReady').inner_text() == '1 / 2'
@@ -84,14 +89,18 @@ window.startFixturePolling = startCncRealtimeSync;
             import datetime, json
             report_start=int(datetime.datetime(2026,10,28,tzinfo=datetime.timezone(datetime.timedelta(hours=7))).timestamp()*1000)
             history={'2026-10-28':{'fixture':{'schemaVersion':1,'source':'focas','machineId':'neway-1260s','sessionId':'fixture','date':'2026-10-28','firstMs':report_start,'lastMs':report_start+3600000,'observedMs':3600000,'runningMs':1800000,'idleMs':600000,'holdMs':600000,'alarmMs':600000,'unknownStateMs':0,'counterDelta':12,'counterObservedMs':3600000,'counterResets':0,'counterVerified':True,'partsPerCount':2}}}
+            history['2026-10-28']['fixture']['cycles']={'one':{'id':'cycle1','program':'O0002','observedFromMs':report_start+1000,'observedToMs':report_start+26000,'startMs':report_start+1000,'endMs':report_start+26000,'runMs':15000,'holdMs':5000,'alarmMs':5000,'waitMs':0,'wallMs':25000,'cncCycleTimeMs':25000,'partCountDelta':1,'partCountEnd':11,'status':'Dừng/RESET quan sát; chưa xác nhận M30','days':{'2026-10-28':{'runMs':15000,'holdMs':5000,'alarmMs':5000}}}}
             await page.route('**/cncReports/**',lambda route: route.fulfill(status=200,content_type='application/json',body=json.dumps(history)))
             await page.locator('#exportCncBtn').click()
             report=page.locator('#cncReportDialog')
             await report.locator('[name=anchor]').fill('2026-10-28')
             await report.get_by_role('button',name='Xem báo cáo').click()
-            await page.wait_for_function("document.querySelector('#cncReportDialog .cr-report').textContent.includes('Tổng hợp theo máy')")
+            await page.wait_for_function("document.querySelector('#cncReportDialog .cr-report').textContent.includes('Tổng quan theo chương trình')")
             assert 'Neway 1260S' in await report.inner_text()
-            assert '24' in await report.locator('.cr-kpis').inner_text()
+            assert '12' in await report.locator('.cr-kpis').inner_text()
+            assert await report.locator('table').nth(1).locator('tbody tr').count()==1
+            assert 'O0002' in await report.locator('table').nth(1).inner_text()
+            assert 'chưa xác nhận M30' in await report.locator('table').nth(1).inner_text()
             async with page.expect_download() as download_info:
                 await report.get_by_role('button',name='Xuất Excel (.xlsx)').click()
             download=await download_info.value

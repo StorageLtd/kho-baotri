@@ -1,5 +1,5 @@
-﻿import { openCncReports } from "./cnc-report-ui.js?v=20261029-reports";
-import { cncDisplayState, cncIsFresh, cncMeasurement } from "./cnc-status.js?v=20261028-neway";
+﻿import { openCncReports } from "./cnc-report-ui.js?v=20261029-cycles";
+import { cncDisplayState, cncIsFresh, cncMeasurement, cncMode, cncDuration } from "./cnc-status.js?v=20261029-cycles";
 
     import { initializeSession, onSessionChanged, signIn, signOutUser, sendVerification, registerAccount, getToken, getUser, loadProfile, role, canEdit, displayName } from "./auth.js?v=20261026-login";
     import { firebaseConfig } from "./firebase-config.js";
@@ -119,7 +119,6 @@ import { cncDisplayState, cncIsFresh, cncMeasurement } from "./cnc-status.js?v=2
       cncIpInput: document.querySelector("#cncIpInput"),
       cncPortInput: document.querySelector("#cncPortInput"),
       cncModelInput: document.querySelector("#cncModelInput"),
-      cncLocationInput: document.querySelector("#cncLocationInput"),
 
       cncAlarmHistoryDialog: document.querySelector("#cncAlarmHistoryDialog"),
       cncAlarmHistoryTitle: document.querySelector("#cncAlarmHistoryTitle"),
@@ -773,7 +772,7 @@ import { cncDisplayState, cncIsFresh, cncMeasurement } from "./cnc-status.js?v=2
             </div>
             
             <div class="cnc-details">
-              ${c.source === "focas" ? `<span class="cnc-label">Chế độ / RUN / Alarm (mã gốc):</span><span class="cnc-value">${showTelemetry ? `${cncMeasurement(c.rawStatus?.aut)} / ${cncMeasurement(c.rawStatus?.run)} / ${cncMeasurement(c.rawStatus?.alarm)}` : "—"}</span>` : ""}
+              ${c.source === "focas" ? `<span class="cnc-label">Chế độ vận hành:</span><span class="cnc-value">${showTelemetry ? cncMode(c.rawStatus?.aut) : "—"}</span><span class="cnc-label">Alarm:</span><span class="cnc-value">${showTelemetry ? (c.rawStatus?.alarm === 0 ? "Không có alarm" : "Có tín hiệu alarm") : "—"}</span>` : ""}
               <span class="cnc-label">Model CNC:</span>
               <span class="cnc-value">${escapeHtml(c.model)}</span>
               
@@ -790,9 +789,8 @@ import { cncDisplayState, cncIsFresh, cncMeasurement } from "./cnc-status.js?v=2
               <span class="cnc-label">Tốc độ ăn dao (Feedrate):</span>
               <span class="cnc-value">${showTelemetry ? cncMeasurement(c.feedrate) : "—"} ${escapeHtml(c.source === "focas" ? c.feedrateUnit || "" : "mm/min")}${c.source !== "focas" && showTelemetry ? ` (Ovr: ${cncMeasurement(c.override)}%)` : ""}</span>
               
-              ${c.source === "focas" ? `<span class="cnc-label">Bộ đếm CNC (6711):</span><span class="cnc-value">${showTelemetry ? cncMeasurement(c.partCounter) : "—"} · cần đối chiếu quy đổi sản phẩm</span>` : ""}
-              <span class="cnc-label">Vị trí nhà xưởng:</span>
-              <span class="cnc-value">${escapeHtml(c.location || "Chưa thiết lập")}</span>
+              ${c.source === "focas" ? `<span class="cnc-label">PART COUNT:</span><span class="cnc-value">${showTelemetry ? cncMeasurement(c.partCounter) : "—"}</span>` : ""}
+              ${c.source === "focas" ? `<span class="cnc-label">RUN TIME:</span><span class="cnc-value">${showTelemetry ? cncDuration(c.runTimeMs) : "—"}</span><span class="cnc-label">CYCLE TIME:</span><span class="cnc-value">${showTelemetry ? cncDuration(c.cycleTimeMs) : "—"}</span>` : ""}
             </div>
 
             ${signal.status === "alarm" ? `
@@ -803,6 +801,7 @@ import { cncDisplayState, cncIsFresh, cncMeasurement } from "./cnc-status.js?v=2
               ${matchedPartInfo}
             ` : ''}
 
+            ${c.pmcEnabled ? `<details class="meta"><summary>Chẩn đoán tín hiệu chu kỳ</summary><div>Cycle Start X10.1: ${c.cycleStartBit===1?"ON":c.cycleStartBit===0?"OFF":"—"} · M30 R423.6: ${c.m30Bit===1?"ON":c.m30Bit===0?"OFF":"—"}</div><div>${escapeHtml(c.pmcStatus || "Chờ PMC")}</div><div>Xung ngắn có thể bị bỏ lỡ; chỉ ghi M30 khi bắt được tín hiệu.</div></details>` : ""}
             ${showTelemetry && c.readErrors && Object.keys(c.readErrors).length ? `<div class="meta" role="status">Một số mục chưa đọc được: ${escapeHtml(Object.values(c.readErrors).join("; "))}</div>` : ""}
             <div class="row-actions" style="margin-top:auto; border-top:1px solid var(--line); padding-top:10px;">
               <button class="btn" style="min-height:30px; font-size:12px;" onclick="openCncMachineAlarmHistory('${c.id}')">Lịch sử lỗi</button>
@@ -914,7 +913,7 @@ import { cncDisplayState, cncIsFresh, cncMeasurement } from "./cnc-status.js?v=2
       if (!c) return;
       cncAlarmHistoryViewId = cncId;
       els.cncAlarmHistoryTitle.textContent = `Lịch sử lỗi — ${c.name}`;
-      els.cncAlarmHistoryMeta.textContent = `IP FOCAS: ${c.ip}:${c.port} · Vị trí: ${c.location || "—"} · Tổng sự cố: ${cncAlarmHistory.filter(a => a.cncId === cncId).length}`;
+      els.cncAlarmHistoryMeta.textContent = `IP FOCAS: ${c.ip}:${c.port} · Tổng sự cố: ${cncAlarmHistory.filter(a => a.cncId === cncId).length}`;
       renderCncMachineAlarmHistory(cncId);
       els.cncAlarmHistoryDialog.showModal();
     }
@@ -922,7 +921,7 @@ import { cncDisplayState, cncIsFresh, cncMeasurement } from "./cnc-status.js?v=2
     function renderCncMachineAlarmHistory(cncId) {
       const c = cncs.find(x => x.id === cncId);
       if (c && els.cncAlarmHistoryMeta) {
-        els.cncAlarmHistoryMeta.textContent = `IP FOCAS: ${c.ip}:${c.port} · Vị trí: ${c.location || "—"} · Tổng sự cố: ${cncAlarmHistory.filter(a => a.cncId === cncId).length}`;
+        els.cncAlarmHistoryMeta.textContent = `IP FOCAS: ${c.ip}:${c.port} · Tổng sự cố: ${cncAlarmHistory.filter(a => a.cncId === cncId).length}`;
       }
 
       const rows = cncAlarmHistory
@@ -985,7 +984,6 @@ import { cncDisplayState, cncIsFresh, cncMeasurement } from "./cnc-status.js?v=2
         ip: els.cncIpInput.value.trim(),
         port: Number(els.cncPortInput.value),
         model: els.cncModelInput.value,
-        location: els.cncLocationInput.value.trim(),
         ...(els.cncId.value ? {} : { source: "pending", connected: false, status: "offline" })
       };
 
@@ -1010,7 +1008,6 @@ import { cncDisplayState, cncIsFresh, cncMeasurement } from "./cnc-status.js?v=2
       els.cncIpInput.value = c?.ip || "";
       els.cncPortInput.value = c?.port || 8193;
       els.cncModelInput.value = c?.model || "Fanuc 0i-F";
-      els.cncLocationInput.value = c?.location || "";
       els.cncDialog.showModal();
     }
     function closeCncDialog() { els.cncDialog.close(); els.cncForm.reset(); }

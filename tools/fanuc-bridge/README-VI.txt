@@ -33,7 +33,7 @@ CẬP NHẬT TỪ BẢN CŨ
 Dừng cầu nối bằng Ctrl+C rồi đóng cửa sổ PowerShell cũ (để bỏ lớp C# đã nạp).
 Thay CẢ HAI file FanucReader.cs và Start-FanucBridge.ps1 bằng bản mới.
 Giữ ba DLL và bridge-config.json hiện có. Mở PowerShell mới và làm các bước dưới.
-Bản mới phải hiện Bridge build: 20261029-reports.
+Bản mới phải hiện Bridge build: 20261029-pmc-cycles.
 Chép thêm ReportCollector.ps1 cùng thư mục với Start-FanucBridge.ps1.
 Mở quyền chạy cho đúng file này bằng Unblock-File -LiteralPath .\ReportCollector.ps1.
 
@@ -95,7 +95,7 @@ BÁO CÁO TUẦN / THÁNG / QUÝ - CẦN BẬT QUYỀN FIREBASE MỘT LẦN
 4. Chạy cầu nối. FIREBASE UPDATED là tín hiệu hiện tại; REPORTS UPDATED mới là
    báo tổng hợp ngày đã được lưu. Nếu thiếu quyền, file chờ vẫn nằm trong report-outbox.
 5. Trên web bấm Báo cáo vận hành CNC (thay Xuất CNC CSV), chọn máy và kỳ,
-   bấm Xem báo cáo, xuất Excel 4 sheet hoặc in/PDF.
+   bấm Xem báo cáo, xuất Excel 2 sheet hoặc in/PDF.
 
 CÁCH TÍNH VÀ SẢN LƯỢNG
 - Đọc trạng thái theo chu kỳ; cộng khoảng giữa hai mẫu chỉ khi cách nhau <=15 giây.
@@ -114,3 +114,43 @@ CÁCH TÍNH VÀ SẢN LƯỢNG
   Internet để xác thực trước khi thu thập. Không tự chạy nền khi laptop ngủ/đóng PowerShell.
 - Dữ liệu nhánh cncReports lưu dài hạn trên Firebase đến khi quản trị viên sao lưu/xóa;
   cần theo dõi dung lượng và thiết lập chính sách lưu trữ phù hợp quy định công ty.
+
+BẢN GHI TỪNG CHU KỲ (QUAN SÁT QUA FOCAS)
+- Web hiển thị RUN TIME và CYCLE TIME đọc từ CNC; nếu API không hỗ trợ sẽ báo lỗi/để trống.
+  Cần đối chiếu với màn hình máy; nguồn dự phòng đọc tham số thời gian 6752/6751 và 6758/6757.
+  Không ghi hoặc reset bất kỳ tham số nào.
+- PART COUNT là tên hiển thị bộ đếm 6711. Không còn dòng đối chiếu trên thẻ máy.
+- Excel chỉ hai sheet: Tổng quan (cộng theo máy/chương trình), Theo ngày (mỗi chu kỳ quan sát một hàng).
+- Mở cầu nối trước khi chạy để ghi được chuyển trạng thái dừng -> START ở MEM/REMOTE.
+  HOLD/tiếp tục và alarm trong cùng chu kỳ không tạo thêm hàng.
+- Địa chỉ PMC được cung cấp ở phần dưới. Dù đọc PMC, thời điểm start/dừng
+  là thời điểm đọc trạng thái, sai số theo chu kỳ đọc, không phải thời điểm nút bấm chính xác.
+  Trạng thái RESET không được gọi là M30; chỉ xung R423.6 bắt được mới xác nhận M30.
+- Chu kỳ ngắn hơn chu kỳ đọc có thể bị bỏ lỡ; khi máy lặp không dừng, chưa bảo đảm
+  tách từng sản phẩm. Cần tín hiệu sự kiện/counter phù hợp do kỹ thuật máy xác nhận để làm chính xác.
+- Nếu vào giữa chu kỳ, đổi chương trình, mất dữ liệu, ngắt cầu nối hoặc bộ đếm reset:
+  giữ hàng quan sát nhưng để trống các mốc/đếm chưa đủ bằng chứng. Không bù số liệu.
+- Chu kỳ được xếp vào ngày bắt đầu quan sát; chu kỳ qua nửa đêm giữ một hàng.
+  Tổng giờ theo chương trình sử dụng các phần thời gian nằm trong kỳ báo cáo.
+- Không tách ngược các tổng hợp ngày trước đây thành chu kỳ, không xác nhận số sản phẩm đạt.
+
+PMC NEWAY 1260S - ĐỊA CHỈ NGƯỜI DÙNG CUNG CẤP
+Cycle Start: X10.1 (area X=3, byte 10, bit 1). M30: R0423.6 (area R=5, byte 423, bit 6).
+Bản mới có pmcCycleSignals=true và pmcPollMilliseconds=200 trong bridge-config.json.
+Nếu giữ config cũ, thêm hai mục này hoặc chép config mới (giữ đúng IP CNC của bạn).
+Chỉ dùng cho máy đã xác nhận địa chỉ; máy khác phải kiểm tra lại, không dùng mặc định.
+
+- Cầu nối chỉ gọi pmc_rdpmcrng để đọc hai bit; không sửa ladder, không ghi PMC hoặc PWE.
+- Luồng đọc PMC riêng dùng một kết nối FOCAS, đọc hai bit khoảng 200 ms một lượt;
+  trạng thái/counter đọc khoảng mỗi giây và đọc thêm thông tin tại sự kiện.
+- Xung ngắn hơn chu kỳ đọc hoặc phát trong lúc API đang xử lý có thể bị bỏ lỡ.
+  Không bảo đảm bắt đủ từng lần bấm/M30. Không tự giảm chu kỳ quá thấp để ép bắt xung.
+- Dòng PMC CAPTURED hiển thị số cạnh lên đã bắt được. Xem thêm Chẩn đoán tín hiệu chu kỳ trên web.
+- Chỉ khi bắt được cạnh lên R423.6 mới ghi Đã quan sát M30 PMC. RESET không phải bằng chứng M30.
+- Nếu xung bị bỏ lỡ, hàng ghi rõ không bắt được M30/thiếu Start. Không điền thời điểm giả.
+- Bit đã ON lúc kết nối được coi là mức ban đầu, không tạo sự kiện cũ. Khi mất kết nối,
+  chu kỳ đang mở bị đánh dấu thiếu dữ liệu. HOLD/tiếp tục vẫn nằm trong một chu kỳ.
+- Trước khi dùng báo cáo để chốt sản lượng, cần thử đối chiếu nhiều chu kỳ thật và
+  nhờ kỹ thuật máy cung cấp tín hiệu giữ hoặc bộ đếm sự kiện nếu phải bắt đủ xung ngắn.
+- Không tự sửa ladder để kéo dài xung M30; cần người có chuyên môn kiểm tra ảnh hưởng.
+- Khi dừng cầu nối: Ctrl+C, chờ kết thúc trước khi mở phiên mới. Không chạy hai cầu nối/máy.
