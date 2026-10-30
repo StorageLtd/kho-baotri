@@ -87,7 +87,7 @@ function Send-PendingCncReports {
     if(-not $Force -and ([DateTime]::UtcNow-$script:LastReportSend).TotalSeconds -lt 30){return}
     $script:LastReportSend=[DateTime]::UtcNow
     Update-BridgeToken $Config
-    $files=@(Get-ChildItem -LiteralPath $script:ReportFolder -Filter '*.json' | Sort-Object LastWriteTime | Select-Object -First 10)
+    $files=@(Get-ChildItem -LiteralPath $script:ReportFolder -Filter '*.json' | Where-Object { $_.Name -match '^.+_\d{4}-\d{2}-\d{2}_[a-f0-9]{32}\.json$' } | Sort-Object LastWriteTime | Select-Object -First 10)
     foreach($file in $files) {
         $report=Get-Content -LiteralPath $file.FullName -Raw -Encoding UTF8|ConvertFrom-Json
         if($report.ownerUid -ne $script:Auth.uid){Write-Warning 'A buffered report belongs to another account; keep that file and use its original account.';continue}

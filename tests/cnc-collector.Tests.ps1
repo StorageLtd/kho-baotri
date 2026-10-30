@@ -32,7 +32,11 @@ try{
  $global:TestReportFail=$false;Send-PendingCncReports $config -Force
  Assert-True (@(Get-ChildItem $folder -Filter '*.json').Count -eq 0) 'Successful upload not acknowledged'
  Assert-True ($global:TestReportStore.Count -eq 2) 'Wrong number of per-session daily records'
+ $alarmFile=Join-Path $folder 'alarms-neway-1260s-test-owner.json'
+ '{"uid":"test-owner","active":{},"pending":{}}' | Set-Content $alarmFile
  Save-CncReportDay $b;Send-PendingCncReports $config -Force
+ Assert-True (Test-Path $alarmFile) 'Report sender removed alarm state'
+ Assert-True ($global:TestReportStore.Count -eq 2) 'Alarm state mistaken for daily report'
  Assert-True ($global:TestReportStore.Count -eq 2) 'Retry did not use deterministic cloud key'
  foreach($record in $global:TestReportStore.Values){Assert-True ($record.observedMs -eq $record.runningMs+$record.idleMs+$record.holdMs+$record.alarmMs+$record.unknownStateMs) 'Time totals inconsistent'}
  Write-Output 'PASS: local daily collection, Vietnam midnight split, running/HOLD/idle, reset and gaps, offline persistence, idempotent retry, consistent totals.'
