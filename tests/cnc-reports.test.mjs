@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';import test from 'node:test';import {readFile,writeFile} from 'node:fs/promises';
 const load=async file=>import('data:text/javascript;base64,'+Buffer.from(await readFile(new URL('../assets/js/'+file,import.meta.url))).toString('base64'));
-const {reportPeriod,buildCncReport,reportSheets}=await load('cnc-reports.js');
+const {reportPeriod,buildCncReport,reportSheets,cycleDuration}=await load('cnc-reports.js');
 const {createCncWorkbook}=await load('cnc-xlsx.js');
 const now=Date.parse('2026-10-29T05:00:00Z'),machine={id:'neway-1260s',name:'Neway 1260S'},start=Date.parse('2026-10-28T00:00:00+07:00');
 const session=(extra={})=>({schemaVersion:1,source:'focas',machineId:machine.id,sessionId:'a',date:'2026-10-28',firstMs:start,lastMs:start+3600000,observedMs:3600000,runningMs:1800000,idleMs:600000,holdMs:600000,alarmMs:600000,unknownStateMs:0,counterDelta:12,counterObservedMs:3600000,counterResets:0,counterVerified:false,partsPerCount:1,...extra});
@@ -35,4 +35,20 @@ test('cycle rows preserve observed start/end, hold and alarm; summary groups by 
  const a=session();a.cycles={one:{id:'cycle1',program:'O0002',observedFromMs:start+1000,observedToMs:start+26000,startMs:start+1000,endMs:start+26000,runMs:15000,holdMs:5000,alarmMs:5000,waitMs:0,wallMs:25000,partCountDelta:1,partCountEnd:11,status:'STOP/RESET; M30 not confirmed',days:{'2026-10-28':{runMs:15000,holdMs:5000,alarmMs:5000}}}};
  const report=build({a});assert.equal(report.cycles.length,1);assert.equal(report.programs[0].runMs,15000);assert.equal(report.programs[0].partCountDelta,1);
  const sheets=reportSheets(report);assert.deepEqual(sheets.map(s=>s.name),['Tổng quan','Theo ngày']);assert.equal(sheets[1].rows[5][10],1);assert.match(sheets[1].rows[5][12],/not confirmed/);
+ assert.equal(sheets[1].rows[5][3],'2026-10-28 00:00:01');
+ assert.equal(sheets[1].rows[5][4],'2026-10-28 00:00:26');
+ assert.equal(sheets[0].rows[5][5],'30 phút 0 giây');assert.equal(sheets[0].rows[6][5],'15 giây');
+ assert.equal(sheets[1].rows[5][5],'15 giây');assert.equal(sheets[1].rows[5][6],'25 giây');
+});
+
+test('durations show explicit units and historical totals never invent START/STOP times',()=>{
+ assert.equal(cycleDuration(2412000),'40 phút 12 giây');
+ assert.equal(cycleDuration(3600000),'1 giờ 0 phút 0 giây');
+ assert.equal(cycleDuration(90061000),'25 giờ 1 phút 1 giây');
+ assert.equal(cycleDuration(0),'0 giây');assert.equal(cycleDuration(null),'');
+ const sheets=reportSheets(build({a:session()}));
+ assert.equal(sheets[0].rows[5][3],'Không có mốc START');
+ assert.equal(sheets[0].rows[5][4],'Không có mốc STOP');
+ assert.equal(sheets[0].rows[5][5],'30 phút 0 giây');
+ assert.ok(!sheets.flatMap(s=>s.rows[4]).some(h=>h.includes('(h)')));
 });

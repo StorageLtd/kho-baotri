@@ -1,4 +1,4 @@
-﻿import { openCncReports } from "./cnc-report-ui.js?v=20261029-web-sync";
+﻿import { openCncReports } from "./cnc-report-ui.js?v=20261030-time-units";
 import { cncDisplayState, cncIsFresh, cncMeasurement, cncMode, cncDuration, cncServerNow, setCncClockOffset } from "./cnc-status.js?v=20261029-web-sync";
 
     import { initializeSession, onSessionChanged, signIn, signOutUser, sendVerification, registerAccount, getToken, getUser, loadProfile, role, canEdit, displayName } from "./auth.js?v=20261026-login";

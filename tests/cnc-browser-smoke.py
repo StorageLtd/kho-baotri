@@ -128,9 +128,12 @@ window.restoreFixtureClock = () => setCncClockOffset(0);
             report=page.locator('#cncReportDialog')
             await report.locator('[name=anchor]').fill('2026-10-28')
             await report.get_by_role('button',name='Xem báo cáo').click()
-            await page.wait_for_function("document.querySelector('#cncReportDialog .cr-report').textContent.includes('Tổng quan theo chương trình')")
+            await page.wait_for_function("document.querySelector('#cncReportDialog .cr-report').textContent.includes('Tổng quan')")
             assert 'Neway 1260S' in await report.inner_text()
             assert '12' in await report.locator('.cr-kpis').inner_text()
+            assert '30 phút 0 giây' in await report.locator('.cr-kpis').inner_text()
+            assert '15 giây' in await report.locator('table').nth(1).inner_text()
+            assert '2026-10-28 00:00:01' in await report.locator('table').nth(1).inner_text()
             assert await report.locator('table').nth(1).locator('tbody tr').count()==1
             assert 'O0002' in await report.locator('table').nth(1).inner_text()
             assert 'chưa xác nhận M30' in await report.locator('table').nth(1).inner_text()

@@ -72,24 +72,35 @@ export function buildCncReport(machines, history, period) {
   const groups=new Map();
   for(const c of cycles){
     const key=c.machineId+'|'+(c.program||'Chưa đọc');
-    if(!groups.has(key))groups.set(key,{name:c.name,program:c.program||'Chưa đọc',cycles:0,runMs:0,holdMs:0,alarmMs:0,partCountDelta:0,knownCounts:0,incomplete:0,m30Observed:0});
+    if(!groups.has(key))groups.set(key,{machineId:c.machineId,name:c.name,program:c.program||'Chưa đọc',cycles:0,runMs:0,holdMs:0,alarmMs:0,partCountDelta:0,knownCounts:0,incomplete:0,m30Observed:0,firstStartMs:null,lastEndMs:null});
     const g=groups.get(key);g.cycles++;if(c.m30Confirmed===true)g.m30Observed++;
     for(const [day,times] of Object.entries(c.days||{})) if(day>=period.startDate&&day<=period.endDate)for(const f of ['runMs','holdMs','alarmMs'])g[f]+=Number.isFinite(times[f])?times[f]:0;
     if(Number.isSafeInteger(c.partCountDelta)&&c.partCountDelta>=0){g.partCountDelta+=c.partCountDelta;g.knownCounts++}
+    if(Number.isFinite(c.startMs))g.firstStartMs=g.firstStartMs===null?c.startMs:Math.min(g.firstStartMs,c.startMs);
+    if(Number.isFinite(c.endMs))g.lastEndMs=g.lastEndMs===null?c.endMs:Math.max(g.lastEndMs,c.endMs);
     if(c.startMs===null||c.endMs===null)g.incomplete++;
   }
   return {period,summary,daily,cycles,programs:[...groups.values()],generatedAt:Date.now()};
 }
 export const hours = ms => ms / 3600000;
 export function cycleClock(ms){return Number.isFinite(ms)?new Date(ms).toLocaleString('sv-SE',{timeZone:'Asia/Ho_Chi_Minh'}):''}
-export function cycleDuration(ms){if(!Number.isFinite(ms)||ms<0)return '';const sec=Math.floor(ms/1000);return `${Math.floor(sec/3600)}:${String(Math.floor(sec/60)%60).padStart(2,'0')}:${String(sec%60).padStart(2,'0')}`}
+// Explicit units for screen, PDF and Excel; never round to decimal hours.
+export function cycleDuration(ms){
+  if(!Number.isFinite(ms)||ms<0)return '';
+  const total=Math.floor(ms/1000),h=Math.floor(total/3600),m=Math.floor(total%3600/60),sec=total%60;
+  return [h?`${h} giờ`:null,(h||m)?`${m} phút`:null,`${sec} giây`].filter(Boolean).join(' ');
+}
 export function reportSheets(report) {
-  const p=report.period,meta=[['LTD VIET NAM · BÁO CÁO CNC'],[`Kỳ: ${p.startDate} → ${p.endDate} · Giờ Việt Nam`],['Mốc giờ quan sát FOCAS: START → STOP/RESET. Không đọc PMC, không xác nhận M30; HOLD rồi chạy tiếp cùng hàng.'],[]];
-  const overview=[['Máy','Chương trình','Chu kỳ quan sát','Tổng RUN (h)','Alarm (h)','HOLD (h)','PART COUNT tăng','Ghi chú']];
-  for(const g of report.programs)overview.push([g.name,g.program,g.cycles,hours(g.runMs),hours(g.alarmMs),hours(g.holdMs),g.knownCounts?g.partCountDelta:null,`START → STOP/RESET${g.incomplete?`; ${g.incomplete} thiếu đầu/cuối`:''}`]);
-  // Preserve historical day totals without inventing cycle rows for old data.
-  if(!report.programs.length)for(const r of report.summary)overview.push([r.name,'Tổng hợp ngày (chưa có nhật ký chu kỳ)',null,hours(r.runningMs),hours(r.alarmMs),hours(r.holdMs),r.rawCount,r.quality]);
-  const detail=[['Ngày','Máy','Chương trình','Bắt đầu chạy (quan sát)','Dừng (quan sát)','Tổng RUN (h)','Start → dừng (h)','CYCLE TIME CNC (quan sát)','Alarm (h)','HOLD (h)','PART COUNT tăng','PART COUNT cuối','Ghi chú kết thúc']];
-  for(const c of report.cycles)detail.push([c.day,c.name,c.program||'',cycleClock(c.startMs),cycleClock(c.endMs),hours(c.runMs),Number.isFinite(c.wallMs)?hours(c.wallMs):null,cycleDuration(c.cncCycleTimeMs),hours(c.alarmMs),hours(c.holdMs),Number.isSafeInteger(c.partCountDelta)?c.partCountDelta:null,c.partCountEnd??null,c.status||'Chưa biết']);
+  const p=report.period,meta=[['LTD VIET NAM · BÁO CÁO CNC'],[`Kỳ: ${p.startDate} → ${p.endDate} · Giờ Việt Nam`],['START → STOP/RESET quan sát qua FOCAS. Tổng chạy = RUN, tách Alarm/HOLD; thời gian từ đầu đến cuối gồm cả tạm dừng. Không xác nhận M30.'],[]];
+  const overview=[['Máy','Chương trình','Số lượt quan sát','Bắt đầu đầu tiên đã ghi nhận','Kết thúc cuối cùng đã ghi nhận','Tổng thời gian chạy','Thời gian Alarm','Thời gian HOLD','PART COUNT tăng','Ghi chú']];
+  // Always show full observed-period totals, including time outside identifiable program runs.
+  for(const r of report.summary){
+    const machineCycles=report.cycles.filter(c=>c.machineId===r.machineId);
+    const starts=machineCycles.map(c=>c.startMs).filter(Number.isFinite),ends=machineCycles.map(c=>c.endMs).filter(Number.isFinite);
+    overview.push([r.name,'Tổng kỳ · tất cả chương trình',machineCycles.length||null,starts.length?cycleClock(starts.reduce((a,b)=>Math.min(a,b),Infinity)):'Không có mốc START',ends.length?cycleClock(ends.reduce((a,b)=>Math.max(a,b),-Infinity)):'Không có mốc STOP',cycleDuration(r.runningMs),cycleDuration(r.alarmMs),cycleDuration(r.holdMs),r.rawCount,`${r.quality}; tổng trạng thái toàn kỳ${machineCycles.length?'; mốc giờ là đầu/cuối các lượt đã ghi nhận':'; chưa có nhật ký lượt chạy, không thể khôi phục mốc giờ'}`]);
+  }
+  for(const g of report.programs)overview.push([g.name,g.program,g.cycles,cycleClock(g.firstStartMs)||'Chưa ghi nhận START',cycleClock(g.lastEndMs)||'Chưa ghi nhận kết thúc',cycleDuration(g.runMs),cycleDuration(g.alarmMs),cycleDuration(g.holdMs),g.knownCounts?g.partCountDelta:null,`Tổng các lượt theo chương trình; xem từng lượt ở Theo ngày${g.incomplete?`; ${g.incomplete} lượt thiếu đầu/cuối`:''}`]);
+  const detail=[['Ngày','Máy','Chương trình','Giờ bắt đầu chạy (quan sát)','Giờ kết thúc (quan sát)','Thời gian chạy thực tế (RUN)','Tổng thời gian từ bắt đầu đến kết thúc','CYCLE TIME trên CNC','Thời gian Alarm','Thời gian HOLD','PART COUNT tăng','PART COUNT cuối','Ghi chú kết thúc']];
+  for(const c of report.cycles)detail.push([c.day,c.name,c.program||'',cycleClock(c.startMs)||'Chưa ghi nhận START',cycleClock(c.endMs)||'Chưa ghi nhận kết thúc',cycleDuration(c.runMs),cycleDuration(c.wallMs),cycleDuration(c.cncCycleTimeMs),cycleDuration(c.alarmMs),cycleDuration(c.holdMs),Number.isSafeInteger(c.partCountDelta)?c.partCountDelta:null,c.partCountEnd??null,c.status||'Chưa biết']);
   return [{name:'Tổng quan',rows:[...meta,...overview],header:4},{name:'Theo ngày',rows:[...meta,...detail],header:4}];
 }
