@@ -812,6 +812,7 @@ import { cncDisplayState, cncIsFresh, cncMeasurement, cncMode, cncDuration, cncS
               ${c.source === "focas" ? `<span class="cnc-label">RUN TIME:</span><span class="cnc-value">${showTelemetry ? cncDuration(c.runTimeMs) : "—"}</span><span class="cnc-label">CYCLE TIME:</span><span class="cnc-value">${showTelemetry ? cncDuration(c.cycleTimeMs) : "—"}</span>` : ""}
             </div>
 
+            ${showTelemetry && c.source === "focas" ? `<div class="meta" style="margin:10px 0;">${c.alarmDetailsRead === true ? (Array.isArray(c.alarmDetails) && c.alarmDetails.length ? c.alarmDetails.map(a => `<div style="color:var(--danger);margin:6px 0;"><strong>Alarm ${escapeHtml(a.number)} · loại ${escapeHtml(a.type)}${a.axis > 0 ? ` · trục ${escapeHtml(a.axis)}` : ""}</strong><br>${escapeHtml(a.message || "CNC không trả nội dung")}</div>`).join("") + (c.alarmsMayBeTruncated ? "Có thể còn Alarm khác trên CNC." : "") : "CNC không trả mã Alarm đang hoạt động.") : "Chưa đọc được mã/nội dung Alarm. Cần cầu nối bản 20261030-readonly-alarms; xem lỗi đọc nếu có."}</div>` : ""}
             ${signal.status === "alarm" ? `
               <div class="cnc-alarm-banner">
                 <strong style="color: var(--danger); font-size:13px;">⚠️ PHÁT HIỆN LỖI CNC:</strong>

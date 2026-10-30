@@ -1,8 +1,13 @@
 NEWAY 1260S - FOCAS STATUS ONLY (KHÔNG ĐỌC PMC)
-Bridge build: 20261029-status-only
+Bridge build: 20261030-readonly-alarms
 
 BẢN NÀY LÀM GÌ?
 - Đọc trạng thái CNC, tốc độ, số chương trình, PART COUNT và timer qua FOCAS.
+- Đọc tối đa 32 Alarm đang hoạt động bằng cnc_rdalmmsg2 (chỉ đọc).
+  Hiện số lỗi, loại lỗi, trục và nội dung CNC trả về; không tự suy diễn tiền tố mã.
+  Chưa tự lưu các mã này vào lịch sử. Alarm ngắn giữa hai lần đọc có thể bị bỏ lỡ.
+  Nội dung theo bảng mã Windows hiện tại; cần đối chiếu màn hình nếu chữ bị sai.
+  CNC không hỗ trợ sẽ báo readErrors.alarms, không làm dừng các thông số khác.
 - Không chứa hàm pmc_rdpmcrng, không đọc X/R, không có luồng đọc PMC nền.
 - Không có lệnh sửa ladder, ép tín hiệu, ghi tham số hoặc điều khiển CNC.
 - Vẫn là kết nối đọc bộ điều khiển CNC qua FOCAS, không phải hệ thống độc lập với CNC.
@@ -26,7 +31,7 @@ CẬP NHẬT QUAN TRỌNG
 6. Nhập email/mật khẩu CMMS tại lời nhắc, không ghi mật khẩu vào lệnh/config.
    Token và mật khẩu không được lưu trong file. Cần tài khoản email đã xác minh,
    vai trò technician, manager hoặc admin.
-7. Phải thấy Bridge build: 20261029-status-only. Bản mới từ chối sử dụng lớp C# cũ.
+7. Phải thấy Bridge build: 20261030-readonly-alarms. Bản mới từ chối sử dụng lớp C# cũ.
    Cấu hình cũ có pmcCycleSignals=true cũng không bật được PMC trong mã mới.
 8. Giữ LAN nối CNC, Wi-Fi có Internet và cửa sổ cầu nối mở. Không chạy hai bản cùng máy.
 

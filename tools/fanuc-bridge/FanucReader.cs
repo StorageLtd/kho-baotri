@@ -40,11 +40,58 @@ public static class FanucReader
     public struct CounterParameter { public short datano, type; public int value; }
     [StructLayout(LayoutKind.Sequential, Pack = 4)]
     public struct TimerReading { public int minute, msec; }
+    // Uploaded ODBALMMSG2: Windows long=4 bytes, message starts at offset 12.
+    [StructLayout(LayoutKind.Sequential, Pack = 4)]
+    public struct AlarmReading
+    {
+        public int number;
+        public short type, axis, dummy, messageLength;
+        [MarshalAs(UnmanagedType.ByValArray, SizeConst = 64)] public byte[] message;
+    }
+    public sealed class AlarmDetail
+    {
+        public int number, type, axis;
+        public string message;
+    }
+    public static AlarmDetail DecodeAlarm(AlarmReading value)
+    {
+        if (value.messageLength < 0 || value.messageLength > 64 || value.message == null || value.message.Length < value.messageLength)
+            throw new InvalidOperationException("Invalid alarm message length");
+        return new AlarmDetail { number=value.number, type=value.type, axis=value.axis,
+            message=Encoding.Default.GetString(value.message,0,value.messageLength).TrimEnd('\0',' ') };
+    }
+    [DllImport("Fwlib64.dll", CallingConvention = CallingConvention.Winapi, ExactSpelling = true)]
+    private static extern short cnc_rdalmmsg2(ushort handle, short type, ref short count, IntPtr messages);
+    private static void ReadAlarms(ushort handle, Snapshot snapshot)
+    {
+        const int capacity=32, size=76;
+        if (Marshal.SizeOf(typeof(AlarmReading)) != size) { snapshot.readErrors["alarms"]="Alarm structure size mismatch"; return; }
+        IntPtr buffer=Marshal.AllocHGlobal(capacity*size);
+        try {
+            Marshal.Copy(new byte[capacity*size],0,buffer,capacity*size);
+            short count=capacity;
+            short code=cnc_rdalmmsg2(handle,-1,ref count,buffer);
+            if(code!=0) { snapshot.readErrors["alarms"]="cnc_rdalmmsg2: FOCAS "+code; return; }
+            if(count<0 || count>capacity) { snapshot.readErrors["alarms"]="Invalid alarm count"; return; }
+            var details=new List<AlarmDetail>();
+            for(int i=0;i<count;i++) {
+                AlarmReading value=(AlarmReading)Marshal.PtrToStructure(IntPtr.Add(buffer,i*size),typeof(AlarmReading));
+                details.Add(DecodeAlarm(value));
+            }
+            snapshot.alarmDetails=details.ToArray();
+            snapshot.alarmDetailsRead=true;
+            snapshot.alarmsMayBeTruncated=count==capacity;
+        } catch(EntryPointNotFoundException) { snapshot.readErrors["alarms"]="cnc_rdalmmsg2 unavailable in this DLL"; }
+          catch(InvalidOperationException error) { snapshot.readErrors["alarms"]=error.Message; }
+        finally { Marshal.FreeHGlobal(buffer); }
+    }
     public sealed class Snapshot
     {
         public string timestampUtc, ip, cncType, machineType, series, version, axes;
         public int port, maximumAxes;
         public Status rawStatus;
+        public AlarmDetail[] alarmDetails;
+        public bool alarmDetailsRead, alarmsMayBeTruncated;
         public double? spindleSpeed, feedrate;
         public int? partCounter;
         public long? runTimeMs, cycleTimeMs;
@@ -233,6 +280,7 @@ public static class FanucReader
                 maximumAxes = info.max_axis, rawStatus = status
             };
             ReadOptionalTelemetry(handle, snapshot);
+            ReadAlarms(handle, snapshot);
             snapshot.timestampUtc=DateTime.UtcNow.ToString("o");
             return snapshot;
         }

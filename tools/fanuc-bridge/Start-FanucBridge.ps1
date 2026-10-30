@@ -71,12 +71,13 @@ function New-BridgePayload {
     elseif ($Snapshot.rawStatus.run -eq 3) { $state = 'running' }
     elseif ($Snapshot.rawStatus.run -eq 2) { $state = 'hold' }
     elseif ($Snapshot.rawStatus.run -in @(0, 1, 4)) { $state = 'idle' }
-    $alarm = if ($Snapshot.rawStatus.alarm -ne 0 -or $Snapshot.rawStatus.emergency -ne 0) { 'CNC status flags present; detailed alarm codes have not been read.' } else { '' }
+    $alarm = if ($Snapshot.rawStatus.alarm -ne 0 -or $Snapshot.rawStatus.emergency -ne 0) { 'Có tín hiệu Alarm/Emergency; xem chi tiết nếu CNC hỗ trợ.' } else { '' }
     return @{
         source = 'focas'; connected = $true; status = $state; lastSeen = @{ '.sv' = 'timestamp' }
         sampledAt = $Snapshot.timestampUtc; rawStatus = $Snapshot.rawStatus
         controllerInfo = @{ cncType = $Snapshot.cncType; series = $Snapshot.series; version = $Snapshot.version; axes = $Snapshot.axes }
         alarm = $alarm
+        alarmDetails = $Snapshot.alarmDetails; alarmDetailsRead = ($Snapshot.alarmDetailsRead -eq $true); alarmsMayBeTruncated = ($Snapshot.alarmsMayBeTruncated -eq $true)
         activeProgram = $Snapshot.activeProgram; mainProgram = $Snapshot.mainProgram
         spindleSpeed = $Snapshot.spindleSpeed; spindleUnit = $Snapshot.spindleUnit
         feedrate = $Snapshot.feedrate; feedrateUnit = $Snapshot.feedrateUnit
@@ -101,9 +102,9 @@ try {
     if ($config.firebaseApiKey -notmatch '^[A-Za-z0-9_-]+$') { throw 'Invalid Firebase Web API key.' }
     if (-not ('FanucReader' -as [type])) { Add-Type -Path (Join-Path $PSScriptRoot 'FanucReader.cs') }
     if (-not ([FanucReader].GetProperty('AccessMode')) -or [FanucReader]::AccessMode -ne 'FOCAS_STATUS_ONLY_V1') { throw 'Old reader loaded. CLOSE this PowerShell window and open a new one. The new bridge refuses to reuse the previous reader.' }
-    Write-Host "Bridge build: 20261029-status-only"
+    Write-Host "Bridge build: 20261030-readonly-alarms"
     Write-Host "Machine: $($config.machineName) | CNC $($config.cncIp):$($config.port)"
-    Write-Host 'Read-only CNC access. Reading status, actual spindle/feed and current/main O-number. Detailed alarm text is not read.'
+    Write-Host 'Read-only CNC access. Reading status, actual spindle/feed and current/main O-number. Reading alarm messages with cnc_rdalmmsg2; no PMC access or CNC writes.'
     # Test a real FOCAS read before requesting any credentials or creating the cloud record.
     $sample = [FanucReader]::Read([string]$config.cncIp, [uint16]$config.port, (Join-Path $PSScriptRoot 'lib'))
     if (-not $LocalOnly) {

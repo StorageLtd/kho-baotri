@@ -33,3 +33,13 @@ $timer=New-Object FanucReader+TimerReading;$timer.minute=123;$timer.msec=4567
 Assert-True ([FanucReader]::TimerMilliseconds($timer) -eq 7384567) 'Timer minutes/milliseconds conversion wrong'
 $timer.msec=60000;Assert-True ($null -eq [FanucReader]::TimerMilliseconds($timer)) 'Invalid timer accepted'
 Write-Output 'PASS: C# compilation, native structure sizes, decimal scaling, actual zero, feed units, failed/invalid API data, 4/8-digit program formatting.'
+$alarm=New-Object FanucReader+AlarmReading
+Assert-True ([Runtime.InteropServices.Marshal]::SizeOf([type][FanucReader+AlarmReading]) -eq 76) 'Alarm layout mismatch'
+Assert-True ([Runtime.InteropServices.Marshal]::OffsetOf([type][FanucReader+AlarmReading],'message').ToInt32() -eq 12) 'Alarm message offset mismatch'
+$alarm.number=1234;$alarm.type=2;$alarm.axis=1;$alarm.message=[Text.Encoding]::ASCII.GetBytes(('TEST ALARM'+(' '*54)));$alarm.messageLength=10
+$detail=[FanucReader]::DecodeAlarm($alarm)
+Assert-True ($detail.number -eq 1234 -and $detail.type -eq 2 -and $detail.axis -eq 1 -and $detail.message -eq 'TEST ALARM') 'Alarm data changed during decoding'
+$alarm.messageLength=65;$rejected=$false
+try{[FanucReader]::DecodeAlarm($alarm)}catch{$rejected=$true}
+Assert-True $rejected 'Invalid alarm message length accepted'
+Write-Output 'PASS: uploaded alarm structure size/offset, message decoding and invalid-length rejection.'

@@ -79,6 +79,11 @@ window.restoreFixtureClock = () => setCncClockOffset(0);
             assert 'Chương trình chính:' not in await card.inner_text()
             assert 'Dòng lệnh hiện tại:' not in await card.inner_text()
             assert '/ — RPM' not in await card.inner_text()
+            await page.evaluate("""renderFixture([{id:'neway-1260s',name:'Neway 1260S',source:'focas',connected:true,lastSeen:Date.now(),rawStatus:{run:0,alarm:1,emergency:0,aut:5},alarm:'Có tín hiệu Alarm',alarmDetailsRead:true,alarmDetails:[{number:1234,type:2,axis:1,message:'TEST <script>unsafe</script>'},{number:5678,type:3,axis:0,message:'SECOND ALARM'}]}])""")
+            assert 'Alarm 1234' in await card.inner_text()
+            assert 'SECOND ALARM' in await card.inner_text()
+            assert 'TEST <script>unsafe</script>' in await card.inner_text()
+            assert await card.locator('script').count() == 0
             await page.evaluate('startFixturePolling()')
             await page.clock.fast_forward(35000)
             await page.wait_for_function("document.querySelector('#card-neway-1260s').textContent.includes('MẤT KẾT NỐI')")
