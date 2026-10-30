@@ -52,3 +52,12 @@ test('durations show explicit units and historical totals never invent START/STO
  assert.equal(sheets[0].rows[5][5],'30 phút 0 giây');
  assert.ok(!sheets.flatMap(s=>s.rows[4]).some(h=>h.includes('(h)')));
 });
+
+test('daily table shows historical daily totals and concise headers without invented run times',()=>{
+ const sheets=reportSheets(build({a:session()})),daily=sheets[1];
+ assert.equal(daily.rows.length,6);assert.equal(daily.rows[5][2],'Tổng hợp ngày');
+ assert.equal(daily.rows[5][3],'Chưa ghi nhận');assert.equal(daily.rows[5][4],'Chưa ghi nhận');
+ assert.equal(daily.rows[5][5],'30 phút 0 giây');assert.equal(daily.rows[5][8],'10 phút 0 giây');
+ assert.equal(daily.rows[5][10],12);
+ for(const sheet of sheets)assert.ok(!sheet.rows[4].some(h=>/quan sát|\(h\)/.test(h)));
+});

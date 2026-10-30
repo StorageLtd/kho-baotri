@@ -92,7 +92,7 @@ export function cycleDuration(ms){
 }
 export function reportSheets(report) {
   const p=report.period,meta=[['LTD VIET NAM · BÁO CÁO CNC'],[`Kỳ: ${p.startDate} → ${p.endDate} · Giờ Việt Nam`],['START → STOP/RESET quan sát qua FOCAS. Tổng chạy = RUN, tách Alarm/HOLD; thời gian từ đầu đến cuối gồm cả tạm dừng. Không xác nhận M30.'],[]];
-  const overview=[['Máy','Chương trình','Số lượt quan sát','Bắt đầu đầu tiên đã ghi nhận','Kết thúc cuối cùng đã ghi nhận','Tổng thời gian chạy','Thời gian Alarm','Thời gian HOLD','PART COUNT tăng','Ghi chú']];
+  const overview=[['Máy','Chương trình','Số lượt chạy','Giờ bắt đầu','Giờ kết thúc','Tổng thời gian chạy','Thời gian Alarm','Thời gian HOLD','PART COUNT tăng','Ghi chú']];
   // Always show full observed-period totals, including time outside identifiable program runs.
   for(const r of report.summary){
     const machineCycles=report.cycles.filter(c=>c.machineId===r.machineId);
@@ -100,7 +100,12 @@ export function reportSheets(report) {
     overview.push([r.name,'Tổng kỳ · tất cả chương trình',machineCycles.length||null,starts.length?cycleClock(starts.reduce((a,b)=>Math.min(a,b),Infinity)):'Không có mốc START',ends.length?cycleClock(ends.reduce((a,b)=>Math.max(a,b),-Infinity)):'Không có mốc STOP',cycleDuration(r.runningMs),cycleDuration(r.alarmMs),cycleDuration(r.holdMs),r.rawCount,`${r.quality}; tổng trạng thái toàn kỳ${machineCycles.length?'; mốc giờ là đầu/cuối các lượt đã ghi nhận':'; chưa có nhật ký lượt chạy, không thể khôi phục mốc giờ'}`]);
   }
   for(const g of report.programs)overview.push([g.name,g.program,g.cycles,cycleClock(g.firstStartMs)||'Chưa ghi nhận START',cycleClock(g.lastEndMs)||'Chưa ghi nhận kết thúc',cycleDuration(g.runMs),cycleDuration(g.alarmMs),cycleDuration(g.holdMs),g.knownCounts?g.partCountDelta:null,`Tổng các lượt theo chương trình; xem từng lượt ở Theo ngày${g.incomplete?`; ${g.incomplete} lượt thiếu đầu/cuối`:''}`]);
-  const detail=[['Ngày','Máy','Chương trình','Giờ bắt đầu chạy (quan sát)','Giờ kết thúc (quan sát)','Thời gian chạy thực tế (RUN)','Tổng thời gian từ bắt đầu đến kết thúc','CYCLE TIME trên CNC','Thời gian Alarm','Thời gian HOLD','PART COUNT tăng','PART COUNT cuối','Ghi chú kết thúc']];
+  const detail=[['Ngày','Máy','Chương trình','Giờ bắt đầu','Giờ kết thúc','Thời gian chạy','Tổng thời gian','CYCLE TIME','Alarm','HOLD','PART COUNT tăng','PART COUNT cuối','Ghi chú kết thúc']];
   for(const c of report.cycles)detail.push([c.day,c.name,c.program||'',cycleClock(c.startMs)||'Chưa ghi nhận START',cycleClock(c.endMs)||'Chưa ghi nhận kết thúc',cycleDuration(c.runMs),cycleDuration(c.wallMs),cycleDuration(c.cncCycleTimeMs),cycleDuration(c.alarmMs),cycleDuration(c.holdMs),Number.isSafeInteger(c.partCountDelta)?c.partCountDelta:null,c.partCountEnd??null,c.status||'Chưa biết']);
-  return [{name:'Tổng quan',rows:[...meta,...overview],header:4},{name:'Theo ngày',rows:[...meta,...detail],header:4}];
+  // Old day totals remain visible without inventing individual runs or boundaries.
+  const coveredDays=new Set();
+  for(const c of report.cycles){coveredDays.add(c.machineId+'|'+c.day);for(const day of Object.keys(c.days||{}))coveredDays.add(c.machineId+'|'+day)}
+  for(const r of report.daily)if(r.sessions>0&&!coveredDays.has(r.machineId+'|'+r.day))detail.push([r.day,r.name,'Tổng hợp ngày','Chưa ghi nhận','Chưa ghi nhận',cycleDuration(r.runningMs),'','',cycleDuration(r.alarmMs),cycleDuration(r.holdMs),r.rawCounterMs>0?r.counterDelta:null,null,'Chưa có nhật ký từng lượt chạy']);
+  const sortedDetail=[detail[0],...detail.slice(1).sort((a,b)=>a[0].localeCompare(b[0])||a[1].localeCompare(b[1])||a[3].localeCompare(b[3]))];
+  return [{name:'Tổng quan',rows:[...meta,...overview],header:4},{name:'Theo ngày',rows:[...meta,...sortedDetail],header:4}];
 }

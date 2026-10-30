@@ -142,6 +142,12 @@ window.restoreFixtureClock = () => setCncClockOffset(0);
             download=await download_info.value
             assert download.suggested_filename.endswith('.xlsx')
             await download.save_as('/tmp/cnc-browser-report.xlsx')
+            del history['2026-10-28']['fixture']['cycles']
+            await report.get_by_role('button',name='Xem báo cáo').click()
+            await page.wait_for_function("document.querySelector('#cncReportDialog .cr-report').textContent.includes('Tổng hợp ngày')")
+            assert '30 phút 0 giây' in await report.locator('table').nth(1).inner_text()
+            assert 'Chưa ghi nhận' in await report.locator('table').nth(1).inner_text()
+            assert 'quan sát' not in await report.locator('table').nth(1).locator('thead').inner_text()
             # An empty period is explicitly unavailable, never a fabricated zero-production report.
             await page.route('**/cncReports/**',lambda route: route.fulfill(status=200,content_type='application/json',body='null'))
             await report.get_by_role('button',name='Xem báo cáo').click()

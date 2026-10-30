@@ -1,4 +1,4 @@
-import {reportPeriod,buildCncReport,reportSheets,cycleDuration,vnDate} from './cnc-reports.js?v=20261030-time-units';
+import {reportPeriod,buildCncReport,reportSheets,cycleDuration,vnDate} from './cnc-reports.js?v=20261030-daily-table';
 import {createCncWorkbook} from './cnc-xlsx.js?v=20261029-status-only';
 const esc=s=>String(s??'').replaceAll('&','&amp;').replaceAll('<','&lt;').replaceAll('>','&gt;').replaceAll('"','&quot;');
 const n=v=>v===null||v===undefined?'—':Number(v).toLocaleString('vi-VN',{maximumFractionDigits:2});
@@ -19,7 +19,7 @@ function renderReport(report){
  return `<header class="cr-heading"><h2>Báo cáo CNC</h2><p>${esc(report.period.startDate)} — ${esc(report.period.endDate)} · Giờ Việt Nam</p></header>
  <div class="cr-kpis"><article><span>RUN</span><strong>${cycleDuration(run)}</strong></article><article><span>Alarm</span><strong>${cycleDuration(alarm)}</strong></article><article><span>HOLD</span><strong>${cycleDuration(hold)}</strong></article><article><span>PART COUNT tăng</span><strong>${n(count)}</strong></article></div>
  <p class="cr-notice">Bắt đầu khi quan sát START; kết thúc khi quan sát STOP/RESET. Chỉ đọc trạng thái CNC qua FOCAS, không đọc PMC. Không xác nhận lệnh M30. Thời gian chạy (RUN) không gồm Alarm/HOLD; thời gian từ bắt đầu đến kết thúc bao gồm các khoảng đó. Không tính thời gian mất dữ liệu thành giờ dừng. Các mốc có sai số theo nhịp đọc cầu nối, thường khoảng 5 giây cộng thời gian kết nối. HOLD rồi chạy tiếp vẫn cùng một chu kỳ.</p>
- <h3>Tổng quan</h3>${table(sheets[0])}<h3>Theo ngày · mỗi chu kỳ một hàng</h3>${report.cycles.length?table(sheets[1]):'<p>Chưa có nhật ký chu kỳ trong kỳ này. Cần chạy cầu nối bản mới; tổng hợp cũ không thể tách lại thành từng chu kỳ.</p>'}`;
+ <h3>Tổng quan</h3>${table(sheets[0])}<h3>Theo ngày</h3>${table(sheets[1])}`;
 }
 function ensureDialog(){
  if(dialog)return;
