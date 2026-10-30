@@ -1,11 +1,16 @@
 NEWAY 1260S - FOCAS STATUS ONLY (KHÔNG ĐỌC PMC)
-Bridge build: 20261030-readonly-alarms
+Bridge build: 20261030-alarm-history
 
 BẢN NÀY LÀM GÌ?
 - Đọc trạng thái CNC, tốc độ, số chương trình, PART COUNT và timer qua FOCAS.
 - Đọc tối đa 32 Alarm đang hoạt động bằng cnc_rdalmmsg2 (chỉ đọc).
   Hiện số lỗi, loại lỗi, trục và nội dung CNC trả về; không tự suy diễn tiền tố mã.
-  Chưa tự lưu các mã này vào lịch sử. Alarm ngắn giữa hai lần đọc có thể bị bỏ lỡ.
+  Tự lưu Alarm mới vào cncAlarms ngay trong lần đọc phát hiện lỗi; không cần mở web.
+  Alarm giữ nguyên không tạo dòng trùng; hết rồi tái xuất hiện tạo sự cố mới.
+  Lưu hàng chờ và trạng thái vào report-outbox/alarms-*.json, tự gửi lại khi có mạng.
+  Giữ nguyên report-outbox khi nâng cấp để tránh mất dữ liệu hoặc lặp sự cố.
+  Hết lỗi chỉ ghi khi đọc thành công không còn mã đó; mất kết nối không đóng sự cố.
+  Alarm ngắn giữa hai lần đọc có thể bị bỏ lỡ. Web tải lịch sử mỗi 5 giây.
   Nội dung theo bảng mã Windows hiện tại; cần đối chiếu màn hình nếu chữ bị sai.
   CNC không hỗ trợ sẽ báo readErrors.alarms, không làm dừng các thông số khác.
 - Không chứa hàm pmc_rdpmcrng, không đọc X/R, không có luồng đọc PMC nền.
@@ -31,7 +36,7 @@ CẬP NHẬT QUAN TRỌNG
 6. Nhập email/mật khẩu CMMS tại lời nhắc, không ghi mật khẩu vào lệnh/config.
    Token và mật khẩu không được lưu trong file. Cần tài khoản email đã xác minh,
    vai trò technician, manager hoặc admin.
-7. Phải thấy Bridge build: 20261030-readonly-alarms. Bản mới từ chối sử dụng lớp C# cũ.
+7. Phải thấy Bridge build: 20261030-alarm-history. Bản mới từ chối sử dụng lớp C# cũ.
    Cấu hình cũ có pmcCycleSignals=true cũng không bật được PMC trong mã mới.
 8. Giữ LAN nối CNC, Wi-Fi có Internet và cửa sổ cầu nối mở. Không chạy hai bản cùng máy.
 
@@ -54,6 +59,8 @@ WEB VÀ BÁO CÁO
 - Excel chỉ Tổng quan và Theo ngày. Theo ngày có hàng chu kỳ, giờ RUN/Alarm/HOLD,
   giờ bắt đầu/dừng quan sát và PART COUNT. Dữ liệu cũ tổng hợp ngày không tách ngược thành chu kỳ.
 - FIREBASE UPDATED: tín hiệu hiện tại gửi thành công.
+- ALARM HISTORY SAVED: một bản ghi Alarm đã gửi Firebase thành công.
+  Nếu báo HTTP 401/403, kiểm tra quyền cncAlarms trong Rules hiện có, không mở quyền công khai.
 - REPORTS UPDATED: tổng hợp và chu kỳ đã được lưu. Dùng lại nhánh cncReports Rules đã thêm.
 - Nếu chưa có quyền báo cáo, thêm nhánh trong FIREBASE-REPORTS-RULES.json vào Rules
   hiện có và Publish, không thay toàn bộ Rules hoặc mở quyền công khai.

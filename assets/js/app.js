@@ -329,8 +329,8 @@ import { cncDisplayState, cncIsFresh, cncMeasurement, cncMode, cncDuration, cncS
         finally { syncingClock = false; showStatus(); refreshCncTelemetryView(); }
       };
       void readMachines(); void readAlarms(); void syncClock();
-      setInterval(() => { refreshCncTelemetryView(); void readMachines(); }, 5000);
-      setInterval(() => { void readAlarms(); void syncClock(); }, 15000);
+      setInterval(() => { refreshCncTelemetryView(); void readMachines(); void readAlarms(); }, 5000);
+      setInterval(() => { void syncClock(); }, 15000);
       document.addEventListener("visibilitychange", () => {
         if (!document.hidden) { void syncClock(); void readMachines(); }
       });
@@ -939,7 +939,7 @@ import { cncDisplayState, cncIsFresh, cncMeasurement, cncMode, cncDuration, cncS
       els.cncMachineAlarmHistoryBody.innerHTML = rows.map(a => {
         const isResolved = Boolean(a.resolvedAt);
         const statusPill = isResolved
-          ? `<span class="pill ok">Đã xử lý</span><div class="meta" style="margin-top:4px;">${formatDateDisplay(a.resolvedAt)} ${new Date(a.resolvedAt).toLocaleTimeString("vi-VN")}</div>`
+          ? `<span class="pill ok">${a.source === "focas" ? "Hết tín hiệu lỗi" : "Đã xử lý"}</span><div class="meta" style="margin-top:4px;">${formatDateDisplay(a.resolvedAt)} ${new Date(a.resolvedAt).toLocaleTimeString("vi-VN")}</div>`
           : `<span class="pill danger">Đang lỗi</span>`;
         return `
           <tr>
@@ -1033,7 +1033,7 @@ import { cncDisplayState, cncIsFresh, cncMeasurement, cncMode, cncDuration, cncS
       addAct(`Đã xử lý xong (Clear Alarm) cho máy CNC: ${c.name}`);
       render();
       showToast(`Đã xóa lỗi cho máy ${c.name}. Máy trở lại trạng thái Sẵn Sàng (RUN).`);
-      await Promise.all([fbFetch(`cncs/${id}`, "PATCH", { status: c.status, alarm: c.alarm, spindleSpeed: c.spindleSpeed ?? null, feedrate: c.feedrate ?? null }), syncNode("cncAlarms", cncAlarmHistory), syncNode("activities", activities)]);
+      await Promise.all([fbFetch(`cncs/${id}`, "PATCH", { status: c.status, alarm: c.alarm, spindleSpeed: c.spindleSpeed ?? null, feedrate: c.feedrate ?? null }), ...cncAlarmHistory.filter(a => a.cncId === id && a.source !== "focas" && a.resolvedAt).map(a => fbFetch(`cncAlarms/${a.id}`, "PATCH", { resolvedAt: a.resolvedAt })), syncNode("activities", activities)]);
 
       if (cncAlarmHistoryViewId === id && els.cncAlarmHistoryDialog.open) {
         renderCncMachineAlarmHistory(id);
@@ -1679,7 +1679,7 @@ import { cncDisplayState, cncIsFresh, cncMeasurement, cncMode, cncDuration, cncS
           a.cncName,
           a.alarmCode,
           a.description,
-          a.resolvedAt ? "Đã xử lý" : "Chưa ghi nhận xử lý",
+          a.resolvedAt ? (a.source === "focas" ? "Hết tín hiệu lỗi" : "Đã xử lý") : "Chưa ghi nhận kết thúc",
           resolvedStr
         ];
       });

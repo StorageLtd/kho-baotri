@@ -64,6 +64,66 @@ function Send-BridgePatch {
     $uri = "$($Config.databaseUrl)/cncs/$($Config.machineId).json?auth=$($script:Auth.idToken)"
     $null = Invoke-BridgeHttp $uri 'PATCH' $Payload 'Send telemetry'
 }
+function Initialize-BridgeAlarmHistory {
+    param([string]$Folder, [string]$MachineId, [string]$Uid)
+    $script:AlarmStatePath = Join-Path $Folder ('alarms-' + $MachineId + '-' + $Uid + '.json')
+    $script:AlarmActive = @{}; $script:AlarmPending = @{}
+    if (Test-Path -LiteralPath $script:AlarmStatePath) {
+        $saved = Get-Content -LiteralPath $script:AlarmStatePath -Raw -Encoding UTF8 | ConvertFrom-Json
+        if ($saved.machineId -ne $MachineId -or $saved.uid -ne $Uid) { throw 'Alarm outbox identity mismatch.' }
+        foreach ($entry in $saved.active.PSObject.Properties) { $script:AlarmActive[$entry.Name] = $entry.Value }
+        foreach ($entry in $saved.pending.PSObject.Properties) { $script:AlarmPending[$entry.Name] = $entry.Value }
+    }
+    $script:AlarmMachineId=$MachineId; $script:AlarmUid=$Uid
+}
+function Save-BridgeAlarmHistory {
+    $state=@{machineId=$script:AlarmMachineId;uid=$script:AlarmUid;active=$script:AlarmActive;pending=$script:AlarmPending}
+    $temporary=$script:AlarmStatePath+'.tmp'
+    $state | ConvertTo-Json -Depth 10 | Set-Content -LiteralPath $temporary -Encoding UTF8
+    Move-Item -LiteralPath $temporary -Destination $script:AlarmStatePath -Force
+}
+function Add-BridgeAlarmSample {
+    param($Config, $Snapshot)
+    # Failed/partial reads must never close an alarm or invent a cleared state.
+    if ($Snapshot.alarmDetailsRead -ne $true) { return }
+    $seen=@{}; $changed=$false
+    foreach ($detail in $Snapshot.alarmDetails) {
+        $key='{0}_{1}_{2}' -f $detail.type,$detail.number,$detail.axis
+        $seen[$key]=$true
+        if ($script:AlarmActive.ContainsKey($key)) { continue }
+        $id='focas-'+[Guid]::NewGuid().ToString('N')
+        $record=@{id=$id;cncId=$Config.machineId;cncName=$Config.machineName;timestamp=$Snapshot.timestampUtc;
+            alarmCode=[string]$detail.number;alarmType=[int]$detail.type;axis=[int]$detail.axis;
+            description=[string]$detail.message;source='focas';uid=$script:AlarmUid;observedBy='cnc_rdalmmsg2'}
+        $script:AlarmActive[$key]=$record; $script:AlarmPending[$id]=$record; $changed=$true
+    }
+    if ($Snapshot.alarmsMayBeTruncated -ne $true) {
+        foreach ($key in @($script:AlarmActive.Keys)) {
+            if ($seen.ContainsKey($key)) { continue }
+            $active=$script:AlarmActive[$key]; $closed=@{}
+            if ($active -is [Collections.IDictionary]) { foreach($name in $active.Keys){$closed[$name]=$active[$name]} }
+            else { foreach($field in $active.PSObject.Properties){$closed[$field.Name]=$field.Value} }
+            $closed.resolvedAt=$Snapshot.timestampUtc
+            $closed.resolutionSource='Alarm no longer returned by a successful CNC read; repair not confirmed'
+            $script:AlarmPending[$closed.id]=$closed; $script:AlarmActive.Remove($key); $changed=$true
+        }
+    }
+    if ($changed) { Save-BridgeAlarmHistory }
+}
+function Send-PendingBridgeAlarms {
+    param($Config)
+    if (-not $script:AlarmPending.Count) { return }
+    Update-BridgeToken $Config
+    $sent=0
+    foreach($id in @($script:AlarmPending.Keys)) {
+        $uri="$($Config.databaseUrl)/cncAlarms/$id.json?auth=$($script:Auth.idToken)"
+        $null=Invoke-BridgeHttp $uri 'PATCH' $script:AlarmPending[$id] 'Save CNC alarm history'
+        $script:AlarmPending.Remove($id)
+        Save-BridgeAlarmHistory
+        Write-Host ('ALARM HISTORY SAVED: '+$id)
+        $sent++; if($sent -ge 10){break}
+    }
+}
 function New-BridgePayload {
     param($Snapshot)
     $state = 'unknown'
@@ -102,7 +162,7 @@ try {
     if ($config.firebaseApiKey -notmatch '^[A-Za-z0-9_-]+$') { throw 'Invalid Firebase Web API key.' }
     if (-not ('FanucReader' -as [type])) { Add-Type -Path (Join-Path $PSScriptRoot 'FanucReader.cs') }
     if (-not ([FanucReader].GetProperty('AccessMode')) -or [FanucReader]::AccessMode -ne 'FOCAS_STATUS_ONLY_V1') { throw 'Old reader loaded. CLOSE this PowerShell window and open a new one. The new bridge refuses to reuse the previous reader.' }
-    Write-Host "Bridge build: 20261030-readonly-alarms"
+    Write-Host "Bridge build: 20261030-alarm-history"
     Write-Host "Machine: $($config.machineName) | CNC $($config.cncIp):$($config.port)"
     Write-Host 'Read-only CNC access. Reading status, actual spindle/feed and current/main O-number. Reading alarm messages with cnc_rdalmmsg2; no PMC access or CNC writes.'
     # Test a real FOCAS read before requesting any credentials or creating the cloud record.
@@ -122,6 +182,7 @@ try {
         }
         if($config.partsPerCount -lt 1 -or $config.partsPerCount -gt 1000 -or [double]$config.partsPerCount -ne [Math]::Truncate([double]$config.partsPerCount)){throw 'partsPerCount must be an integer from 1 to 1000.'}
         Initialize-CncReports (Join-Path $PSScriptRoot 'report-outbox') $config.machineId $script:Auth.uid $config
+        Initialize-BridgeAlarmHistory (Join-Path $PSScriptRoot 'report-outbox') $config.machineId $script:Auth.uid
         $reportingStarted = $true
         Send-BridgePatch $config @{ id = $config.machineId; name = $config.machineName; ip = $config.cncIp; port = [int]$config.port; model = $config.model; source = 'focas'; connected = $false; status = 'offline' }
         $machineRegistered = $true
@@ -139,7 +200,11 @@ try {
             }
         }
         if ($null -ne $sample) {
-            if($reportingStarted){Add-CncReportSample $sample}
+            if($reportingStarted){
+                Add-CncReportSample $sample
+                try { Add-BridgeAlarmSample $config $sample } catch { Write-Warning ('Alarm local save failed: '+$_.Exception.Message) }
+                try { Send-PendingBridgeAlarms $config } catch { Write-Warning ('Alarm history upload failed; retained locally: '+$_.Exception.Message) }
+            }
             $payload = New-BridgePayload $sample
             $uploaded = $false
             if (-not $LocalOnly) {
