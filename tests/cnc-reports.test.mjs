@@ -34,7 +34,7 @@ test('genuine XLSX contains two sheets and strings are not formulas',async()=>{
 test('cycle rows preserve observed start/end, hold and alarm; summary groups by main program',()=>{
  const a=session();a.cycles={one:{id:'cycle1',program:'O0002',observedFromMs:start+1000,observedToMs:start+26000,startMs:start+1000,endMs:start+26000,runMs:15000,holdMs:5000,alarmMs:5000,waitMs:0,wallMs:25000,partCountDelta:1,partCountEnd:11,status:'STOP/RESET; M30 not confirmed',days:{'2026-10-28':{runMs:15000,holdMs:5000,alarmMs:5000}}}};
  const report=build({a});assert.equal(report.cycles.length,1);assert.equal(report.programs[0].runMs,15000);assert.equal(report.programs[0].partCountDelta,1);
- const sheets=reportSheets(report);assert.deepEqual(sheets.map(s=>s.name),['Tổng quan','Theo ngày']);assert.equal(sheets[1].rows[5][10],1);assert.match(sheets[1].rows[5][12],/not confirmed/);
+ const sheets=reportSheets(report);assert.deepEqual(sheets.map(s=>s.name),['Tổng quan','Theo ngày']);assert.equal(sheets[1].rows[5][10],1);assert.equal(sheets[1].rows[5][12],'Đã kết thúc');
  assert.equal(sheets[1].rows[5][3],'2026-10-28 00:00:01');
  assert.equal(sheets[1].rows[5][4],'2026-10-28 00:00:26');
  assert.equal(sheets[0].rows[5][5],'30 phút 0 giây');assert.equal(sheets[0].rows[6][5],'15 giây');

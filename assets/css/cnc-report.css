@@ -3,3 +3,9 @@
 #cncMonitoringPage>.workspace{grid-template-columns:minmax(0,1fr)}
 
 .cnc-state-light{display:inline-block;width:9px;height:9px;border-radius:50%;margin-right:6px;background:#8a9790}.cnc-state-light.running{background:#16805b}.cnc-state-light.hold{background:#d6a739}.cnc-state-light.alarm{background:#c65252}.cnc-status.idle{background:#edf0ee;color:#59685f}
+
+/* The report must scroll independently of the global dialog overflow rule. */
+dialog.cr-dialog { overflow-y: auto; overflow-x: hidden; overscroll-behavior: contain; max-height: 92vh; max-height: 92dvh; }
+.cr-dialog .cr-toolbar { position: sticky; top: 0; z-index: 2; }
+.cr-status:empty { display: none; }
+.cr-dialog .cr-scroll { max-height: none; }

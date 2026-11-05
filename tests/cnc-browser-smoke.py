@@ -163,12 +163,37 @@ window.restoreFixtureClock = () => setCncClockOffset(0);
             assert '2026-10-28 00:00:01' in await report.locator('table').nth(1).inner_text()
             assert await report.locator('table').nth(1).locator('tbody tr').count()==1
             assert 'O0002' in await report.locator('table').nth(1).inner_text()
-            assert 'chưa xác nhận M30' in await report.locator('table').nth(1).inner_text()
+            assert 'Đã kết thúc' in await report.locator('table').nth(1).inner_text()
             async with page.expect_download() as download_info:
                 await report.get_by_role('button',name='Xuất Excel (.xlsx)').click()
             download=await download_info.value
             assert download.suggested_filename.endswith('.xlsx')
             await download.save_as('/tmp/cnc-browser-report.xlsx')
+            # Long reports must remain reachable in the dialog, not only in print.
+            template=history['2026-10-28']['fixture']['cycles']['one']
+            long_cycles={}
+            for i in range(60):
+                cycle=json.loads(json.dumps(template))
+                cycle.update(id=f'long-{i}',program=f'O{i+1:04d}',observedFromMs=report_start+1000+i*30000,observedToMs=report_start+26000+i*30000,startMs=report_start+1000+i*30000,endMs=report_start+26000+i*30000)
+                long_cycles[str(i)]=cycle
+            history['2026-10-28']['fixture']['cycles']=long_cycles
+            for width,height in [(1280,720),(390,844)]:
+                await page.set_viewport_size({'width':width,'height':height})
+                await report.get_by_role('button',name='Xem báo cáo').click()
+                await page.wait_for_function("document.querySelectorAll('#cncReportDialog table:first-child tbody tr').length>=60")
+                assert await report.locator('.cr-notice').count()==0
+                assert 'không đọc PMC' not in await report.inner_text()
+                assert await report.evaluate("e=>getComputedStyle(e).overflowY")=='auto'
+                await report.evaluate('e=>e.scrollTop=0')
+                await report.hover()
+                await page.mouse.wheel(0,1600)
+                await page.wait_for_function("document.querySelector('#cncReportDialog').scrollTop>0")
+                last_row=report.locator('table').nth(1).locator('tbody tr').last
+                await last_row.scroll_into_view_if_needed()
+                assert await report.evaluate('e=>e.scrollTop')>1000
+                row_box=await last_row.bounding_box();dialog_box=await report.bounding_box()
+                assert row_box['y']+row_box['height']<=dialog_box['y']+dialog_box['height']+2
+                assert row_box['y']>=dialog_box['y']
             del history['2026-10-28']['fixture']['cycles']
             await report.get_by_role('button',name='Xem báo cáo').click()
             await page.wait_for_function("document.querySelector('#cncReportDialog .cr-report').textContent.includes('Tổng hợp ngày')")

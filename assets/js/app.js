@@ -1,6 +1,6 @@
 ﻿import { downloadInventoryWorkbook } from "./inventory-xlsx.js?v=20261105-no-prices";
 import { maintenancePlan, repairHistoryForm, alarmHistoryForm, downloadMaintenanceWorkbook } from "./maintenance-xlsx.js?v=20261105-alarm";
-import { openCncReports } from "./cnc-report-ui.js?v=20261030-daily-table";
+import { openCncReports } from "./cnc-report-ui.js?v=20261105-report-scroll";
 import { cncDisplayState, cncIsFresh, cncMeasurement, cncMode, cncDuration, cncServerNow, setCncClockOffset } from "./cnc-status.js?v=20261029-web-sync";
 
     import { initializeSession, onSessionChanged, signIn, signOutUser, sendVerification, registerAccount, getToken, getUser, loadProfile, role, canEdit, displayName } from "./auth.js?v=20261026-login";
