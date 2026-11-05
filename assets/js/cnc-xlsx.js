@@ -3,10 +3,10 @@ const encoder=new TextEncoder();
 const esc=s=>String(s??'').replace(/[\x00-\x08\x0b\x0c\x0e-\x1f]/g,'').replaceAll('&','&amp;').replaceAll('<','&lt;').replaceAll('>','&gt;').replaceAll('"','&quot;');
 const column=n=>{let s='';for(n++;n;n=Math.floor((n-1)/26))s=String.fromCharCode(65+(n-1)%26)+s;return s};
 function crc32(bytes){let crc=0xffffffff;for(const b of bytes){crc^=b;for(let k=0;k<8;k++)crc=(crc>>>1)^((crc&1)?0xedb88320:0)}return(crc^0xffffffff)>>>0}
-function zip(files){
+export function zipWorkbook(files){
   const chunks=[],central=[];let offset=0;
   for(const [path,text] of Object.entries(files)){
-    const name=encoder.encode(path),data=encoder.encode(text),crc=crc32(data);
+    const name=encoder.encode(path),data=typeof text==='string'?encoder.encode(text):text,crc=crc32(data);
     const header=new Uint8Array(30+name.length),h=new DataView(header.buffer);
     h.setUint32(0,0x04034b50,true);h.setUint16(4,20,true);h.setUint16(6,0x800,true);h.setUint16(12,33,true);
     h.setUint32(14,crc,true);h.setUint32(18,data.length,true);h.setUint32(22,data.length,true);h.setUint16(26,name.length,true);header.set(name,30);
@@ -34,5 +34,5 @@ export function createCncWorkbook(sheets){
     }).join('')}</row>`).join('');
     files[`xl/worksheets/sheet${index+1}.xml`]=`<worksheet xmlns="${ns}"><sheetPr><pageSetUpPr fitToPage="1"/></sheetPr><dimension ref="A1:${last}${s.rows.length}"/><sheetViews><sheetView workbookViewId="0"><pane ySplit="${h+1}" topLeftCell="A${h+2}" activePane="bottomLeft" state="frozen"/></sheetView></sheetViews><sheetFormatPr defaultRowHeight="21"/><cols>${Array.from({length:width},(_,x)=>`<col min="${x+1}" max="${x+1}" width="${width===2?(x?110:26):(x===0?25:19)}" customWidth="1"/>`).join('')}</cols><sheetData>${rows}</sheetData><autoFilter ref="A${h+1}:${last}${s.rows.length}"/><mergeCells count="3"><mergeCell ref="A1:${last}1"/><mergeCell ref="A2:${last}2"/><mergeCell ref="A3:${last}3"/></mergeCells><pageMargins left="0.25" right="0.25" top="0.5" bottom="0.5" header="0.2" footer="0.2"/><pageSetup paperSize="9" orientation="landscape" fitToWidth="1" fitToHeight="0"/><headerFooter><oddFooter>&amp;L${esc(s.name)}&amp;RTrang &amp;P / &amp;N</oddFooter></headerFooter></worksheet>`;
   });
-  return zip(files);
+  return zipWorkbook(files);
 }

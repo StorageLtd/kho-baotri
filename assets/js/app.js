@@ -1,4 +1,5 @@
-﻿import { openCncReports } from "./cnc-report-ui.js?v=20261030-daily-table";
+﻿import { downloadInventoryWorkbook } from "./inventory-xlsx.js?v=20261105-ltd";
+import { openCncReports } from "./cnc-report-ui.js?v=20261030-daily-table";
 import { cncDisplayState, cncIsFresh, cncMeasurement, cncMode, cncDuration, cncServerNow, setCncClockOffset } from "./cnc-status.js?v=20261029-web-sync";
 
     import { initializeSession, onSessionChanged, signIn, signOutUser, sendVerification, registerAccount, getToken, getUser, loadProfile, role, canEdit, displayName } from "./auth.js?v=20261026-login";
@@ -1651,11 +1652,14 @@ import { cncDisplayState, cncIsFresh, cncMeasurement, cncMode, cncDuration, cncS
       reader.readAsDataURL(file);
     });
 
-    // XUẤT CSV CHUẨN ĐỒNG BỘ EXCEL (TIẾNG VIỆT CÓ DẤU)
-    els.exportBtn.addEventListener("click", () => {
-      const h = ["Tên linh kiện", "Mã SKU", "Nhóm linh kiện", "Thông số kỹ thuật", "Số lượng thực tế", "Tồn tối thiểu", "Vị trí kệ", "Thiết bị áp dụng", "Giá tham khảo"];
-      const r = items.map(i => [i.name, i.sku, i.category, i.specs || '', i.quantity, i.min, i.location, i.supplier, i.price]);
-      downloadCsv(h, r, "kho-linh-kien-ltd");
+    // Xuất danh sách linh kiện theo mẫu Excel LTD.
+    els.exportBtn.addEventListener("click", async () => {
+      els.exportBtn.disabled = true;
+      try {
+        await downloadInventoryWorkbook(items, {actor: displayName()});
+        showToast("Đã xuất Excel tồn kho có logo LTD.");
+      } catch (error) { showToast(error.message || "Không xuất được Excel. Vui lòng thử lại."); }
+      finally { els.exportBtn.disabled = false; }
     });
     els.exportMachineBtn.addEventListener("click", () => {
       const h = ["Tên máy", "Model máy", "Số Serial", "Ngày lắp", "Hạn bảo hành", "Nhà cung cấp", "SĐT"];

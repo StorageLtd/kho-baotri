@@ -41,6 +41,7 @@ async def run():
             await page.route('https://*.firebasedatabase.app/**', lambda route: route.fulfill(status=503, content_type='application/json', body='{}'))
             source = (ROOT/'assets/js/app.js').read_text(encoding='utf-8-sig')
             hook = '''
+window.renderInventoryFixture = records => {items=records;render();switchPage('inventoryPage');document.body.classList.remove('locked')};
 window.renderFixture = (records) => {
   cncs=records; render(); switchPage('cncMonitoringPage');
   document.body.classList.remove('locked');
@@ -51,6 +52,12 @@ window.restoreFixtureClock = () => setCncClockOffset(0);
             await page.route('**/assets/js/app.js*', lambda route: route.fulfill(status=200, content_type='text/javascript', body=source+hook))
             await page.goto(f'http://127.0.0.1:{server.server_port}/', wait_until='networkidle')
             await page.wait_for_function("typeof window.renderFixture === 'function'")
+            await page.evaluate("""renderInventoryFixture([{id:'inventory-fixture',name:'Cảm biến tiệm cận',sku:'000123',category:'Điện',specs:'M18 24VDC',quantity:1,min:2,price:220000,location:'A-01',supplier:'Máy CNC'}])""")
+            async with page.expect_download() as inventory_info:
+                await page.get_by_role('button',name='Xuất Excel linh kiện',exact=True).click()
+            inventory_download=await inventory_info.value
+            assert inventory_download.suggested_filename.endswith('.xlsx')
+            await inventory_download.save_as('/tmp/inventory-browser.xlsx')
             await page.evaluate('''renderFixture([
               {id:'neway-1260s',name:'Neway 1260S',source:'focas',connected:true,lastSeen:Date.now(),rawStatus:{run:3,alarm:0,emergency:0,aut:1},ip:'169.254.85.99',port:8193,model:'FANUC 0i-MF Plus'},
               {id:'old',name:'Old demo data',status:'running',spindleSpeed:1200,ip:'192.168.1.101',port:8193}
