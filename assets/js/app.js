@@ -1,4 +1,4 @@
-﻿import { downloadInventoryWorkbook } from "./inventory-xlsx.js?v=20261105-ltd";
+﻿import { downloadInventoryWorkbook } from "./inventory-xlsx.js?v=20261105-ltd-table";
 import { openCncReports } from "./cnc-report-ui.js?v=20261030-daily-table";
 import { cncDisplayState, cncIsFresh, cncMeasurement, cncMode, cncDuration, cncServerNow, setCncClockOffset } from "./cnc-status.js?v=20261029-web-sync";
 
