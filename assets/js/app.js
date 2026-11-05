@@ -1,4 +1,4 @@
-﻿import { downloadInventoryWorkbook } from "./inventory-xlsx.js?v=20261105-ltd-table";
+﻿import { downloadInventoryWorkbook } from "./inventory-xlsx.js?v=20261105-no-prices";
 import { openCncReports } from "./cnc-report-ui.js?v=20261030-daily-table";
 import { cncDisplayState, cncIsFresh, cncMeasurement, cncMode, cncDuration, cncServerNow, setCncClockOffset } from "./cnc-status.js?v=20261029-web-sync";
 
@@ -102,7 +102,6 @@ import { cncDisplayState, cncIsFresh, cncMeasurement, cncMode, cncDuration, cncS
       supplierInput: document.querySelector("#supplierInput"),
       quantityInput: document.querySelector("#quantityInput"),
       minInput: document.querySelector("#minInput"),
-      priceInput: document.querySelector("#priceInput"),
       locationInput: document.querySelector("#locationInput"),
       specsInput: document.querySelector("#specsInput"),
       noteInput: document.querySelector("#noteInput"),
@@ -1267,7 +1266,6 @@ import { cncDisplayState, cncIsFresh, cncMeasurement, cncMode, cncDuration, cncS
       els.supplierInput.value = item?.supplier || "";
       els.quantityInput.value = item?.quantity ?? 0;
       els.minInput.value = item?.min ?? 0;
-      els.priceInput.value = item?.price ?? 0;
       els.locationInput.value = item?.location || "";
       els.specsInput.value = item?.specs || "";
       els.noteInput.value = item?.note || "";
@@ -1291,10 +1289,11 @@ import { cncDisplayState, cncIsFresh, cncMeasurement, cncMode, cncDuration, cncS
       e.preventDefault();
       const id = els.itemId.value || crypto.randomUUID();
       const payload = {
+        ...items.find(item => item.id === id),
         id, name: els.nameInput.value.trim(), sku: els.skuInput.value.trim().toUpperCase(),
         category: els.categoryInput.value.trim(), supplier: els.supplierInput.value.trim(),
         quantity: Number(els.quantityInput.value), min: Number(els.minInput.value),
-        price: Number(els.priceInput.value), location: els.locationInput.value.trim(), 
+        location: els.locationInput.value.trim(),
         specs: els.specsInput.value.trim(), note: els.noteInput.value.trim(),
         image: els.itemImageDataHidden.value || ""
       };

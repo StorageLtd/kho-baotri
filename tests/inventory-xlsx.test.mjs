@@ -17,9 +17,9 @@ test('inventory exports a branded real XLSX with original logo, numeric values, 
  assert.equal(bytes[0],0x50);assert.equal(bytes[1],0x4b);
  await writeFile('/tmp/ltd-inventory-fixture.xlsx',bytes);
  const text=new TextDecoder().decode(bytes);
- for(const value of ['BÁO CÁO TỒN KHO LINH KIỆN','CÔNG TY LTD VIỆT NAM','Cần bổ sung','Hết hàng','Đủ tồn','Chưa có số liệu','000123','xl/media/logo.jpg','showGridLines="0"','topLeftCell="A9"','autoFilter ref="A8:L12"','xl/tables/table1.xml','displayName="LTDInventory"'])assert.ok(text.includes(value),value);
+ for(const value of ['BÁO CÁO TỒN KHO LINH KIỆN','CÔNG TY LTD VIỆT NAM','Cần bổ sung','Hết hàng','Đủ tồn','Chưa có số liệu','000123','xl/media/logo.jpg','showGridLines="0"','topLeftCell="A9"','autoFilter ref="A8:K12"','xl/tables/table1.xml','displayName="LTDInventory"'])assert.ok(text.includes(value),value);
  assert.ok(!text.includes('<f>'));assert.ok(text.includes('=HYPERLINK(&quot;unsafe&quot;)'));
- assert.ok(text.includes('<v>670000</v>'));
+ assert.ok(!text.includes('Giá tham khảo'));assert.ok(!text.includes('GIÁ TRỊ THAM KHẢO'));assert.ok(!text.includes('<v>670000</v>'));
  assert.ok(text.includes('&lt;SKU&amp;&gt;'));
 });
 test('empty inventory is valid and missing logo fails explicitly',async()=>{
