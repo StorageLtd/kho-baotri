@@ -42,6 +42,7 @@ async def run():
             source = (ROOT/'assets/js/app.js').read_text(encoding='utf-8-sig')
             hook = '''
 window.renderInventoryFixture = records => {items=records;render();switchPage('inventoryPage');document.body.classList.remove('locked')};
+window.renderMaintenanceFixture = pageId => {machines=[{id:'fixture-machine',name:'Neway 1260S',model:'VMC',serial:'000123'}];maintenanceJobs=[{id:'fixture-job',machineId:'fixture-machine',machineName:'Neway 1260S',jobName:'Tra dầu',recurrence:'weekly',nextDate:'2026-11-05',owner:'Fixture',desc:'Kiểm tra dầu'}];repairHistory=[{id:'fixture-history',machine:'Neway 1260S',faultTime:'2026-11-05',staff:'Fixture',fault:'Dầu thấp',fix:'Đã bổ sung dầu'}];render();switchPage(pageId);document.body.classList.remove('locked')};
 window.renderFixture = (records) => {
   cncs=records; render(); switchPage('cncMonitoringPage');
   document.body.classList.remove('locked');
@@ -58,6 +59,13 @@ window.restoreFixtureClock = () => setCncClockOffset(0);
             inventory_download=await inventory_info.value
             assert inventory_download.suggested_filename.endswith('.xlsx')
             await inventory_download.save_as('/tmp/inventory-browser.xlsx')
+            for section,label,path in [('maintenanceJobsPage','Xuất Excel lịch bảo trì','/tmp/maintenance-browser.xlsx'),('historyPage','Xuất Excel lịch sử','/tmp/history-browser.xlsx')]:
+                await page.evaluate('(section)=>renderMaintenanceFixture(section)',section)
+                async with page.expect_download() as maintenance_info:
+                    await page.get_by_role('button',name=label,exact=True).click()
+                maintenance_download=await maintenance_info.value
+                assert maintenance_download.suggested_filename.endswith('.xlsx')
+                await maintenance_download.save_as(path)
             await page.evaluate('''renderFixture([
               {id:'neway-1260s',name:'Neway 1260S',source:'focas',connected:true,lastSeen:Date.now(),rawStatus:{run:3,alarm:0,emergency:0,aut:1},ip:'169.254.85.99',port:8193,model:'FANUC 0i-MF Plus'},
               {id:'old',name:'Old demo data',status:'running',spindleSpeed:1200,ip:'192.168.1.101',port:8193}

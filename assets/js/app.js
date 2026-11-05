@@ -1,4 +1,5 @@
 ﻿import { downloadInventoryWorkbook } from "./inventory-xlsx.js?v=20261105-no-prices";
+import { maintenancePlan, repairHistoryForm, downloadMaintenanceWorkbook } from "./maintenance-xlsx.js?v=20261105-forms";
 import { openCncReports } from "./cnc-report-ui.js?v=20261030-daily-table";
 import { cncDisplayState, cncIsFresh, cncMeasurement, cncMode, cncDuration, cncServerNow, setCncClockOffset } from "./cnc-status.js?v=20261029-web-sync";
 
@@ -1691,16 +1692,14 @@ import { cncDisplayState, cncIsFresh, cncMeasurement, cncMode, cncDuration, cncS
     }
 
     document.querySelector("#exportCncAlarmSectionBtn").addEventListener("click", exportCncAlarmExcel);
-    els.exportJobBtn.addEventListener("click", () => {
-      const h = ["Tên máy", "Model máy", "Số Serial", "Hạng mục bảo trì", "Chu kỳ", "Ngày thực hiện kế tiếp", "Người phụ trách", "Thời lượng dự kiến", "Người thiết lập", "Công việc cụ thể / Checklist"];
-      const r = maintenanceJobs.map(j => { const machine = machines.find(m => m.id === j.machineId) || {}; return [j.machineName, machine.model || "", machine.serial || "", j.jobName, recurrenceLabel(j), formatDateDisplay(j.nextDate), j.owner || "", j.estimatedTime || "", j.createdBy || "", j.desc]; });
-      downloadCsv(h, r, "ke-hoach-job-bao-tri-ltd");
-    });
-    els.exportHistoryBtn.addEventListener("click", () => {
-      const h = ["Ngày sửa sự cố", "Máy bị lỗi", "Người chịu trách nhiệm", "Mô tả lỗi", "Phương án xử lý"];
-      const r = repairHistory.map(x => [formatDateDisplay(x.faultTime), x.machine, x.staff, x.fault, x.fix]);
-      downloadCsv(h, r, "lich-su-sua-may-ltd");
-    });
+    async function exportMaintenanceForm(button, build) {
+      button.disabled = true;
+      try { await downloadMaintenanceWorkbook(build(), {actor: displayName()}); showToast("Đã xuất Excel theo mẫu LTD."); }
+      catch(error) { showToast(error.message || "Không xuất được Excel. Vui lòng thử lại."); }
+      finally { button.disabled = false; }
+    }
+    els.exportJobBtn.addEventListener("click", () => exportMaintenanceForm(els.exportJobBtn, () => maintenancePlan(maintenanceJobs, machines, {recurrenceLabel})));
+    els.exportHistoryBtn.addEventListener("click", () => exportMaintenanceForm(els.exportHistoryBtn, () => repairHistoryForm(repairHistory)));
 
     function movementVoucherNumber(movement, movements = stockMovements) {
       const dateFormatter = new Intl.DateTimeFormat("sv-SE", {
