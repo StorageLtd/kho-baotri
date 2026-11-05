@@ -1,0 +1,2 @@
+Copy your matching x64 Fwlib64.dll, fwlibe64.dll and fwlib30i64.dll here.
+Do not copy them into System32. DLL files are not included in this test package.
