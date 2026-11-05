@@ -43,6 +43,7 @@ async def run():
             hook = '''
 window.renderInventoryFixture = records => {items=records;render();switchPage('inventoryPage');document.body.classList.remove('locked')};
 window.renderMaintenanceFixture = pageId => {machines=[{id:'fixture-machine',name:'Neway 1260S',model:'VMC',serial:'000123'}];maintenanceJobs=[{id:'fixture-job',machineId:'fixture-machine',machineName:'Neway 1260S',jobName:'Tra dầu',recurrence:'weekly',nextDate:'2026-11-05',owner:'Fixture',desc:'Kiểm tra dầu'}];repairHistory=[{id:'fixture-history',machine:'Neway 1260S',faultTime:'2026-11-05',staff:'Fixture',fault:'Dầu thấp',fix:'Đã bổ sung dầu'}];render();switchPage(pageId);document.body.classList.remove('locked')};
+window.exportVoucherFixture = type => {stockMovements=[{id:'voucher-fixture',type,at:'2026-11-05T02:30:00Z',sku:'000123',itemName:'Cảm biến',amount:3,beforeQuantity:10,afterQuantity:type==='in'?13:7,actor:'Fixture',note:'Sửa máy'}];return exportMovementVoucher('voucher-fixture')};
 window.renderAlarmFixture = records => {cncAlarmHistory=records;renderCncAlarmsOnly()};
 window.renderFixture = (records) => {
   cncs=records; render(); switchPage('cncMonitoringPage');
@@ -60,6 +61,13 @@ window.restoreFixtureClock = () => setCncClockOffset(0);
             inventory_download=await inventory_info.value
             assert inventory_download.suggested_filename.endswith('.xlsx')
             await inventory_download.save_as('/tmp/inventory-browser.xlsx')
+            for kind in ['in','out']:
+                async with page.expect_download() as voucher_info:
+                    await page.evaluate('(kind)=>exportVoucherFixture(kind)',kind)
+                voucher_download=await voucher_info.value
+                assert voucher_download.suggested_filename.startswith('LTD-PN001' if kind=='in' else 'LTD-PX001')
+                assert voucher_download.suggested_filename.endswith('.xlsx')
+                await voucher_download.save_as(f'/tmp/voucher-browser-{kind}.xlsx')
             for section,label,path in [('maintenanceJobsPage','Xuất Excel lịch bảo trì','/tmp/maintenance-browser.xlsx'),('historyPage','Xuất Excel lịch sử','/tmp/history-browser.xlsx')]:
                 await page.evaluate('(section)=>renderMaintenanceFixture(section)',section)
                 async with page.expect_download() as maintenance_info:
@@ -148,8 +156,8 @@ window.restoreFixtureClock = () => setCncClockOffset(0);
             # Report creation/export uses daily session fixtures, never the production database.
             import datetime, json
             report_start=int(datetime.datetime(2026,10,28,tzinfo=datetime.timezone(datetime.timedelta(hours=7))).timestamp()*1000)
-            history={'2026-10-28':{'fixture':{'schemaVersion':1,'source':'focas','machineId':'neway-1260s','sessionId':'fixture','date':'2026-10-28','firstMs':report_start,'lastMs':report_start+3600000,'observedMs':3600000,'runningMs':1800000,'idleMs':600000,'holdMs':600000,'alarmMs':600000,'unknownStateMs':0,'counterDelta':12,'counterObservedMs':3600000,'counterResets':0,'counterVerified':True,'partsPerCount':2}}}
-            history['2026-10-28']['fixture']['cycles']={'one':{'id':'cycle1','program':'O0002','observedFromMs':report_start+1000,'observedToMs':report_start+26000,'startMs':report_start+1000,'endMs':report_start+26000,'runMs':15000,'holdMs':5000,'alarmMs':5000,'waitMs':0,'wallMs':25000,'cncCycleTimeMs':25000,'partCountDelta':1,'partCountEnd':11,'status':'Dừng/RESET quan sát; chưa xác nhận M30','days':{'2026-10-28':{'runMs':15000,'holdMs':5000,'alarmMs':5000}}}}
+            history={'2026-10-28':{'fixture':{'schemaVersion':1,'source':'focas','machineId':'neway-1260s','sessionId':'fixture','date':'2026-10-28','firstMs':report_start,'lastMs':report_start+3600000,'observedMs':3600000,'partCountStart':20,'partCountEnd':32,'runningMs':1800000,'idleMs':600000,'holdMs':600000,'alarmMs':600000,'unknownStateMs':0,'counterDelta':12,'counterObservedMs':3600000,'counterResets':0,'counterVerified':True,'partsPerCount':2}}}
+            history['2026-10-28']['fixture']['cycles']={'one':{'id':'cycle1','program':'O0002','observedFromMs':report_start+1000,'observedToMs':report_start+26000,'startMs':report_start+1000,'endMs':report_start+26000,'runMs':15000,'holdMs':5000,'alarmMs':5000,'waitMs':0,'wallMs':25000,'cncCycleTimeMs':25000,'partCountStart':20,'partCountDelta':1,'partCountEnd':21,'status':'Dừng/RESET quan sát; chưa xác nhận M30','days':{'2026-10-28':{'runMs':15000,'holdMs':5000,'alarmMs':5000}}}}
             await page.route('**/cncReports/**',lambda route: route.fulfill(status=200,content_type='application/json',body=json.dumps(history)))
             await page.locator('#exportCncBtn').click()
             report=page.locator('#cncReportDialog')
@@ -157,7 +165,7 @@ window.restoreFixtureClock = () => setCncClockOffset(0);
             await report.get_by_role('button',name='Xem báo cáo').click()
             await page.wait_for_function("document.querySelector('#cncReportDialog .cr-report').textContent.includes('Tổng quan')")
             assert 'Neway 1260S' in await report.inner_text()
-            assert '12' in await report.locator('.cr-kpis').inner_text()
+            assert '32' in await report.locator('.cr-kpis').inner_text()
             assert '30 phút 0 giây' in await report.locator('.cr-kpis').inner_text()
             assert '15 giây' in await report.locator('table').nth(1).inner_text()
             assert '2026-10-28 00:00:01' in await report.locator('table').nth(1).inner_text()

@@ -1,5 +1,5 @@
 NEWAY 1260S - FOCAS STATUS ONLY (KHÔNG ĐỌC PMC)
-Bridge build: 20261030-alarm-history
+Bridge build: 20261105-part-count
 
 BẢN NÀY LÀM GÌ?
 - Đọc trạng thái CNC, tốc độ, số chương trình, PART COUNT và timer qua FOCAS.
@@ -36,7 +36,7 @@ CẬP NHẬT QUAN TRỌNG
 6. Nhập email/mật khẩu CMMS tại lời nhắc, không ghi mật khẩu vào lệnh/config.
    Token và mật khẩu không được lưu trong file. Cần tài khoản email đã xác minh,
    vai trò technician, manager hoặc admin.
-7. Phải thấy Bridge build: 20261030-alarm-history. Bản mới từ chối sử dụng lớp C# cũ.
+7. Phải thấy Bridge build: 20261105-part-count. Bản mới từ chối sử dụng lớp C# cũ.
    Cấu hình cũ có pmcCycleSignals=true cũng không bật được PMC trong mã mới.
 8. Giữ LAN nối CNC, Wi-Fi có Internet và cửa sổ cầu nối mở. Không chạy hai bản cùng máy.
 
@@ -50,7 +50,10 @@ QUY TẮC CHU KỲ
   Chu kỳ quá ngắn có thể bị bỏ lỡ; không coi là ghi chính xác thời điểm nút bấm.
 - Mất dữ liệu hoặc đổi chương trình giữa chu kỳ: đánh dấu chưa đầy đủ, không đoán kết thúc.
 - Alarm sau khi đã STOP thuộc tổng hợp trạng thái ngày, không ép vào một chu kỳ đã đóng.
-- PART COUNT tăng là chênh lệch bộ đếm quan sát được, không mặc định là sản phẩm đạt.
+- PART COUNT đầu/cuối là giá trị đọc trực tiếp từ bộ đếm 6711 trên CNC.
+  Đổi chương trình hoặc khởi động lại cầu nối không đặt lại số đếm.
+  Nếu CNC tự reset bộ đếm thì hiển thị đúng số CNC trả về, không cộng bù.
+  Báo cáo cũ chỉ có số tăng không thể khôi phục mốc tuyệt đối nếu chưa từng lưu.
 - RUN TIME/CYCLE TIME đọc từ CNC; nếu không hỗ trợ sẽ để trống/báo lỗi, cần đối chiếu màn hình.
 
 WEB VÀ BÁO CÁO

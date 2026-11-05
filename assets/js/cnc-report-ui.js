@@ -1,4 +1,4 @@
-import {reportPeriod,buildCncReport,reportSheets,cycleDuration,vnDate} from './cnc-reports.js?v=20261105-report-scroll';
+import {reportPeriod,buildCncReport,reportSheets,cycleDuration,vnDate} from './cnc-reports.js?v=20261105-part-count';
 import {createCncWorkbook} from './cnc-xlsx.js?v=20261029-status-only';
 const esc=s=>String(s??'').replaceAll('&','&amp;').replaceAll('<','&lt;').replaceAll('>','&gt;').replaceAll('"','&quot;');
 const n=v=>v===null||v===undefined?'—':Number(v).toLocaleString('vi-VN',{maximumFractionDigits:2});
@@ -12,11 +12,11 @@ async function loadMachine(id,period,token){
 }
 function renderReport(report){
  const rows=report.summary,run=rows.reduce((s,r)=>s+r.runningMs,0),hold=rows.reduce((s,r)=>s+r.holdMs,0),alarm=rows.reduce((s,r)=>s+r.alarmMs,0);
- const count=rows.every(r=>r.rawCount!==null)?rows.reduce((s,r)=>s+r.rawCount,0):null;
+ const count=rows.length===1?rows[0].counterEnd:null;
  const sheets=reportSheets(report);
  const table=sheet=>`<div class="cr-scroll"><table><thead><tr>${sheet.rows[sheet.header].map(v=>`<th>${esc(v)}</th>`).join('')}</tr></thead><tbody>${sheet.rows.slice(sheet.header+1).map(row=>`<tr>${row.map(v=>`<td>${typeof v==='number'?n(v):esc(v??'—')}</td>`).join('')}</tr>`).join('')}</tbody></table></div>`;
  return `<header class="cr-heading"><h2>Báo cáo CNC</h2><p>${esc(report.period.startDate)} — ${esc(report.period.endDate)} · Giờ Việt Nam</p></header>
- <div class="cr-kpis"><article><span>RUN</span><strong>${cycleDuration(run)}</strong></article><article><span>Alarm</span><strong>${cycleDuration(alarm)}</strong></article><article><span>HOLD</span><strong>${cycleDuration(hold)}</strong></article><article><span>PART COUNT tăng</span><strong>${n(count)}</strong></article></div>
+ <div class="cr-kpis"><article><span>RUN</span><strong>${cycleDuration(run)}</strong></article><article><span>Alarm</span><strong>${cycleDuration(alarm)}</strong></article><article><span>HOLD</span><strong>${cycleDuration(hold)}</strong></article><article><span>PART COUNT trên CNC</span><strong>${rows.length===1?n(count):`${rows.length} máy`}</strong>${rows.length>1?rows.map(r=>`<small>${esc(r.name)}: ${n(r.counterEnd)}</small>`).join(''):''}</article></div>
  <h3>Tổng quan</h3>${table(sheets[0])}<h3>Theo ngày</h3>${table(sheets[1])}`;
 }
 function ensureDialog(){

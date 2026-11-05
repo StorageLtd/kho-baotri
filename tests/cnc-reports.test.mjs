@@ -32,9 +32,9 @@ test('genuine XLSX contains two sheets and strings are not formulas',async()=>{
 });
 
 test('cycle rows preserve observed start/end, hold and alarm; summary groups by main program',()=>{
- const a=session();a.cycles={one:{id:'cycle1',program:'O0002',observedFromMs:start+1000,observedToMs:start+26000,startMs:start+1000,endMs:start+26000,runMs:15000,holdMs:5000,alarmMs:5000,waitMs:0,wallMs:25000,partCountDelta:1,partCountEnd:11,status:'STOP/RESET; M30 not confirmed',days:{'2026-10-28':{runMs:15000,holdMs:5000,alarmMs:5000}}}};
+ const a=session();a.cycles={one:{id:'cycle1',program:'O0002',observedFromMs:start+1000,observedToMs:start+26000,startMs:start+1000,endMs:start+26000,runMs:15000,holdMs:5000,alarmMs:5000,waitMs:0,wallMs:25000,partCountStart:10,partCountDelta:1,partCountEnd:11,status:'STOP/RESET; M30 not confirmed',days:{'2026-10-28':{runMs:15000,holdMs:5000,alarmMs:5000}}}};
  const report=build({a});assert.equal(report.cycles.length,1);assert.equal(report.programs[0].runMs,15000);assert.equal(report.programs[0].partCountDelta,1);
- const sheets=reportSheets(report);assert.deepEqual(sheets.map(s=>s.name),['Tổng quan','Theo ngày']);assert.equal(sheets[1].rows[5][10],1);assert.equal(sheets[1].rows[5][12],'Đã kết thúc');
+ const sheets=reportSheets(report);assert.deepEqual(sheets.map(s=>s.name),['Tổng quan','Theo ngày']);assert.equal(sheets[1].rows[5][10],10);assert.equal(sheets[1].rows[5][12],'Đã kết thúc');
  assert.equal(sheets[1].rows[5][3],'2026-10-28 00:00:01');
  assert.equal(sheets[1].rows[5][4],'2026-10-28 00:00:26');
  assert.equal(sheets[0].rows[5][5],'30 phút 0 giây');assert.equal(sheets[0].rows[6][5],'15 giây');
@@ -58,6 +58,15 @@ test('daily table shows historical daily totals and concise headers without inve
  assert.equal(daily.rows.length,6);assert.equal(daily.rows[5][2],'Tổng hợp ngày');
  assert.equal(daily.rows[5][3],'Chưa ghi nhận');assert.equal(daily.rows[5][4],'Chưa ghi nhận');
  assert.equal(daily.rows[5][5],'30 phút 0 giây');assert.equal(daily.rows[5][8],'10 phút 0 giây');
- assert.equal(daily.rows[5][10],12);
+ assert.equal(daily.rows[5][10],null);
  for(const sheet of sheets)assert.ok(!sheet.rows[4].some(h=>/quan sát|\(h\)/.test(h)));
+});
+
+test('absolute CNC counter markers survive collector sessions and do not become deltas or synthetic totals',()=>{
+ const a=session({partCountStart:20,partCountEnd:21});
+ const b=session({sessionId:'b',firstMs:start+3600000,lastMs:start+7200000,partCountStart:21,partCountEnd:22});
+ const report=build({b,a});assert.equal(report.summary[0].counterStart,20);assert.equal(report.summary[0].counterEnd,22);
+ const sheet=reportSheets(report)[0];assert.equal(sheet.rows[5][8],20);assert.equal(sheet.rows[5][9],22);
+ assert.equal(reportSheets(build({a:session()}))[0].rows[5][9],null);
+ const reset=build({a:session({partCountStart:20,partCountEnd:0})});assert.equal(reset.summary[0].counterEnd,0);
 });

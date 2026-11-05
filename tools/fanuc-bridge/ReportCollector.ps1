@@ -24,6 +24,7 @@ function Get-OrCreateCncReportDay {
             firstMs=$TimeMs; lastMs=$TimeMs; observedMs=0L
             runningMs=0L; idleMs=0L; holdMs=0L; alarmMs=0L; unknownStateMs=0L
             counterDelta=0L; counterObservedMs=0L; counterComparisons=0L; counterResets=0L
+            partCountStart=$null; partCountEnd=$null; partCountFirstMs=$null; partCountLastMs=$null
             counterParameter=6711; counterVerified=$script:CounterVerified; partsPerCount=$script:PartsPerCount
             sampleCount=0L; gapCount=0L
         }
@@ -45,6 +46,10 @@ function Add-CncReportSample {
     Add-CncCycleSample $Sample $time
     $day=Get-OrCreateCncReportDay $time
     $day.sampleCount++; $day.lastMs=[Math]::Max([long]$day.lastMs,$time)
+    if ($null -ne $Sample.partCounter -and [long]$Sample.partCounter -ge 0) {
+        if ($null -eq $day.partCountStart) { $day.partCountStart=[long]$Sample.partCounter; $day.partCountFirstMs=$time }
+        $day.partCountEnd=[long]$Sample.partCounter; $day.partCountLastMs=$time
+    }
     $previous=$script:PreviousReportSample
     if($null -ne $previous) {
         $from=[long]$previous.time; $elapsed=$time-$from
@@ -164,8 +169,8 @@ function Add-CncCycleSample($Sample,[long]$TimeMs) {
             id=($script:ReportSession+'-'+$script:CycleIndex.ToString('D6')); program=$program
             observedFromMs=$TimeMs;observedToMs=$TimeMs;startMs=if($knownStart){$TimeMs}else{$null};endMs=$null
             runMs=0L;holdMs=0L;alarmMs=0L;waitMs=0L;wallMs=$null
-            partCountStart=$Sample.partCounter;partCountEnd=$Sample.partCounter;partCountDelta=$null;observedCountDelta=0L
-            counterComplete=($null -ne $Sample.partCounter);cncCycleTimeMs=$Sample.cycleTimeMs;cncRunStartMs=$Sample.runTimeMs;cncRunDeltaMs=$null
+            partCountStart=if($knownStart -and $null -ne $previous.counter){$previous.counter}else{$Sample.partCounter};partCountEnd=$Sample.partCounter;partCountDelta=$null;observedCountDelta=if($knownStart -and $null -ne $previous.counter -and $null -ne $Sample.partCounter -and $Sample.partCounter -ge $previous.counter){[long]$Sample.partCounter-[long]$previous.counter}else{0L}
+            counterComplete=($null -ne $Sample.partCounter -and (-not $knownStart -or ($null -ne $previous.counter -and $Sample.partCounter -ge $previous.counter)));cncCycleTimeMs=$Sample.cycleTimeMs;cncRunStartMs=$Sample.runTimeMs;cncRunDeltaMs=$null
             m30Confirmed=$false;boundarySource='sampled-status';status=if($knownStart){'Đang quan sát'}else{'Đang quan sát; thiếu thời điểm bắt đầu'};days=@{}
         }
         Save-CncCycle

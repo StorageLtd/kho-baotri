@@ -4,7 +4,7 @@ import {readFile,writeFile} from 'node:fs/promises';
 const uri=text=>'data:text/javascript;base64,'+Buffer.from(text).toString('base64');
 const zip=uri(await readFile(new URL('../assets/js/cnc-xlsx.js',import.meta.url),'utf8'));
 const source=(await readFile(new URL('../assets/js/maintenance-xlsx.js',import.meta.url),'utf8')).replace('./cnc-xlsx.js?v=20261105-maintenance',zip);
-const {maintenancePlan,repairHistoryForm,alarmHistoryForm,createMaintenanceWorkbook}=await import(uri(source));
+const {maintenancePlan,repairHistoryForm,alarmHistoryForm,movementVoucherForm,createMaintenanceWorkbook}=await import(uri(source));
 const generatedAt=new Date('2026-11-05T03:00:00Z'),logoBytes=new Uint8Array(await readFile(new URL('../logo.jpg',import.meta.url)));
 const machines=[{id:'m1',name:'Neway 1260S',model:'VMC',serial:'000123'}];
 const jobs=[{machineId:'m1',jobName:'Tra dầu',nextDate:'2026-11-08',owner:'Nhân viên A',desc:'Kiểm tra mức dầu\nBổ sung dầu theo quy định'}, {machineId:'m1',jobName:'Kiểm tra lọc',nextDate:'2026-11-03',estimatedTime:'30 phút'}, {machineId:'m1',jobName:'Kiểm tra điện',nextDate:'2026-11-05'}, {machineId:'m1',jobName:'Chưa có lịch',nextDate:'2026-02-30'}];
@@ -44,4 +44,14 @@ test('CNC alarm form orders newest first, retains raw codes/type/axis, timestamp
  assert.equal(layout.data[1][7],'Chưa ghi nhận kết thúc');assert.match(layout.data[1][6],/\n/);
  assert.equal(layout.data[2][7],'Đã xử lý');assert.equal(JSON.stringify(records),before);
  await writeFile('/tmp/ltd-alarm-history.xlsx',new Uint8Array(await createMaintenanceWorkbook(layout,{logoBytes,generatedAt}).arrayBuffer()));
+});
+
+test('in/out stock vouchers preserve document number, SKU, quantities and four signature boxes',async()=>{
+ for(const type of ['in','out']){
+  const movement={type,at:'2026-11-05T02:30:00Z',sku:'000123',itemName:'Cảm biến',amount:3,beforeQuantity:10,afterQuantity:type==='in'?13:7,actor:'Fixture',note:'Sửa máy'};
+  const number=type==='in'?'LTD-PN001-20261105':'LTD-PX001-20261105',layout=movementVoucherForm(movement,number);
+  assert.equal(layout.summary[0][1],number);assert.equal(layout.data[0][1],'000123');assert.equal(layout.data[0][6],movement.afterQuantity);
+  assert.equal(layout.signature.roles.length,4);assert.equal(layout.exactFilename,true);
+  await writeFile(`/tmp/ltd-voucher-${type}.xlsx`,new Uint8Array(await createMaintenanceWorkbook(layout,{logoBytes,generatedAt}).arrayBuffer()));
+ }
 });

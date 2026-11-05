@@ -39,5 +39,19 @@ try{
  Assert-True ($stopped.Count -eq 1 -and $stopped[0].wallMs -eq 5000) 'STOP=1 did not close the observed interval'
  Add-CncReportSample (Sample 95 3 14 0 'O0003')
  Assert-True ($null -ne $script:ActiveCycle.startMs) 'START after STOP did not create a new row'
+ Close-CncReports
+ Initialize-CncReports $folder 'neway-1260s' 'owner' $config
+ Add-CncReportSample (Sample 100 0 20)
+ Add-CncReportSample (Sample 105 3 21)
+ Add-CncReportSample (Sample 110 0 21)
+ $countCycle=@($script:ReportDays['2026-10-29'].cycles.Values)[0]
+ Assert-True ($countCycle.partCountStart -eq 20 -and $countCycle.partCountEnd -eq 21 -and $countCycle.partCountDelta -eq 1) 'Absolute count baseline at START lost'
+ Assert-True ($script:ReportDays['2026-10-29'].partCountStart -eq 20 -and $script:ReportDays['2026-10-29'].partCountEnd -eq 21) 'Daily absolute counter markers missing'
+ Close-CncReports
+ Initialize-CncReports $folder 'neway-1260s' 'owner' $config
+ Add-CncReportSample (Sample 115 0 21 0 'O0003')
+ Add-CncReportSample (Sample 120 3 21 0 'O0003')
+ Add-CncReportSample (Sample 125 0 22 0 'O0003')
+ Assert-True ($script:ReportDays['2026-10-29'].partCountStart -eq 21 -and $script:ReportDays['2026-10-29'].partCountEnd -eq 22) 'Restart/program change reset absolute CNC counts'
  Write-Output 'PASS: cycle rows; HOLD/resume kept together; RUN/alarm/HOLD durations; part deltas; no false M30; gaps and mid-run startup remain incomplete.'
 }finally{Close-CncReports;if(Test-Path $folder){Remove-Item $folder -Recurse -Force}}
