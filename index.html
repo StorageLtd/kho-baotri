@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>LTD VIET NAM - Cloud Maintenance System</title>
-  <link rel="stylesheet" href="assets/css/app.css?v=20261023-sku-search">
+  <link rel="stylesheet" href="assets/css/app.css?v=20261105-compact-maintenance">
   <link rel="stylesheet" href="assets/css/cnc-report.css?v=20261029-status-only">
 </head>
 <body class="locked">
@@ -117,6 +117,7 @@
           <button class="btn primary" id="addBtn" type="button">Thêm linh kiện</button>
           <button class="btn primary" id="addMachineMainBtn" type="button" style="display:none;">Thêm máy mới</button>
           <button class="btn primary" id="addCncMainBtn" type="button" style="display:none;">Thêm máy CNC mới</button>
+          <button class="btn" id="addMaintenanceMachineBtn" type="button" style="display:none;">Thêm máy quản lý</button>
           <button class="btn primary" id="addJobMainBtn" type="button" style="display:none;">Tạo Job Bảo Trì</button>
         </div>
       </header>
@@ -367,17 +368,7 @@
       <!-- Trang Kế Hoạch Job Bảo Trì -->
       <section class="content" id="maintenanceJobsPage" hidden>
         <section class="section">
-          <div class="section-head">
-            <div>
-              <h3>Kế hoạch bảo trì theo thiết bị</h3>
-              <div class="meta">Quản lý nhiều máy; mỗi máy có danh sách hạng mục, chu kỳ, người lập và công việc thực hiện riêng.</div>
-            </div>
-            <div class="row-actions">
-              <button class="btn" id="addMaintenanceMachineBtn" type="button">Thêm máy quản lý</button>
-              <button class="btn primary" id="addJobBtn" type="button">Thiết lập lịch bảo trì</button>
-            </div>
-          </div>
-          <div style="padding: 16px 20px; background: #fbfcfa; border-bottom: 1px solid var(--line);">
+          <div class="maintenance-filter">
             <div class="field">
               <label for="jobSearchInput">Lọc nhanh theo tên máy hoặc tên công việc</label>
               <input class="input" id="jobSearchInput" type="search" placeholder="Ví dụ: Kiểm tra biến tần, Thay dầu...">
@@ -789,6 +780,6 @@
 
   <div class="toast" id="toast" role="status" aria-live="polite"></div>
 
-  <script type="module" src="assets/js/app.js?v=20261105-maintenance-forms"></script>
+  <script type="module" src="assets/js/app.js?v=20261105-compact-maintenance"></script>
 </body>
 </html>

@@ -502,7 +502,7 @@ import { cncDisplayState, cncIsFresh, cncMeasurement, cncMode, cncDuration, cncS
         adminAuditOpen = false;
         els.adminAuditPanel.hidden = true;
       }
-      document.querySelectorAll("button.primary, button.danger, #addMachineBtn, #addCncBtn, #addJobBtn").forEach(button => {
+      document.querySelectorAll("button.primary, button.danger, #addMachineBtn, #addCncBtn, #addMaintenanceMachineBtn").forEach(button => {
         if (button.closest(".login-screen")) return;
         button.disabled = true;
         button.title = "Tài khoản chỉ có quyền xem. Liên hệ quản lý để được cấp quyền chỉnh sửa.";
@@ -525,6 +525,7 @@ import { cncDisplayState, cncIsFresh, cncMeasurement, cncMode, cncDuration, cncS
       els.addBtn.style.display = (pageId === "inventoryPage") ? "inline-flex" : "none";
       els.addCncMainBtn.style.display = (pageId === "cncMonitoringPage") ? "inline-flex" : "none";
       els.addMachineMainBtn.style.display = (pageId === "machinesPage") ? "inline-flex" : "none";
+      els.addMaintenanceMachineBtn.style.display = (pageId === "maintenanceJobsPage") ? "inline-flex" : "none";
       els.addJobMainBtn.style.display = (pageId === "maintenanceJobsPage") ? "inline-flex" : "none";
       els.exportBtn.style.display = (pageId === "inventoryPage") ? "inline-flex" : "none";
       els.exportCncBtn.style.display = (pageId === "cncMonitoringPage") ? "inline-flex" : "none";
@@ -1572,7 +1573,6 @@ import { cncDisplayState, cncIsFresh, cncMeasurement, cncMode, cncDuration, cncS
     els.addJobMainBtn.addEventListener("click", () => openJobDialog());
     document.querySelector("#addMachineBtn").addEventListener("click", () => openMachineDialog());
     els.addMaintenanceMachineBtn.addEventListener("click", () => openMachineDialog());
-    document.querySelector("#addJobBtn").addEventListener("click", () => openJobDialog());
     els.toggleAdminAuditBtn.addEventListener("click", toggleAdminAudit);
     els.adminAuditEntry.querySelector(":scope > .section-head").addEventListener("click", event => {
       if (!event.target.closest("button")) toggleAdminAudit();
