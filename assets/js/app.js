@@ -14,6 +14,7 @@ import { cncDisplayState, cncIsFresh, cncMeasurement, cncMode, cncDuration, cncS
     const mySessionId = sessionStorage.getItem("ltd_user_session_id");
 
     let items = [];
+    let itemImageRevision = 0;
     let activities = [];
     let repairHistory = [];
     let stockMovements = [];
@@ -109,6 +110,7 @@ import { cncDisplayState, cncIsFresh, cncMeasurement, cncMode, cncDuration, cncS
       itemImageDataHidden: document.querySelector("#itemImageDataHidden"),
       itemImagePreviewWrap: document.querySelector("#itemImagePreviewWrap"),
       itemImagePreview: document.querySelector("#itemImagePreview"),
+      removeItemImageBtn: document.querySelector("#removeItemImageBtn"),
 
       cncDialog: document.querySelector("#cncDialog"), // DIALOG MỚI
       cncForm: document.querySelector("#cncForm"),
@@ -1255,6 +1257,7 @@ import { cncDisplayState, cncIsFresh, cncMeasurement, cncMode, cncDuration, cncS
 
     // HỘP THOẠI LINH KIỆN
     function openItemDialog(id = "") {
+      itemImageRevision++;
       const item = items.find(i => i.id === id);
       els.dialogTitle.textContent = item ? "Sửa thông tin linh kiện" : "Thêm linh kiện mới";
       els.itemId.value = item?.id || "";
@@ -1281,7 +1284,7 @@ import { cncDisplayState, cncIsFresh, cncMeasurement, cncMode, cncDuration, cncS
       els.itemDialog.showModal();
     }
     
-    function closeItemDialog() { els.itemDialog.close(); els.itemForm.reset(); }
+    function closeItemDialog() { itemImageRevision++; els.itemDialog.close(); els.itemForm.reset(); }
     
     async function saveItem(e) {
       e.preventDefault();
@@ -1625,10 +1628,20 @@ import { cncDisplayState, cncIsFresh, cncMeasurement, cncMode, cncDuration, cncS
     els.jobForm.addEventListener("submit", saveJob);
 
     // Xử lý nén và đổi hình ảnh thành mã hóa văn bản Base64
+    els.removeItemImageBtn.addEventListener("click", () => {
+      itemImageRevision++;
+      els.itemImageInput.value = "";
+      els.itemImageDataHidden.value = "";
+      els.itemImagePreview.removeAttribute("src");
+      els.itemImagePreviewWrap.style.display = "none";
+      showToast("Đã bỏ ảnh khỏi form. Nhấn Lưu để cập nhật linh kiện.");
+    });
     els.itemImageInput.addEventListener("change", function(e) {
       const file = e.target.files[0]; if (!file) return;
+      const revision = ++itemImageRevision;
       const reader = new FileReader();
       reader.onload = function(evt) {
+        if (revision !== itemImageRevision) return;
         els.itemImageDataHidden.value = evt.target.result;
         els.itemImagePreview.src = evt.target.result;
         els.itemImagePreviewWrap.style.display = "block";

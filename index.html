@@ -481,8 +481,9 @@
           <label for="itemImageInput">Tải lên hình ảnh sản phẩm</label>
           <input class="input" id="itemImageInput" type="file" accept="image/*" style="padding:6px 14px;">
           <input type="hidden" id="itemImageDataHidden">
-          <div id="itemImagePreviewWrap" style="margin-top: 14px; display: none;">
+          <div id="itemImagePreviewWrap" style="margin-top: 14px; display: none; position: relative; width: fit-content;">
             <img id="itemImagePreview" src="" style="max-width: 140px; max-height: 140px; object-fit: contain; border-radius: var(--radius-sm); border: 1px solid var(--line);">
+            <button class="icon-btn" id="removeItemImageBtn" type="button" title="Xóa ảnh" aria-label="Xóa ảnh linh kiện" style="position: absolute; top: -8px; right: -8px; width: 24px; height: 24px; border-radius: 50%; background: var(--danger); color: #fff; font-size: 20px; line-height: 1;">&times;</button>
           </div>
         </div>
       </div>
@@ -772,6 +773,6 @@
 
   <div class="toast" id="toast" role="status" aria-live="polite"></div>
 
-  <script type="module" src="assets/js/app.js?v=20261105-part-count-voucher"></script>
+  <script type="module" src="assets/js/app.js?v=20261105-remove-item-image"></script>
 </body>
 </html>
