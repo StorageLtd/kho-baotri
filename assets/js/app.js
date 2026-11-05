@@ -1,5 +1,5 @@
 ﻿import { downloadInventoryWorkbook } from "./inventory-xlsx.js?v=20261105-no-prices";
-import { maintenancePlan, repairHistoryForm, downloadMaintenanceWorkbook } from "./maintenance-xlsx.js?v=20261105-forms";
+import { maintenancePlan, repairHistoryForm, alarmHistoryForm, downloadMaintenanceWorkbook } from "./maintenance-xlsx.js?v=20261105-alarm";
 import { openCncReports } from "./cnc-report-ui.js?v=20261030-daily-table";
 import { cncDisplayState, cncIsFresh, cncMeasurement, cncMode, cncDuration, cncServerNow, setCncClockOffset } from "./cnc-status.js?v=20261029-web-sync";
 
@@ -87,7 +87,6 @@ import { cncDisplayState, cncIsFresh, cncMeasurement, cncMode, cncDuration, cncS
       historySearchInput: document.querySelector("#historySearchInput"),
       historyFromInput: document.querySelector("#historyFromInput"),
       historyToInput: document.querySelector("#historyToInput"),
-      cncSearchInput: document.querySelector("#cncSearchInput"), // SEARCH MỚI
       categoryFilter: document.querySelector("#categoryFilter"),
       statusFilter: document.querySelector("#statusFilter"),
       alertList: document.querySelector("#alertList"),
@@ -762,10 +761,7 @@ import { cncDisplayState, cncIsFresh, cncMeasurement, cncMode, cncDuration, cncS
     }
 
     function renderCncGridOnly() {
-      const term = els.cncSearchInput.value.trim().toLowerCase();
-      const filteredCncs = cncs.filter(c => {
-        return !term || [c.name, c.ip, c.model, c.location].join(" ").toLowerCase().includes(term);
-      });
+      const filteredCncs = cncs;
 
       if (filteredCncs.length === 0) {
         document.querySelector("#cncListGrid").innerHTML = `<div class="empty" style="grid-column: 1/-1;">Chưa có máy phù hợp. Máy mới chỉ có dữ liệu thật sau khi chạy cầu nối.</div>`;
@@ -892,7 +888,7 @@ import { cncDisplayState, cncIsFresh, cncMeasurement, cncMode, cncDuration, cncS
       document.querySelector("#cncAlarmCount").textContent = `${alarmList.length} sự cố`;
 
       if (alarmList.length === 0) {
-        document.querySelector("#cncAlarmHistoryBody").innerHTML = `<tr><td colspan="5" class="empty">Chưa có lịch sử Alarm được lưu. Cầu nối hiện chỉ đọc trạng thái alarm, chưa thu thập mã và nội dung lỗi.</td></tr>`;
+        document.querySelector("#cncAlarmHistoryBody").innerHTML = `<tr><td colspan="5" class="empty">Chưa có lịch sử Alarm được lưu. Sự cố sẽ xuất hiện khi cầu nối đọc được mã lỗi và gửi lên hệ thống.</td></tr>`;
         return;
       }
 
@@ -902,7 +898,7 @@ import { cncDisplayState, cncIsFresh, cncMeasurement, cncMode, cncDuration, cncS
             <td><strong>${formatDateDisplay(a.timestamp)}</strong><div style="font-size:11px; color:var(--muted)">${new Date(a.timestamp).toLocaleTimeString("vi-VN")}</div></td>
             <td><strong>${escapeHtml(a.cncName)}</strong></td>
             <td><span class="pill danger" style="font-size:11px; font-family:monospace">${escapeHtml(a.alarmCode)}</span></td>
-            <td class="col-text-wide">${textEllipsisCell(a.description, "Mô tả chi tiết lỗi CNC")}</td>
+            <td class="cnc-alarm-description">${escapeHtml(a.description || "—")}</td>
             <td>
               <div class="row-actions">
                 <button class="btn" style="min-height:28px; font-size:11px; padding:0 8px; background:var(--brand); color:#fff; border:0" onclick="autoCreateRepairHistoryFromCncAlarm('${a.id}')">Tạo Nhật ký sửa máy</button>
@@ -950,7 +946,7 @@ import { cncDisplayState, cncIsFresh, cncMeasurement, cncMode, cncDuration, cncS
               <div class="meta">${new Date(a.timestamp).toLocaleTimeString("vi-VN")}</div>
             </td>
             <td><span class="pill danger" style="font-size:11px; font-family:monospace">${escapeHtml(a.alarmCode)}</span></td>
-            <td class="col-text-wide">${textEllipsisCell(a.description, "Mô tả chi tiết lỗi CNC")}</td>
+            <td class="cnc-alarm-description">${escapeHtml(a.description || "—")}</td>
             <td>${statusPill}</td>
           </tr>
         `;
@@ -1083,14 +1079,14 @@ import { cncDisplayState, cncIsFresh, cncMeasurement, cncMode, cncDuration, cncS
             <button class="btn primary maintenance-machine-add" type="button" onclick="openJobDialog('', '${machine.id}')">Thêm hạng mục</button>
           </div>
           <div class="maintenance-machine-jobs" ${isExpanded ? "" : "hidden"}>
-          <div class="maintenance-machine-toolbar"><span>${escapeHtml(machine.vendor || "Chưa cập nhật nhà cung cấp")}</span></div>
+          ${jobs.length ? `<div class="maintenance-task-head" aria-hidden="true"><span>Hạng mục / Công việc</span><span>Chu kỳ</span><span>Kỳ kế tiếp</span><span>Phụ trách</span><span>Thao tác</span></div>` : ""}
           ${jobs.length ? jobs.map(job => {
             const due = job.nextDate <= todayStr;
             return `<div class="maintenance-task">
               <div><strong>${escapeHtml(job.jobName)}</strong><small>${escapeHtml(job.desc || "Chưa có checklist kỹ thuật")}</small></div>
-              <div><small>Chu kỳ</small><strong>${escapeHtml(recurrenceLabel(job))}</strong></div>
-              <div><small>Kỳ kế tiếp</small><strong style="color:${due ? "var(--danger)" : "var(--ok)"}">${formatDateDisplay(job.nextDate)}</strong></div>
-              <div><small>Phụ trách</small><strong>${escapeHtml(job.owner || "Chưa phân công")}</strong><small>${escapeHtml(job.estimatedTime || "Chưa có thời lượng")} · Thiết lập: ${escapeHtml(job.createdBy || "Dữ liệu cũ")}</small></div>
+              <div data-label="Chu kỳ"><strong>${escapeHtml(recurrenceLabel(job))}</strong></div>
+              <div data-label="Kỳ kế tiếp"><strong style="color:${due ? "var(--danger)" : "var(--ok)"}">${formatDateDisplay(job.nextDate)}</strong></div>
+              <div data-label="Phụ trách"><strong>${escapeHtml(job.owner || "Chưa phân công")}</strong>${job.estimatedTime || job.createdBy ? `<small>${escapeHtml([job.estimatedTime, job.createdBy && `Lập: ${job.createdBy}`].filter(Boolean).join(" · "))}</small>` : ""}</div>
               <div class="maintenance-task-actions">
                 <button class="icon-btn" type="button" title="Hoàn tất kỳ này" onclick="completeAndRenewJob('${job.id}')">${checkIcon}</button>
                 <button class="icon-btn" type="button" title="Sửa lịch" onclick="openJobDialog('${job.id}')">${editIcon}</button>
@@ -1619,7 +1615,6 @@ import { cncDisplayState, cncIsFresh, cncMeasurement, cncMode, cncDuration, cncS
     els.historySearchInput.addEventListener("input", render);
     els.historyFromInput.addEventListener("change", render);
     els.historyToInput.addEventListener("change", render);
-    els.cncSearchInput.addEventListener("input", renderCncGridOnly); // Lọc tìm kiếm CNC realtime
     
     // Nộp form thông tin
     els.itemForm.addEventListener("submit", saveItem);
@@ -1670,28 +1665,7 @@ import { cncDisplayState, cncIsFresh, cncMeasurement, cncMode, cncDuration, cncS
       openCncReports({ getMachines: () => cncs, getToken, databaseUrl: DB_URL });
     });
 
-    function exportCncAlarmExcel() {
-      const alarmList = [...cncAlarmHistory].sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
-      const h = ["Thời gian phát hiện", "Tên máy CNC", "Mã Alarm", "Mô tả chi tiết lỗi", "Trạng thái xử lý", "Thời gian xử lý"];
-      const r = alarmList.map(a => {
-        const timeStr = `${formatDateDisplay(a.timestamp)} ${new Date(a.timestamp).toLocaleTimeString("vi-VN")}`;
-        const resolvedStr = a.resolvedAt
-          ? `${formatDateDisplay(a.resolvedAt)} ${new Date(a.resolvedAt).toLocaleTimeString("vi-VN")}`
-          : "";
-        return [
-          timeStr,
-          a.cncName,
-          a.alarmCode,
-          a.description,
-          a.resolvedAt ? (a.source === "focas" ? "Hết tín hiệu lỗi" : "Đã xử lý") : "Chưa ghi nhận kết thúc",
-          resolvedStr
-        ];
-      });
-      downloadExcel(h, r, "lich-su-alarm-cnc-ltd");
-      showToast("Đã xuất file Excel lịch sử Alarm CNC.");
-    }
-
-    document.querySelector("#exportCncAlarmSectionBtn").addEventListener("click", exportCncAlarmExcel);
+    document.querySelector("#exportCncAlarmSectionBtn").addEventListener("click", event => exportMaintenanceForm(event.currentTarget, () => alarmHistoryForm(cncAlarmHistory)));
     async function exportMaintenanceForm(button, build) {
       button.disabled = true;
       try { await downloadMaintenanceWorkbook(build(), {actor: displayName()}); showToast("Đã xuất Excel theo mẫu LTD."); }
@@ -1738,24 +1712,6 @@ import { cncDisplayState, cncIsFresh, cncMeasurement, cncMode, cncDuration, cncS
       const link = document.createElement("a");
       link.href = url; link.download = `${filename}-${new Date().toISOString().slice(0,10)}.csv`;
       link.click(); URL.revokeObjectURL(url);
-    }
-
-    function downloadExcel(headers, rows, filename) {
-      const esc = (v) => String(v ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
-      let html = "<html><head><meta charset=\"UTF-8\"></head><body><table border=\"1\"><thead><tr>";
-      html += headers.map(h => `<th>${esc(h)}</th>`).join("");
-      html += "</tr></thead><tbody>";
-      rows.forEach(row => {
-        html += "<tr>" + row.map(c => `<td>${esc(c)}</td>`).join("") + "</tr>";
-      });
-      html += "</tbody></table></body></html>";
-      const blob = new Blob(["\ufeff" + html], { type: "application/vnd.ms-excel;charset=utf-8" });
-      const url = URL.createObjectURL(blob);
-      const link = document.createElement("a");
-      link.href = url;
-      link.download = `${filename}-${new Date().toISOString().slice(0, 10)}.xls`;
-      link.click();
-      URL.revokeObjectURL(url);
     }
 
     // Giải phóng kết nối online khi đóng/chuyển trang

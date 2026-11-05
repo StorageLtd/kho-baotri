@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>LTD VIET NAM - Cloud Maintenance System</title>
-  <link rel="stylesheet" href="assets/css/app.css?v=20261105-compact-maintenance">
+  <link rel="stylesheet" href="assets/css/app.css?v=20261105-compact-alarm">
   <link rel="stylesheet" href="assets/css/cnc-report.css?v=20261029-status-only">
 </head>
 <body class="locked">
@@ -281,14 +281,6 @@
         <div class="workspace">
           <div style="display: flex; flex-direction: column; gap: 24px;">
             <section class="section">
-              <div class="section-head">
-                <h3>Bảng điều khiển & Giám sát CNC (Thời gian thực)</h3>
-              </div>
-              <div style="padding: 16px 20px; background: #fbfcfa; border-bottom: 1px solid var(--line); display: flex; gap: 12px; align-items: center;">
-                <div class="field" style="flex: 1;">
-                  <input class="input" id="cncSearchInput" type="search" placeholder="Tìm theo tên máy CNC, IP kết nối...">
-                </div>
-              </div>
               <div class="list" style="padding: 20px;">
                 <div class="cnc-grid" id="cncListGrid">
                   <!-- Danh sách máy CNC tải động -->
@@ -307,7 +299,7 @@
               </div>
               <p class="meta" style="padding:0 20px;">Cầu nối 20261030-alarm-history tự lưu khi đọc được Alarm mới và ghi nhận khi hết tín hiệu lỗi. Thời điểm theo nhịp đọc CNC; mất kết nối không được coi là hết lỗi.</p>
               <div class="table-wrap">
-                <table class="data-table">
+                <table class="data-table cnc-alarm-table">
                   <thead>
                     <tr>
                       <th>Thời gian phát hiện</th>
@@ -734,7 +726,7 @@
     </div>
     <div style="padding: 12px 24px 0; color: var(--muted); font-size: 13px;" id="cncAlarmHistoryMeta"></div>
     <div class="table-wrap" style="padding: 16px 24px; max-height: 55vh;">
-      <table style="min-width: 720px;">
+      <table class="cnc-machine-alarm-table">
         <thead>
           <tr>
             <th>Thời gian</th>
@@ -780,6 +772,6 @@
 
   <div class="toast" id="toast" role="status" aria-live="polite"></div>
 
-  <script type="module" src="assets/js/app.js?v=20261105-compact-maintenance"></script>
+  <script type="module" src="assets/js/app.js?v=20261105-compact-alarm"></script>
 </body>
 </html>

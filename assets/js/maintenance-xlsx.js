@@ -6,7 +6,7 @@ const relNs='http://schemas.openxmlformats.org/package/2006/relationships';
 const dayFormatter=new Intl.DateTimeFormat('sv-SE',{timeZone:'Asia/Ho_Chi_Minh',year:'numeric',month:'2-digit',day:'2-digit'});
 function dateValue(value){
  if(!value)return null;
- const text=String(value),date=new Date(/^\d{4}-\d{2}-\d{2}$/.test(text)?text+'T00:00:00+07:00':text);
+ const text=String(value),date=new Date(typeof value==='number'?value:/^\d{4}-\d{2}-\d{2}$/.test(text)?text+'T00:00:00+07:00':text);
  if(!Number.isFinite(+date)||(/^\d{4}-\d{2}-\d{2}$/.test(text)&&dayFormatter.format(date)!==text))return null;
  return date;
 }
@@ -29,6 +29,14 @@ export function repairHistoryForm(records){
   summary:[['SỐ BẢN GHI',records.length],['THIẾT BỊ',new Set(records.map(r=>String(r.machine||'').trim()).filter(Boolean)).size],['CẬP NHẬT GẦN NHẤT',ordered.find(x=>x.date)?displayDay(ordered.find(x=>x.date).record.faultTime):'—']],
   data:ordered.map(({record:r},i)=>[i+1,displayDay(r.faultTime),r.machine||'',r.staff||'',r.fault||'',r.fix||''])};
 }
+const displayTimestamp=value=>{const date=dateValue(value);return date?new Intl.DateTimeFormat('vi-VN',{timeZone:'Asia/Ho_Chi_Minh',day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit',second:'2-digit',hourCycle:'h23'}).format(date):'Chưa có thời gian'};
+export function alarmHistoryForm(records){
+ const ordered=records.map(record=>({record,date:dateValue(record.timestamp)})).sort((a,b)=>(b.date?+b.date:-Infinity)-(a.date?+a.date:-Infinity)||compareText(a.record.cncName,b.record.cncName));
+ return {title:'LỊCH SỬ ALARM MÁY CNC',sheetName:'Lịch sử Alarm CNC',tableName:'LTDCncAlarmHistory',filename:'LTD-Lich-su-Alarm-CNC',
+  headings:['STT','Thời gian phát hiện','Tên máy CNC','Mã Alarm','Loại','Trục','Mô tả chi tiết lỗi','Trạng thái','Thời gian kết thúc'],widths:[6,24,26,16,10,10,70,26,24],statusColumn:7,
+  summary:[['TỔNG SỰ CỐ',records.length],['CHƯA GHI NHẬN KẾT THÚC',records.filter(r=>!r.resolvedAt).length],['THIẾT BỊ',new Set(records.map(r=>r.cncId||r.cncName).filter(Boolean)).size]],
+  data:ordered.map(({record:r},i)=>[i+1,displayTimestamp(r.timestamp),r.cncName||'',String(r.alarmCode??''),r.alarmType??'',r.axis??'',r.description||'',r.resolvedAt?(r.source==='focas'?'Hết tín hiệu lỗi':'Đã xử lý'):'Chưa ghi nhận kết thúc',r.resolvedAt?displayTimestamp(r.resolvedAt):''])};
+}
 function cell(ref,value,style){return value===null||value===undefined?`<c r="${ref}" s="${style}"/>`:typeof value==='number'&&Number.isFinite(value)?`<c r="${ref}" s="${style}"><v>${value}</v></c>`:`<c r="${ref}" s="${style}" t="inlineStr"><is><t xml:space="preserve">${esc(value)}</t></is></c>`}
 function row(number,values,height=30){return `<row r="${number}" ht="${height}" customHeight="1">${values.map(([column,value,style])=>cell(col(column)+number,value,style)).join('')}</row>`}
 export function createMaintenanceWorkbook(layout,{logoBytes,generatedAt=new Date(),actor=''}={}){
@@ -36,13 +44,13 @@ export function createMaintenanceWorkbook(layout,{logoBytes,generatedAt=new Date
  const timestamp=new Intl.DateTimeFormat('vi-VN',{timeZone:'Asia/Ho_Chi_Minh',year:'numeric',month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit',hourCycle:'h23'}).format(generatedAt);
  const items=layout.data,headings=layout.headings,lastCol=col(headings.length-1),last=items.length+8,total=last+2;
  const rows=[row(1,[[2,'CÔNG TY LTD VIỆT NAM',1]],25),row(2,[[2,layout.title,2]],32),row(3,[[2,`Ngày xuất: ${timestamp}${actor?'   •   Người xuất: '+actor:''}`,3]],24),row(4,[],10)];
- const splits=headings.length===6?[0,3,5,6]:[0,4,8,headings.length];
+ const splits=headings.length===6?[0,3,5,6]:headings.length===9?[0,4,7,9]:[0,4,8,headings.length];
  rows.push(row(5,layout.summary.map(([label],i)=>[splits[i],label,4]),22),row(6,layout.summary.map(([,value],i)=>[splits[i],value,i===1&&layout.statusColumn!==undefined?6:5]),34),row(7,[],12),row(8,headings.map((h,i)=>[i,h,8]),32));
  items.forEach((values,index)=>{
   const lines=Math.max(...values.map((v,i)=>String(v??'').split('\n').reduce((sum,line)=>sum+Math.max(1,Math.ceil(line.length/Math.max(1,layout.widths[i]-3))),0)));
-  rows.push(row(index+9,values.map((value,i)=>[i,value,i===layout.statusColumn?(value==='Quá hạn'?15:value==='Đến hạn hôm nay'?16:value==='Đã lên lịch'?17:index%2?10:9):typeof value==='number'?(index%2?12:11):(index%2?10:9)]),Math.min(409,Math.max(38,lines*15+12))));
+  rows.push(row(index+9,values.map((value,i)=>[i,value,i===layout.statusColumn?(value==='Quá hạn'?15:['Đến hạn hôm nay','Chưa ghi nhận kết thúc'].includes(value)?16:['Đã lên lịch','Hết tín hiệu lỗi','Đã xử lý'].includes(value)?17:index%2?10:9):typeof value==='number'?(index%2?12:11):(index%2?10:9)]),Math.min(409,Math.max(38,lines*15+12))));
  });
- rows.push(row(total,[[0,`Tổng cộng: ${items.length} ${layout.statusColumn!==undefined?'công việc':'bản ghi'}`,18]],28),row(total+2,[[0,'LTD VIỆT NAM  •  QUẢN LÝ BẢO TRÌ THIẾT BỊ',3]],24));
+ rows.push(row(total,[[0,`Tổng cộng: ${items.length} ${layout.tableName==='LTDCncAlarmHistory'?'sự cố':layout.statusColumn!==undefined?'công việc':'bản ghi'}`,18]],28),row(total+2,[[0,'LTD VIỆT NAM  •  QUẢN LÝ BẢO TRÌ THIẾT BỊ',3]],24));
  const merges=['A1:B3',`C1:${lastCol}1`,`C2:${lastCol}2`,`C3:${lastCol}3`,...layout.summary.flatMap((_,i)=>{const start=col(splits[i]),end=col(splits[i+1]-1);return start===end?[]:[`${start}5:${end}5`,`${start}6:${end}6`]}),`A${total}:${lastCol}${total}`,`A${total+2}:${lastCol}${total+2}`];
  const files={};
  files['[Content_Types].xml']=`<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/><Default Extension="jpg" ContentType="image/jpeg"/><Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/><Override PartName="/xl/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.styles+xml"/><Override PartName="/xl/worksheets/sheet1.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/>${items.length?'<Override PartName="/xl/tables/table1.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.table+xml"/>':''}<Override PartName="/xl/drawings/drawing1.xml" ContentType="application/vnd.openxmlformats-officedocument.drawing+xml"/></Types>`;

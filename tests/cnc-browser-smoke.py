@@ -43,6 +43,7 @@ async def run():
             hook = '''
 window.renderInventoryFixture = records => {items=records;render();switchPage('inventoryPage');document.body.classList.remove('locked')};
 window.renderMaintenanceFixture = pageId => {machines=[{id:'fixture-machine',name:'Neway 1260S',model:'VMC',serial:'000123'}];maintenanceJobs=[{id:'fixture-job',machineId:'fixture-machine',machineName:'Neway 1260S',jobName:'Tra dầu',recurrence:'weekly',nextDate:'2026-11-05',owner:'Fixture',desc:'Kiểm tra dầu'}];repairHistory=[{id:'fixture-history',machine:'Neway 1260S',faultTime:'2026-11-05',staff:'Fixture',fault:'Dầu thấp',fix:'Đã bổ sung dầu'}];render();switchPage(pageId);document.body.classList.remove('locked')};
+window.renderAlarmFixture = records => {cncAlarmHistory=records;renderCncAlarmsOnly()};
 window.renderFixture = (records) => {
   cncs=records; render(); switchPage('cncMonitoringPage');
   document.body.classList.remove('locked');
@@ -86,6 +87,17 @@ window.restoreFixtureClock = () => setCncClockOffset(0);
             assert await page.locator('#statCncRunning').inner_text() == '1'
             assert await page.locator('#cncConnectionReady').inner_text() == '1 / 2'
             assert 'CHƯA CÓ TÍN HIỆU THẬT' in await page.locator('#card-old').inner_text()
+            await page.evaluate("""renderAlarmFixture([{id:'alarm-fixture',cncId:'neway-1260s',cncName:'Neway 1260S',timestamp:'2026-11-05T02:00:00Z',alarmCode:'0500',alarmType:4,axis:1,description:'(X)+ OVERTRAVEL (SOFT 1). Kiểm tra hành trình trục X theo thông báo của CNC. Nội dung mô tả được hiển thị đầy đủ, không rút gọn bằng dấu ba chấm.',source:'focas'}])""")
+            assert await page.locator('#cncSearchInput').count()==0
+            assert 'Bảng điều khiển & Giám sát CNC (Thời gian thực)' not in await page.locator('#cncMonitoringPage').inner_text()
+            description=page.locator('#cncAlarmHistoryBody .cnc-alarm-description')
+            assert 'không rút gọn bằng dấu ba chấm' in await description.inner_text()
+            assert await description.evaluate("e=>getComputedStyle(e).whiteSpace")=='pre-wrap'
+            async with page.expect_download() as alarm_info:
+                await page.get_by_role('button',name='Xuất Excel Alarm',exact=True).click()
+            alarm_download=await alarm_info.value
+            assert alarm_download.suggested_filename.endswith('.xlsx')
+            await alarm_download.save_as('/tmp/alarm-browser.xlsx')
             await page.evaluate('''renderFixture([{id:'neway-1260s',name:'Neway 1260S',source:'focas',connected:true,lastSeen:Date.now(),rawStatus:{run:3,alarm:0,emergency:0,aut:1},ip:'192.168.1.1',port:8193,model:'FANUC 0i-MF Plus',spindleSpeed:1800,feedrate:12.5,feedrateUnit:'inch/min',activeProgram:'O12345678',mainProgram:'O0001'}])''')
             assert '1800 RPM' in await card.inner_text()
             assert '12.5 inch/min' in await card.inner_text()
