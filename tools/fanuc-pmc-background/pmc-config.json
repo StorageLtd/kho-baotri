@@ -1,0 +1,7 @@
+{
+  "machineId": "pmc-test-01",
+  "machineName": "Máy thử PMC",
+  "cncIp": "192.168.1.1",
+  "port": 8193,
+  "intervalMs": 500
+}

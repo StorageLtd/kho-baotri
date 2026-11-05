@@ -1,0 +1,7 @@
+lib/*.dll
+logs/
+*.lock
+background.stop
+background-state.json
+pmc-status.json
+pmc-status.json.tmp
