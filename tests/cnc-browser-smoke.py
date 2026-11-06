@@ -95,7 +95,10 @@ window.seedDayFixture = () => {cncDayOwner=getUser().uid;cncDayStats.set('neway-
             assert await page.locator('#cncLiveCharts').count()==0
             assert await card.locator('.cnc-machine-art').count()==0
             assert await card.locator('.cnc-day-charts').count()==1
-            assert await card.locator('.cnc-instrument').count()==2
+            assert await card.locator('.cnc-four-gauges > div').count()==4
+            assert await card.locator('.cnc-four-gauges .cnc-instrument').count()==2
+            assert await card.locator('.cnc-day-foot').count()==0
+            assert await card.locator('.cnc-machine-content').evaluate("el=>el.firstElementChild.classList.contains('cnc-program-line')")
             await page.evaluate('seedDayFixture()')
             assert await card.locator('.cnc-part-ring strong').inner_text()=='21'
             assert '+1 trong ngày' in await card.locator('.cnc-day-parts').inner_text()
