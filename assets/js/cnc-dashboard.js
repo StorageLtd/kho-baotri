@@ -8,10 +8,10 @@ function dailyCharts(day,instruments){
  const comparable=Number.isSafeInteger(r.counterStart)&&Number.isSafeInteger(r.counterEnd)&&r.counterEnd>=r.counterStart&&!r.counterResets;
  const baseline=comparable&&r.counterEnd>0?r.counterStart/r.counterEnd*100:100;
  const increase=comparable?r.counterEnd-r.counterStart:null;
- return `<section class="cnc-day-charts"><div class="cnc-day-title">THÔNG SỐ VẬN HÀNH <span>${esc(date.split('-').reverse().join('/'))}</span></div>
- <div class="cnc-four-gauges"><div class="cnc-day-parts"><span class="cnc-day-label">PART COUNT</span><div class="cnc-day-ring cnc-part-ring${!comparable||r.counterEnd===0?' is-neutral':''}" style="--baseline:${baseline}%" title="${esc(`Đầu ngày: ${number(r.counterStart)} · Hiện tại: ${number(r.counterEnd)}`)}"><div><strong>${number(r.counterEnd)}</strong><small>Bộ đếm CNC</small></div></div><div class="cnc-count-comparison"><label>Đầu ngày <b>${number(r.counterStart)}</b></label><label>Hiện tại <b>${number(r.counterEnd)}</b></label></div>${increase!==null?`<small class="cnc-part-increase">+${number(increase)} trong ngày</small>`:r.counterResets?'<small class="cnc-part-increase">Bộ đếm đã reset</small>':''}</div>
+ return `<section class="cnc-day-charts"><div class="cnc-day-title">THÔNG SỐ VẬN HÀNH <span class="cnc-day-date${!known?' is-pending':''}" title="${esc(day?.error||(!known?'Chưa có dữ liệu thống kê ngày':r.conflicts?'Thống kê đã loại phiên trùng':'Thống kê trong ngày'))}">${esc(date.split('-').reverse().join('/'))}</span></div>
+ <div class="cnc-four-gauges"><div class="cnc-day-parts"><span class="cnc-day-label">PART COUNT</span><div class="cnc-day-ring cnc-part-ring${!comparable||r.counterEnd===0?' is-neutral':''}" style="--baseline:${baseline}%" title="${esc(`Đầu ngày: ${number(r.counterStart)} · Hiện tại: ${number(r.counterEnd)}`)}"><div><strong>${number(r.counterEnd)}</strong><small>Bộ đếm CNC</small></div></div><div class="cnc-count-comparison"><label>Đầu ngày <b>${number(r.counterStart)}</b></label><label>Hiện tại <b>${number(r.counterEnd)}</b></label></div>${increase!==null?`<small class="cnc-part-increase">+${number(increase)} trong ngày</small>`:r.counterResets?'<small class="cnc-part-increase">Bộ đếm đã reset</small>':'<small class="cnc-part-increase is-pending">—</small>'}</div>
  <div class="cnc-day-runtime"><span class="cnc-day-label">CHẠY TRONG NGÀY</span><div class="cnc-day-ring" title="${esc(`Chạy: ${cncDuration(r.runningMs)} · Hold: ${cncDuration(r.holdMs)} · Alarm: ${cncDuration(r.alarmMs)}`)}" style="--run:${run}%;--hold:${run+hold}%;--alarm:${run+hold+alarm}%"><div><strong>${known?esc(cncDuration(r.runningMs)):'—'}</strong><small>giờ : phút : giây</small></div></div><div class="cnc-day-legend"><span>● Chạy</span><span>● Tạm dừng</span><span>● Lỗi</span><span>● Dừng / khác</span></div></div>${instruments}</div>
- ${day?.error?`<p class="cnc-day-note">${esc(day.error)}</p>`:!known?'<p class="cnc-day-note">Chưa có thống kê ngày.</p>':r.conflicts?'<p class="cnc-day-note">Thống kê đã loại phiên trùng.</p>':''}</section>`;
+</section>`;
 }
 function instrument(label,value,unit,kind,active){
  const content=String(value);
@@ -30,13 +30,12 @@ export function renderCncMachineCard(c,{errorsOpen=false,daily=null}={}){
  return `<article class="cnc-card cnc-machine-panel is-${esc(signal.css)}" id="card-${esc(c.id)}" data-machine-id="${esc(c.id)}">
   <header class="cnc-machine-heading">
    <div class="cnc-machine-identity"><div><span class="cnc-controller">${esc(c.model||'CNC Controller')}</span><h3>${esc(c.name)}</h3></div></div>
-   <span class="cnc-status ${esc(signal.css)}"><span class="cnc-state-light ${esc(signal.css)}" aria-hidden="true"></span>${esc(signal.label)}</span>
+   <span class="cnc-status ${esc(signal.css)}"><span class="cnc-state-light ${esc(signal.css)}" aria-hidden="true"></span>${esc(signal.status==='offline'&&real?'MẤT KẾT NỐI':signal.label)}</span>
   </header>
   <div class="cnc-machine-content">
    <div class="cnc-program-line cnc-operation-strip"><div class="cnc-operating-mode"><span>Chế độ</span><strong>${real&&visible?esc(cncMode(c.rawStatus?.aut)):'—'}</strong></div><div><span>Chương trình</span><strong>${esc(visible?c.activeProgram||'Chưa đọc':'—')}</strong></div><div><span>CYCLE TIME:</span><strong>${real&&visible?cncDuration(c.cycleTimeMs):'—'}</strong></div><div><span>RUN TIME:</span><strong>${real&&visible?cncDuration(c.runTimeMs):'—'}</strong></div><div><span>PART COUNT:</span><strong>${real?measurement(c.partCounter):'—'}</strong></div></div>
    ${dailyCharts(daily,instrument('TỐC ĐỘ TRỤC CHÍNH',measurement(c.spindleSpeed),'RPM','spindle',visible&&Number(c.spindleSpeed)>0)+instrument('TỐC ĐỘ ĂN DAO',measurement(c.feedrate),real?c.feedrateUnit||'':'mm/min','feed',visible&&Number(c.feedrate)>0))}
    ${alarmPanel}
-   ${!visible?'<div class="cnc-unavailable">Chưa có tín hiệu mới · Thông số tạm thời không khả dụng.</div>':''}
    ${readErrors.length?`<details class="cnc-read-errors"${errorsOpen?' open':''}><summary>Một số mục chưa đọc được</summary><p>${esc(readErrors.join('; '))}</p></details>`:''}
   </div>
   <footer class="cnc-machine-footer"><div class="cnc-connection-meta"><span>${esc(source)}</span><span>${esc(c.ip||'—')}:${esc(c.port??'—')}</span><time>${esc(last)}</time></div>

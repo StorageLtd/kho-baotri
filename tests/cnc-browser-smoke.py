@@ -243,6 +243,26 @@ window.seedDayFixture = () => {cncDayOwner=getUser().uid;cncDayStats.set('neway-
             await page.route('**/cncReports/**',lambda route: route.fulfill(status=403,content_type='application/json',body='{}'))
             await report.get_by_role('button',name='Xem báo cáo').click()
             await page.wait_for_function("document.querySelector('#cncReportDialog .cr-status').textContent.includes('Rules cncReports')")
+            await report.get_by_role('button',name='Đóng',exact=True).click()
+            # Three-column layout must keep missing-day and alarm cards aligned.
+            await page.evaluate("""renderFixture([
+              {id:'neway-1260s',name:'Neway 1260S',source:'focas',connected:true,lastSeen:Date.now(),rawStatus:{run:3,alarm:0,emergency:0,aut:1},partCounter:21,spindleSpeed:250,feedrate:100,feedrateUnit:'inch/min',ip:'192.168.1.1',port:8193},
+              {id:'alarm-machine',name:'Neway 1260SL',source:'focas',connected:true,lastSeen:Date.now(),rawStatus:{run:0,alarm:1,emergency:0,aut:5},alarmDetails:[{number:500,axis:1,message:'(X)+ OVERTRAVEL (SOFT 1)'}],ip:'192.168.1.2',port:8193},
+              {id:'missing-day',name:'CNC 03',source:'focas',connected:false,lastSeen:Date.now()-86400000,ip:'192.168.1.3',port:8193}
+            ]);seedDayFixture()""")
+            assert await page.locator('.cnc-day-note').count()==0
+            assert 'Chưa có thống kê ngày' not in await page.locator('#cncListGrid').inner_text()
+            for width in [1920,1600,1280]:
+                await page.set_viewport_size({'width':width,'height':1000})
+                sizes=await page.locator('#cncListGrid > article').evaluate_all('(nodes)=>nodes.map(n=>{const r=n.getBoundingClientRect();return {top:r.top,height:r.height}})')
+                assert len(sizes)==3
+                assert max(r['top'] for r in sizes)-min(r['top'] for r in sizes)<1
+                assert max(r['height'] for r in sizes)-min(r['height'] for r in sizes)<1
+                assert await page.evaluate('document.documentElement.scrollWidth<=innerWidth')
+            for width in [1024,700,390]:
+                await page.set_viewport_size({'width':width,'height':844})
+                assert await page.evaluate('document.documentElement.scrollWidth<=innerWidth')
+            assert await page.locator('#card-missing-day .cnc-day-runtime .cnc-day-ring strong').inner_text()=='—'
             assert not errors, errors
             await browser.close()
             print('PASS: live telemetry, unit-aware display, freshness, mobile; report summary/verified production, real XLSX download, empty period, and Firebase permission errors; no page errors.')
