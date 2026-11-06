@@ -91,10 +91,12 @@ window.restoreFixtureClock = () => setCncClockOffset(0);
             assert await card.locator('.cnc-state-light.running').count()==1
             assert 'Chẩn đoán tín hiệu chu kỳ' not in await card.inner_text()
             assert 'Các nhóm mã lỗi liên kết kho' not in await page.locator('#cncMonitoringPage').inner_text()
+            assert await page.locator('#cncLiveCharts').count()==0
+            assert await card.locator('.cnc-machine-art').count()==1
+            assert await card.locator('.cnc-instrument').count()==2
             assert await card.get_by_text('Xử lý xong (Clear)').count() == 0
             assert await page.locator('#statCncRunning').inner_text() == '1'
             assert await page.locator('#cncConnectionReady').inner_text() == '1 / 2'
-            assert await page.locator('#cncLiveCharts .cnc-donut-number').text_content() == '2'
             await card.get_by_role('button',name='Sửa IP Neway 1260S',exact=True).click()
             assert await page.locator('#cncDialog').is_visible()
             await page.locator('#cncDialog').evaluate('e=>e.close()')
@@ -121,11 +123,6 @@ window.restoreFixtureClock = () => setCncClockOffset(0);
             assert 'Chương trình chính:' not in await card.inner_text()
             assert 'Dòng lệnh hiện tại:' not in await card.inner_text()
             assert '/ — RPM' not in await card.inner_text()
-            await page.locator('#cncLiveCharts [data-chart-control=metric]').select_option('feed')
-            assert 'inch/min' in await page.locator('#cncLiveCharts .cnc-trend-value').inner_text()
-            await page.locator('#cncLiveCharts [data-chart-control=window]').select_option('30')
-            await page.locator('#cncLiveCharts [data-chart-control=metric]').select_option('spindle')
-            assert await page.locator('#cncLiveCharts .cnc-trend-plot svg').count()==1
             await page.evaluate("""renderFixture([{id:'neway-1260s',name:'Neway 1260S',source:'focas',connected:true,lastSeen:Date.now(),rawStatus:{run:0,alarm:1,emergency:0,aut:5},alarm:'Có tín hiệu Alarm',alarmDetailsRead:true,alarmDetails:[{number:1234,type:2,axis:1,message:'TEST <script>unsafe</script>'},{number:5678,type:3,axis:0,message:'SECOND ALARM'}]}])""")
             assert 'Alarm 1234' in await card.inner_text()
             assert 'SECOND ALARM' in await card.inner_text()
