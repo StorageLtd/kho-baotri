@@ -1,5 +1,6 @@
 ﻿import { downloadInventoryWorkbook } from "./inventory-xlsx.js?v=20261105-no-prices";
 import { maintenancePlan, repairHistoryForm, alarmHistoryForm, movementVoucherForm, downloadMaintenanceWorkbook } from "./maintenance-xlsx.js?v=20261105-voucher";
+import { CncLiveCharts } from "./cnc-live-charts.js?v=20261106-live-charts";
 import { renderCncMachineCard } from "./cnc-dashboard.js?v=20261106-industrial";
 import { openCncReports } from "./cnc-report-ui.js?v=20261105-part-count";
 import { cncDisplayState, cncIsFresh, cncMeasurement, cncMode, cncDuration, cncServerNow, setCncClockOffset } from "./cnc-status.js?v=20261029-web-sync";
@@ -14,6 +15,7 @@ import { cncDisplayState, cncIsFresh, cncMeasurement, cncMode, cncDuration, cncS
     }
     const mySessionId = sessionStorage.getItem("ltd_user_session_id");
 
+    const cncLiveCharts = new CncLiveCharts(document.querySelector("#cncLiveCharts"));
     let items = [];
     let itemImageRevision = 0;
     let activities = [];
@@ -275,6 +277,7 @@ import { cncDisplayState, cncIsFresh, cncMeasurement, cncMode, cncDuration, cncS
       els.statCncAlarm.textContent = number.format(cncs.filter(c => cncDisplayState(c).status === "alarm").length);
       if (els.cncConnectionReady) els.cncConnectionReady.textContent = `${cncs.filter(c => cncIsFresh(c)).length} / ${cncs.length}`;
       if (!els.cncMonitoringPage.hidden) renderCncTable();
+      else cncLiveCharts.update(cncs);
       updateOverviewQuickStats();
       renderAlertsAndActivities();
     }
@@ -759,6 +762,7 @@ import { cncDisplayState, cncIsFresh, cncMeasurement, cncMode, cncDuration, cncS
 
     // VẼ BẢNG GIÁM SÁT MÁY CNC REALTIME & TỔNG QUAN ALARM
     function renderCncTable() {
+      cncLiveCharts.update(cncs);
       document.querySelector(".cnc-plant-header")?.classList.toggle("has-live", cncs.some(c => cncIsFresh(c)));
       if (els.cncConnectionReady) els.cncConnectionReady.textContent = `${cncs.filter(c => cncIsFresh(c)).length} / ${cncs.length}`;
       renderCncGridOnly();

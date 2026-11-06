@@ -6,7 +6,7 @@
   <title>LTD VIET NAM - Cloud Maintenance System</title>
   <link rel="stylesheet" href="assets/css/app.css?v=20261105-compact-alarm">
   <link rel="stylesheet" href="assets/css/cnc-report.css?v=20261105-report-scroll">
-  <link rel="stylesheet" href="assets/css/cnc-dashboard.css?v=20261106-industrial">
+  <link rel="stylesheet" href="assets/css/cnc-dashboard.css?v=20261106-live-charts">
 </head>
 <body class="locked">
   <!-- Screen Đăng Nhập -->
@@ -257,6 +257,8 @@
           <article class="cnc-fleet-stat cnc-fleet-hold"><span>TẠM DỪNG</span><strong id="statCncHold">0</strong><small><i></i> FEED HOLD</small></article>
           <article class="cnc-fleet-stat cnc-fleet-alarm"><span>CẢNH BÁO</span><strong id="statCncAlarm">0</strong><small><i></i> ALARM / EMERGENCY</small></article>
         </div>
+
+        <section class="cnc-live-analytics" id="cncLiveCharts" aria-label="Biểu đồ vận hành CNC"></section>
 
         <div class="workspace cnc-dashboard-workspace">
           <div class="cnc-dashboard-stack">
@@ -752,6 +754,6 @@
 
   <div class="toast" id="toast" role="status" aria-live="polite"></div>
 
-  <script type="module" src="assets/js/app.js?v=20261106-industrial"></script>
+  <script type="module" src="assets/js/app.js?v=20261106-live-charts"></script>
 </body>
 </html>
