@@ -94,6 +94,12 @@ window.restoreFixtureClock = () => setCncClockOffset(0);
             assert await card.get_by_text('Xử lý xong (Clear)').count() == 0
             assert await page.locator('#statCncRunning').inner_text() == '1'
             assert await page.locator('#cncConnectionReady').inner_text() == '1 / 2'
+            await card.get_by_role('button',name='Sửa IP Neway 1260S',exact=True).click()
+            assert await page.locator('#cncDialog').is_visible()
+            await page.locator('#cncDialog').evaluate('e=>e.close()')
+            await card.get_by_role('button',name='Alarm của máy').click()
+            assert await page.locator('#cncAlarmHistoryDialog').is_visible()
+            await page.locator('#cncAlarmHistoryDialog').evaluate('e=>e.close()')
             assert 'CHƯA CÓ TÍN HIỆU THẬT' in await page.locator('#card-old').inner_text()
             await page.evaluate("""renderAlarmFixture([{id:'alarm-fixture',cncId:'neway-1260s',cncName:'Neway 1260S',timestamp:'2026-11-05T02:00:00Z',alarmCode:'0500',alarmType:4,axis:1,description:'(X)+ OVERTRAVEL (SOFT 1). Kiểm tra hành trình trục X theo thông báo của CNC. Nội dung mô tả được hiển thị đầy đủ, không rút gọn bằng dấu ba chấm.',source:'focas'}])""")
             assert await page.locator('#cncSearchInput').count()==0
@@ -153,6 +159,7 @@ window.restoreFixtureClock = () => setCncClockOffset(0);
             assert await card.locator('.cnc-parts-link').count() == 0
             await page.set_viewport_size({'width':390,'height':844})
             assert await card.is_visible()
+            assert await page.evaluate('document.documentElement.scrollWidth<=innerWidth')
             # Report creation/export uses daily session fixtures, never the production database.
             import datetime, json
             report_start=int(datetime.datetime(2026,10,28,tzinfo=datetime.timezone(datetime.timedelta(hours=7))).timestamp()*1000)

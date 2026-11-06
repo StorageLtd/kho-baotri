@@ -1,5 +1,6 @@
 ﻿import { downloadInventoryWorkbook } from "./inventory-xlsx.js?v=20261105-no-prices";
 import { maintenancePlan, repairHistoryForm, alarmHistoryForm, movementVoucherForm, downloadMaintenanceWorkbook } from "./maintenance-xlsx.js?v=20261105-voucher";
+import { renderCncMachineCard } from "./cnc-dashboard.js?v=20261106-industrial";
 import { openCncReports } from "./cnc-report-ui.js?v=20261105-part-count";
 import { cncDisplayState, cncIsFresh, cncMeasurement, cncMode, cncDuration, cncServerNow, setCncClockOffset } from "./cnc-status.js?v=20261029-web-sync";
 
@@ -516,6 +517,7 @@ import { cncDisplayState, cncIsFresh, cncMeasurement, cncMode, cncDuration, cncS
 
 
     function switchPage(pageId) {
+      document.body.dataset.page = pageId;
       els.overviewPage.hidden = (pageId !== "overviewPage");
       els.inventoryPage.hidden = (pageId !== "inventoryPage");
       els.cncMonitoringPage.hidden = (pageId !== "cncMonitoringPage");
@@ -757,6 +759,7 @@ import { cncDisplayState, cncIsFresh, cncMeasurement, cncMode, cncDuration, cncS
 
     // VẼ BẢNG GIÁM SÁT MÁY CNC REALTIME & TỔNG QUAN ALARM
     function renderCncTable() {
+      document.querySelector(".cnc-plant-header")?.classList.toggle("has-live", cncs.some(c => cncIsFresh(c)));
       if (els.cncConnectionReady) els.cncConnectionReady.textContent = `${cncs.filter(c => cncIsFresh(c)).length} / ${cncs.length}`;
       renderCncGridOnly();
       renderCncAlarmsOnly();
@@ -770,70 +773,8 @@ import { cncDisplayState, cncIsFresh, cncMeasurement, cncMode, cncDuration, cncS
         return;
       }
 
-      document.querySelector("#cncListGrid").innerHTML = filteredCncs.map(c => {
-        const signal = cncDisplayState(c);
-        const statusText = signal.label;
-        const statusClass = signal.css;
-        const showTelemetry = cncIsFresh(c) || c.source === "demo";
-        const sourceLabel = c.source === "focas" ? "Dữ liệu thật · FOCAS" : c.source === "demo" ? "Dữ liệu mô phỏng" : "Chưa xác minh nguồn dữ liệu";
-        // Tìm kiếm tự động linh kiện khắc phục lỗi trong kho LTD tương ứng với loại alarm
-        let matchedPartInfo = "";
-        if (c.source !== "focas" && signal.status === "alarm" && c.alarm) {
-          matchedPartInfo = checkAvailablePartsInInventory(c.alarm);
-        }
-        const lastSignal = c.lastSeen ? `${formatDateDisplay(c.lastSeen)} ${new Date(c.lastSeen).toLocaleTimeString("vi-VN")}` : "Chờ tín hiệu đầu tiên";
-
-        return `
-          <div class="cnc-card" id="card-${c.id}">
-            <div class="cnc-header">
-              <span class="cnc-title">💻 ${escapeHtml(c.name)}</span>
-              <span class="cnc-status ${statusClass}"><span class="cnc-state-light ${statusClass}" aria-hidden="true"></span>${statusText}</span>
-            </div>
-            <div style="display:flex; justify-content:space-between; gap:12px; padding:8px 0 12px; color:var(--muted); font-size:11px; border-bottom:1px solid var(--line);">
-              <span><strong style="color:var(--ink)">FOCAS endpoint</strong> · ${escapeHtml(c.ip)}:${c.port}</span>
-              <span><strong style="color:var(--ink)">${sourceLabel}</strong> · ${escapeHtml(lastSignal)}</span>
-            </div>
-            
-            <div class="cnc-details">
-              ${c.source === "focas" ? `<span class="cnc-label">Chế độ vận hành:</span><span class="cnc-value">${showTelemetry ? cncMode(c.rawStatus?.aut) : "—"}</span><span class="cnc-label">Alarm:</span><span class="cnc-value">${showTelemetry ? (Number.isInteger(c.rawStatus?.alarm) ? (c.rawStatus.alarm === 0 ? "Không có alarm" : "Có tín hiệu alarm") : "Chưa đọc được") : "Chưa có tín hiệu mới"}</span>` : ""}
-              <span class="cnc-label">Model CNC:</span>
-              <span class="cnc-value">${escapeHtml(c.model)}</span>
-              
-              <span class="cnc-label">Chương trình hiện tại:</span>
-              <span class="cnc-value" style="color: var(--accent); font-weight:800;">${escapeHtml(showTelemetry ? c.activeProgram || "Chưa đọc" : "—")}</span>
-              
-              <span class="cnc-label">Vòng quay trục chính:</span>
-              <span class="cnc-value" style="color: var(--ok)">${showTelemetry ? cncMeasurement(c.spindleSpeed) : "—"} RPM${c.source !== "focas" && showTelemetry ? ` / ${cncMeasurement(c.targetSpindleSpeed)} đặt` : ""}</span>
-              
-              <span class="cnc-label">Tốc độ ăn dao (Feedrate):</span>
-              <span class="cnc-value">${showTelemetry ? cncMeasurement(c.feedrate) : "—"} ${escapeHtml(c.source === "focas" ? c.feedrateUnit || "" : "mm/min")}${c.source !== "focas" && showTelemetry ? ` (Ovr: ${cncMeasurement(c.override)}%)` : ""}</span>
-              
-              ${c.source === "focas" ? `<span class="cnc-label">PART COUNT:</span><span class="cnc-value">${showTelemetry ? cncMeasurement(c.partCounter) : "—"}</span>` : ""}
-              ${c.source === "focas" ? `<span class="cnc-label">RUN TIME:</span><span class="cnc-value">${showTelemetry ? cncDuration(c.runTimeMs) : "—"}</span><span class="cnc-label">CYCLE TIME:</span><span class="cnc-value">${showTelemetry ? cncDuration(c.cycleTimeMs) : "—"}</span>` : ""}
-            </div>
-
-            ${showTelemetry && c.source === "focas" ? `<div class="meta" style="margin:10px 0;">${c.alarmDetailsRead === true ? (Array.isArray(c.alarmDetails) && c.alarmDetails.length ? c.alarmDetails.map(a => `<div style="color:var(--danger);margin:6px 0;"><strong>Alarm ${escapeHtml(a.number)} · loại ${escapeHtml(a.type)}${a.axis > 0 ? ` · trục ${escapeHtml(a.axis)}` : ""}</strong><br>${escapeHtml(a.message || "CNC không trả nội dung")}</div>`).join("") + (c.alarmsMayBeTruncated ? "Có thể còn Alarm khác trên CNC." : "") : "CNC không trả mã Alarm đang hoạt động.") : "Chưa đọc được mã/nội dung Alarm. Cần cầu nối bản 20261030-readonly-alarms; xem lỗi đọc nếu có."}</div>` : ""}
-            ${signal.status === "alarm" ? `
-              <div class="cnc-alarm-banner">
-                <strong style="color: var(--danger); font-size:13px;">⚠️ PHÁT HIỆN LỖI CNC:</strong>
-                <span class="cnc-value" style="color: var(--danger); font-size:12px; font-weight:bold;">${escapeHtml(c.alarm)}</span>
-              </div>
-              ${matchedPartInfo}
-            ` : ''}
-
-            ${c.source === "focas" && !showTelemetry ? `<div class="meta" role="status">Dữ liệu chưa cập nhật: chưa xác định được Alarm hiện tại. Kiểm tra cầu nối và dòng đồng bộ Firebase trên trang.</div>` : ""}
-            ${showTelemetry && c.readErrors && Object.keys(c.readErrors).length ? `<div class="meta" role="status">Một số mục chưa đọc được: ${escapeHtml(Object.values(c.readErrors).join("; "))}</div>` : ""}
-            <div class="row-actions" style="margin-top:auto; border-top:1px solid var(--line); padding-top:10px;">
-              <button class="btn" style="min-height:30px; font-size:12px;" onclick="openCncMachineAlarmHistory('${c.id}')">Alarm của máy</button>
-              <button class="btn" style="min-height:30px; font-size:12px;" onclick="openCncDialog('${c.id}')">Sửa IP</button>
-              ${c.source !== "focas" && signal.status === "alarm" ? `
-                <button class="btn primary" style="min-height:30px; font-size:12px; background:var(--ok); border-color:var(--ok)" onclick="resolveCncAlarm('${c.id}')">Xử lý xong (Clear)</button>
-              ` : ''}
-              <button class="icon-btn danger" onclick="deleteCnc('${c.id}')">${deleteIcon}</button>
-            </div>
-          </div>
-        `;
-      }).join("");
+      const openErrors = new Set([...document.querySelectorAll("#cncListGrid .cnc-read-errors[open]")].map(node => node.closest("[data-machine-id]").dataset.machineId));
+      document.querySelector("#cncListGrid").innerHTML = filteredCncs.map(c => renderCncMachineCard(c, {errorsOpen: openErrors.has(c.id)})).join("");
     }
 
     // LIÊN KẾT THÔNG MINH ALARM CNC VỚI KHO LINH KIỆN LTD
@@ -903,7 +844,7 @@ import { cncDisplayState, cncIsFresh, cncMeasurement, cncMode, cncDuration, cncS
             <td class="cnc-alarm-description">${escapeHtml(a.description || "—")}</td>
             <td>
               <div class="row-actions">
-                <button class="btn" style="min-height:28px; font-size:11px; padding:0 8px; background:var(--brand); color:#fff; border:0" onclick="autoCreateRepairHistoryFromCncAlarm('${a.id}')">Tạo Nhật ký sửa máy</button>
+                <button class="btn" style="min-height:28px; font-size:11px; padding:0 8px; background:var(--brand); color:#fff; border:0" onclick="autoCreateRepairHistoryFromCncAlarm('${a.id}')">Nhật ký sửa máy</button>
               </div>
             </td>
           </tr>
@@ -1621,6 +1562,15 @@ import { cncDisplayState, cncIsFresh, cncMeasurement, cncMode, cncDuration, cncS
     
     // Nộp form thông tin
     els.itemForm.addEventListener("submit", saveItem);
+    document.querySelector("#cncListGrid").addEventListener("click", event => {
+      const button = event.target.closest("button[data-cnc-action]");
+      if (!button) return;
+      const id = button.dataset.cncId;
+      if (button.dataset.cncAction === "history") { openCncMachineAlarmHistory(id); return; }
+      if (!canEdit()) { showToast("Tài khoản chưa có quyền chỉnh sửa máy."); return; }
+      if (button.dataset.cncAction === "edit") openCncDialog(id);
+      if (button.dataset.cncAction === "delete") deleteCnc(id);
+    });
     els.cncForm.addEventListener("submit", saveCnc); // Submit Form CNC
     els.moveForm.addEventListener("submit", saveMovement);
     els.historyForm.addEventListener("submit", saveRepairHistory);

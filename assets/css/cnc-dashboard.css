@@ -1,0 +1,125 @@
+/* LTD industrial CNC dashboard. Scoped to this page; other modules retain their layout. */
+body[data-page="cncMonitoringPage"] { background: #edf1f5; }
+body[data-page="cncMonitoringPage"] .topbar { background: #fff; border-bottom-color: #dce2e9; padding-top: 22px; padding-bottom: 22px; }
+body[data-page="cncMonitoringPage"] .page-title h2 { color: #192432; font-size: 23px; letter-spacing: -.5px; }
+body[data-page="cncMonitoringPage"] .page-title p { font-size: 12px; color: #778391; margin-top: 6px; }
+body[data-page="cncMonitoringPage"] .actions .btn { min-height: 36px; font-size: 12px; }
+body[data-page="cncMonitoringPage"] #addCncMainBtn { background: #253448; border-color: #253448; }
+#cncMonitoringPage { --cnc-ink: #1c2939; --cnc-muted: #7c8999; --cnc-line: #e3e8ef; gap: 18px; padding-top: 24px; }
+.cnc-plant-header { display: grid; grid-template-columns: 1fr auto; align-items: center; gap: 22px; border-radius: 12px; padding: 22px 24px 0; background: #202d3d; color: #fff; overflow: hidden; }
+.cnc-plant-title { display: flex; align-items: center; gap: 16px; }
+.cnc-industry-mark { display: grid; place-items: center; width: 48px; height: 48px; border: 1px solid #f4c95c; background: #f4c95c; border-radius: 8px; color: #202d3d; font-size: 16px; font-weight: 900; letter-spacing: -.5px; }
+.cnc-eyebrow { font-size: 10px; font-weight: 700; letter-spacing: 2px; color: #c8d3e1; }
+.cnc-plant-title h2 { font-size: 22px; font-weight: 650; letter-spacing: -.4px; margin: 2px 0 0; }
+.cnc-plant-connection { display: flex; align-items: center; gap: 12px; }
+.cnc-plant-connection > div { display: grid; gap: 1px; }
+.cnc-plant-connection > div > span { font-size: 11px; color: #aebed0; }
+.cnc-plant-connection strong { font-size: 23px; line-height: 1.25; font-variant-numeric: tabular-nums; }
+.cnc-network-dot { width: 8px; height: 8px; background: #c8d3e1; border-radius: 50%; }
+.cnc-bridge-download { margin-left: 18px; border-left: 1px solid #425063; padding-left: 22px; display: flex; align-items: center; gap: 14px; color: #d4dfec; font-size: 11px; text-decoration: none; }
+.cnc-bridge-download:hover { color: #fff; }
+.cnc-bridge-download span { font-size: 20px; }
+.cnc-sync-line { grid-column: 1 / -1; display: flex; gap: 12px; align-items: center; margin: 0 -24px; padding: 10px 24px; border-top: 1px solid #354354; background: #1a2635; }
+.cnc-live-tag { font-size: 9px; font-weight: 800; letter-spacing: .7px; border: 1px solid #627080; border-radius: 3px; padding: 2px 5px; color: #d0dbe7; flex: 0 0 auto; }
+#cncSyncStatus { font-size: 11px; color: #b5c3d3; margin: 0; line-height: 1.5; }
+.cnc-refresh-info { margin-left: auto; font-size: 10px; color: #a6b6c9; white-space: nowrap; }
+.cnc-fleet-stats { display: grid; grid-template-columns: repeat(4,minmax(0,1fr)); gap: 14px; }
+.cnc-fleet-stat { position: relative; background: #fff; border: 1px solid #e0e6ed; border-radius: 10px; padding: 16px 20px; display: grid; grid-template-columns: 1fr auto; align-items: center; gap: 5px 10px; overflow: hidden; }
+.cnc-fleet-stat::before { content: ''; position: absolute; left: 0; top: 16px; bottom: 16px; width: 3px; border-radius: 2px; background: #6c7c90; }
+.cnc-fleet-stat > span { color: #687789; font-size: 10px; font-weight: 750; letter-spacing: .6px; }
+.cnc-fleet-stat > strong { grid-column: 2; grid-row: 1 / 3; font-size: 34px; font-weight: 650; line-height: 1; color: #253448; font-variant-numeric: tabular-nums; }
+.cnc-fleet-stat small { color: #8c98a6; font-size: 10px; display: flex; align-items: center; gap: 6px; }
+.cnc-fleet-stat i { width: 6px; height: 6px; border-radius: 50%; background: currentColor; }
+.cnc-fleet-running::before,.cnc-fleet-running i { background: #1a9971; }.cnc-fleet-running > strong { color: #17815f; }
+.cnc-fleet-hold::before,.cnc-fleet-hold i { background: #dba936; }.cnc-fleet-hold > strong { color: #b18425; }
+.cnc-fleet-alarm::before,.cnc-fleet-alarm i { background: #df5962; }.cnc-fleet-alarm > strong { color: #c44550; }
+#cncMonitoringPage > .cnc-dashboard-workspace { display: block; min-width: 0; }
+.cnc-dashboard-stack { display: grid; gap: 22px; min-width: 0; }
+#cncMonitoringPage .cnc-machine-board { background: transparent; border: 0; box-shadow: none; overflow: visible; }
+.cnc-machine-list { min-width: 0; }
+#cncMonitoringPage .cnc-grid { display: grid; grid-template-columns: repeat(auto-fit,minmax(min(100%,350px),1fr)); gap: 18px; align-items: start; }
+#cncMonitoringPage .cnc-machine-panel { min-width: 0; padding: 0; gap: 0; border: 1px solid #dbe3ec; border-radius: 12px; background: #fff; box-shadow: 0 3px 10px #26364b05; overflow: hidden; }
+.cnc-machine-panel::before { content: ''; display: block; height: 3px; background: #98a4b4; }
+.cnc-machine-panel.is-running::before { background: #17986d; }.cnc-machine-panel.is-hold::before { background: #ddb13e; }.cnc-machine-panel.is-alarm::before { background: #d65864; }
+.cnc-machine-heading { padding: 18px 18px 15px; display: flex; gap: 12px; justify-content: space-between; align-items: center; border-bottom: 1px solid #edf0f4; }
+.cnc-machine-identity { display: flex; align-items: center; gap: 12px; min-width: 0; }
+.cnc-machine-symbol { flex: 0 0 42px; height: 44px; color: #5b718b; background: #f0f4f8; border-radius: 7px; }
+.cnc-machine-symbol svg { width: 100%; height: 100%; }
+.cnc-controller { display: block; color: #8c98a7; font-size: 10px; text-transform: uppercase; letter-spacing: .45px; overflow-wrap: anywhere; }
+.cnc-machine-identity h3 { margin: 3px 0 0; font-size: 18px; letter-spacing: -.35px; line-height: 1.3; color: #223247; overflow-wrap: anywhere; }
+#cncMonitoringPage .cnc-status { animation: none; border-radius: 5px; padding: 6px 8px; font-size: 9px; font-weight: 750; line-height: 1.4; max-width: 165px; flex-shrink: 0; gap: 3px; }
+#cncMonitoringPage .cnc-status.running { background: #eaf7f0; color: #18865f; }#cncMonitoringPage .cnc-status.hold { background: #fff6df; color: #a77d1f; }#cncMonitoringPage .cnc-status.alarm { background: #fff0f1; color: #c74b56; }#cncMonitoringPage .cnc-status.offline { background: #edf0f4; color: #798696; }
+#cncMonitoringPage .cnc-state-light { width: 6px; height: 6px; margin-right: 3px; flex: 0 0 6px; }
+.cnc-machine-content { padding: 15px 18px; }
+.cnc-program-line { display: flex; justify-content: space-between; align-items: center; gap: 12px; margin-bottom: 15px; }
+.cnc-program-line > div { display: grid; gap: 3px; }
+.cnc-program-line span { color: #8b96a4; font-size: 10px; }
+.cnc-program-line strong { font-family: Consolas, ui-monospace, monospace; font-size: 19px; color: #334863; letter-spacing: .5px; }
+.cnc-program-line .cnc-operating-mode { text-align: right; }
+.cnc-operating-mode strong { font-size: 11px; letter-spacing: 0; color: #52657e; }
+.cnc-speed-grid { display: grid; grid-template-columns: 1fr 1fr; border: 1px solid #e9edf3; border-radius: 8px; overflow: hidden; background: #fafbfd; }
+.cnc-metric { min-width: 0; padding: 15px 14px; }
+.cnc-metric > span { display: block; font-size: 11px; color: #8b97a7; margin-bottom: 7px; }
+.cnc-metric > strong { display: block; color: #273d56; font-family: Consolas, ui-monospace, monospace; font-weight: 650; font-size: 31px; line-height: 1.1; letter-spacing: -.8px; overflow-wrap: anywhere; font-variant-numeric: tabular-nums; }
+.cnc-metric strong small { color: #97a4b4; font-family: inherit; font-size: 11px; font-weight: 500; letter-spacing: 0; }
+.cnc-speed-grid .cnc-metric + .cnc-metric { border-left: 1px solid #e6ecf3; }
+.cnc-production-grid { display: grid; grid-template-columns: .8fr 1fr 1fr; margin-top: 12px; }
+.cnc-production-grid .cnc-metric { padding: 10px 8px; }.cnc-production-grid .cnc-metric:first-child { padding-left: 0; }
+.cnc-production-grid .cnc-metric + .cnc-metric { border-left: 1px solid #e9edf2; }
+.cnc-production-grid .cnc-metric > span { font-size: 10px; letter-spacing: .45px; margin-bottom: 6px; }
+.cnc-production-grid .cnc-metric > strong { font-size: 20px; letter-spacing: -.5px; }
+.cnc-production-grid .cnc-parts > strong { color: #234967; }
+.cnc-live-alarm { padding: 10px 12px; margin-top: 12px; background: #fff5f5; border: 1px solid #f3d9dc; border-left: 3px solid #d45d67; border-radius: 5px; color: #b84651; }
+.cnc-live-alarm > div + div { border-top: 1px solid #f1d8da; padding-top: 7px; margin-top: 7px; }
+.cnc-live-alarm strong { font-size: 11px; }.cnc-live-alarm p { font-size: 12px; line-height: 1.5; margin: 4px 0 0; white-space: pre-wrap; overflow-wrap: anywhere; }
+.cnc-live-alarm small { font-size: 10px; }
+.cnc-unavailable { margin-top: 12px; padding: 8px 10px; border-radius: 4px; background: #f3f5f8; font-size: 10px; line-height: 1.5; color: #8995a3; }
+.cnc-read-errors { color: #9c7c38; font-size: 10px; margin-top: 12px; }.cnc-read-errors summary { cursor: pointer; }.cnc-read-errors p { margin: 6px 0 0; overflow-wrap: anywhere; }
+.cnc-machine-footer { background: #fafbfd; border-top: 1px solid #edf0f4; padding: 11px 18px; display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+.cnc-connection-meta { display: grid; gap: 2px; font-size: 10px; color: #8e9bab; min-width: 0; overflow-wrap: anywhere; }
+.cnc-connection-meta > span:first-child { font-size: 10px; color: #62778f; font-weight: 600; }
+.cnc-machine-actions { display: flex; gap: 5px; align-items: center; flex-shrink: 0; }
+#cncMonitoringPage .cnc-history-btn { min-height: 28px; padding: 0 9px; background: #fff; box-shadow: none; border: 1px solid #dce4ed; border-radius: 5px; color: #5d718a; font-size: 10px; }.cnc-history-btn span { margin-left: 3px; }
+.cnc-icon-action { background: transparent; padding: 5px; width: 27px; height: 28px; color: #8e9cad; border-radius: 4px; }.cnc-icon-action svg { width: 17px; height: 17px; }.cnc-icon-action:hover { background: #e9eef5; color: #344e6b; }.cnc-delete-action:hover { background: #fff0f1; color: #bb4753; }
+#cncMonitoringPage .cnc-alarm-section { border: 1px solid #dde4ec; border-radius: 12px; box-shadow: none; background: #fff; }
+#cncMonitoringPage .cnc-alarm-section .section-head { padding: 17px 20px; background: #fff; border-bottom: 1px solid #e9edf2; }
+#cncMonitoringPage .cnc-alarm-section h3 { color: #304158; font-size: 15px; letter-spacing: -.2px; }
+#cncMonitoringPage .cnc-alarm-section .btn { min-height: 31px; padding: 0 12px; font-size: 11px; color: #61748b; border-color: #dce4ec; box-shadow: none; }
+#cncMonitoringPage .cnc-alarm-table { min-width: 780px; }
+#cncMonitoringPage .cnc-alarm-table th { background: #f7f9fc; color: #8a97a8; font-size: 10px; padding: 11px 14px; border-bottom-color: #e5ebf2; font-weight: 650; letter-spacing: .2px; }
+#cncMonitoringPage .cnc-alarm-table td { color: #65768b; font-size: 11px; padding: 12px 14px; border-bottom-color: #edf1f5; }
+#cncMonitoringPage .cnc-alarm-table td > strong { color: #3f536d; font-weight: 600; }
+#cncMonitoringPage .cnc-alarm-table .pill { border-radius: 4px; font-size: 10px !important; padding: 3px 6px; background: #fff1f2; color: #c14b58; }
+#cncMonitoringPage .cnc-alarm-table .row-actions .btn { background: #eff3f7 !important; color: #61748b !important; border: 1px solid #e0e7ef !important; font-size: 9px !important; }
+#cncMonitoringPage .cnc-alarm-table .row-actions { justify-content: flex-end; }
+@media(max-width:1000px) { .cnc-plant-header { gap: 18px; padding: 18px 18px 0; }.cnc-sync-line { margin: 0 -18px; padding: 10px 18px; }.cnc-bridge-download { margin-left: 6px; padding-left: 14px; }.cnc-fleet-stat { padding: 14px; }.cnc-fleet-stat > strong { font-size: 29px; }.cnc-fleet-stat > span { font-size: 9px; } }
+@media(max-width:700px) {
+ #cncMonitoringPage { padding: 16px 12px 30px; gap: 14px; }
+ .cnc-plant-header { grid-template-columns: minmax(0,1fr); gap: 16px; }
+ .cnc-plant-title h2 { font-size: 20px; }.cnc-plant-connection { justify-content: space-between; }.cnc-bridge-download { margin-left: auto; }
+ .cnc-sync-line { flex-wrap: wrap; gap: 6px 10px; }.cnc-refresh-info { display: none; }#cncSyncStatus { flex: 1; font-size: 10px; }
+ .cnc-fleet-stats { grid-template-columns: repeat(2,minmax(0,1fr)); gap: 9px; }.cnc-fleet-stat { padding: 13px 12px; }.cnc-fleet-stat > strong { font-size: 28px; }
+ #cncMonitoringPage .cnc-grid { grid-template-columns: minmax(0,1fr); gap: 14px; }
+ .cnc-machine-heading { padding: 14px 12px; }.cnc-machine-identity { gap: 8px; }.cnc-machine-symbol { flex-basis: 34px; height: 37px; }.cnc-machine-identity h3 { font-size: 16px; }#cncMonitoringPage .cnc-status { max-width: 140px; font-size: 8px; padding: 5px 6px; }
+ .cnc-machine-content { padding: 12px; }.cnc-metric { padding: 13px 10px; }.cnc-metric > strong { font-size: 27px; }.cnc-production-grid .cnc-metric > strong { font-size: 18px; }.cnc-machine-footer { padding: 10px 12px; }
+}
+@media(prefers-reduced-motion:reduce){#cncMonitoringPage *,body[data-page="cncMonitoringPage"] .content { animation: none !important; transition: none !important; }}
+#cncMonitoringPage,#cncMonitoringPage > *,.cnc-alarm-section { min-width: 0; }
+.cnc-dashboard-stack { grid-template-columns: minmax(0,1fr); }
+.cnc-plant-header.has-live .cnc-network-dot { background: #49c89b; box-shadow: 0 0 0 4px #49c89b15; }
+.cnc-machine-actions .cnc-history-btn svg { width: 12px; height: 12px; margin-left: 2px; }
+@media(max-width:1060px) {
+ body[data-page="cncMonitoringPage"] .app { grid-template-columns: minmax(0,1fr); }
+ body[data-page="cncMonitoringPage"] .sidebar,body[data-page="cncMonitoringPage"] .nav { min-width: 0; max-width: 100%; }
+}
+
+@media(max-width:700px) {
+ body[data-page="cncMonitoringPage"] .topbar { padding: 14px 16px; gap: 10px; }
+ body[data-page="cncMonitoringPage"] .page-title h2 { font-size: 19px; }
+ body[data-page="cncMonitoringPage"] .page-title p { display: none; }
+ body[data-page="cncMonitoringPage"] .actions { gap: 7px; }
+ body[data-page="cncMonitoringPage"] .actions .btn { min-height: 32px; font-size: 11px; padding: 0 11px; }
+ .cnc-plant-header { padding: 14px 14px 0; gap: 12px; }.cnc-industry-mark { width: 36px; height: 36px; font-size: 13px; }.cnc-plant-title { gap: 11px; }.cnc-plant-title h2 { font-size: 18px; }.cnc-eyebrow { font-size: 8px; }
+ .cnc-sync-line { margin: 0 -14px; padding: 8px 14px; }.cnc-plant-connection strong { font-size: 20px; }.cnc-plant-connection > div { display: flex; gap: 12px; align-items: center; }.cnc-plant-connection > div > span { font-size: 10px; }
+ .cnc-fleet-stat { padding: 11px 12px; }.cnc-fleet-stat small { font-size: 9px; }
+}
