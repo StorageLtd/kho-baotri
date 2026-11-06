@@ -1,7 +1,7 @@
 import {buildCncReport,vnDate} from "./cnc-reports.js?v=20261105-part-count";
 ﻿import { downloadInventoryWorkbook } from "./inventory-xlsx.js?v=20261105-no-prices";
 import { maintenancePlan, repairHistoryForm, alarmHistoryForm, movementVoucherForm, downloadMaintenanceWorkbook } from "./maintenance-xlsx.js?v=20261105-voucher";
-import { renderCncMachineCard } from "./cnc-dashboard.js?v=20261106-daily-charts";
+import { renderCncMachineCard } from "./cnc-dashboard.js?v=20261106-compact-rings";
 import { openCncReports } from "./cnc-report-ui.js?v=20261105-part-count";
 import { cncDisplayState, cncIsFresh, cncMeasurement, cncMode, cncDuration, cncServerNow, setCncClockOffset } from "./cnc-status.js?v=20261029-web-sync";
 

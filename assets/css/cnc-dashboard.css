@@ -203,3 +203,45 @@ body[data-page="cncMonitoringPage"] #addCncMainBtn { background: #253448; border
 #cncMonitoringPage .cnc-program-line{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:14px}
 #cncMonitoringPage .cnc-program-line strong{font-size:18px}
 @media(max-width:480px){#cncMonitoringPage .cnc-day-panels{gap:12px;padding:15px 12px}#cncMonitoringPage .cnc-day-ring{width:112px;height:112px}#cncMonitoringPage .cnc-day-ring strong{font-size:16px}#cncMonitoringPage .cnc-day-label{font-size:8px}#cncMonitoringPage .cnc-day-parts>strong{font-size:32px}}
+/* Compact, coordinated circular readouts for each machine. */
+#cncMonitoringPage .cnc-machine-heading{padding:12px 15px}
+#cncMonitoringPage .cnc-machine-identity h3{font-size:18px}
+#cncMonitoringPage .cnc-machine-content{padding:12px 14px}
+#cncMonitoringPage .cnc-day-title{padding:10px 12px;font-size:10px}
+#cncMonitoringPage .cnc-day-panels{padding:12px 12px 10px;gap:14px;align-items:start}
+#cncMonitoringPage .cnc-day-parts{text-align:center;min-width:0}
+#cncMonitoringPage .cnc-day-ring{width:108px;height:108px;padding:9px;margin:10px auto;background:conic-gradient(#0cbaab 0 var(--run),#ffc24b var(--run) var(--hold),#f4618b var(--hold) var(--alarm),#e4ebf4 var(--alarm) 100%);box-shadow:0 4px 15px #16ac9d18}
+#cncMonitoringPage .cnc-day-ring>div{background:radial-gradient(circle at 35% 25%,#fff,#f0faf9);box-shadow:inset 0 0 0 1px #ffffffb3}
+#cncMonitoringPage .cnc-day-ring strong{font-size:17px}
+#cncMonitoringPage .cnc-part-ring{background:conic-gradient(from 220deg,#a5a1f3 0 var(--baseline),#7451ef var(--baseline),#c254e5 100%);box-shadow:0 4px 15px #8654df20}
+#cncMonitoringPage .cnc-part-ring>div{background:radial-gradient(circle at 35% 25%,#fff,#f4f0ff)}
+#cncMonitoringPage .cnc-part-ring strong{color:#7650d4;font-size:30px;line-height:1.1}
+#cncMonitoringPage .cnc-part-ring.is-neutral{background:#dedff0;box-shadow:none}
+#cncMonitoringPage .cnc-count-comparison{display:flex;flex-wrap:wrap;justify-content:center;gap:4px 12px}
+#cncMonitoringPage .cnc-count-comparison label{display:flex;gap:5px;margin:0;font-size:9px}
+#cncMonitoringPage .cnc-count-comparison label:first-child b{color:#8880c6}
+#cncMonitoringPage .cnc-count-comparison label:last-child b{color:#7950d5}
+#cncMonitoringPage .cnc-part-increase{display:block;font-size:9px;color:#9560d7;margin-top:5px}
+#cncMonitoringPage .cnc-day-foot{padding:7px 11px;font-size:8px}
+#cncMonitoringPage .cnc-day-charts{margin-bottom:10px;border-radius:11px}
+#cncMonitoringPage .cnc-program-line{margin-bottom:9px;gap:8px}
+#cncMonitoringPage .cnc-program-line strong{font-size:16px}
+#cncMonitoringPage .cnc-instrument-grid{gap:9px;margin-top:8px}
+#cncMonitoringPage .cnc-instrument{padding:6px 5px 8px;background:linear-gradient(135deg,#eff5ff,#f8fbff)}
+#cncMonitoringPage .cnc-instrument.feed{background:linear-gradient(135deg,#ecfbf9,#f6fdfa)}
+#cncMonitoringPage .cnc-instrument-face{width:104px;height:104px}
+#cncMonitoringPage .cnc-instrument.spindle{--instrument-color:#5579e7}
+#cncMonitoringPage .cnc-instrument.feed{--instrument-color:#10b7a5}
+#cncMonitoringPage .cnc-dial-track{stroke:#d5e0f7;stroke-width:5}
+#cncMonitoringPage .cnc-instrument.feed .cnc-dial-track{stroke:#cceee8}
+#cncMonitoringPage .cnc-dial-ticks{stroke:var(--instrument-color);opacity:.3}
+#cncMonitoringPage .cnc-dial-inner{stroke:var(--instrument-color);opacity:.2}
+#cncMonitoringPage .cnc-dial-accent{stroke-width:6}
+#cncMonitoringPage .cnc-instrument-reading strong{font-size:21px;color:var(--instrument-color)}
+#cncMonitoringPage .cnc-instrument-reading small{font-size:8px}
+#cncMonitoringPage .cnc-instrument-label{font-size:10px}
+#cncMonitoringPage .cnc-machine-panel .cnc-production-grid{margin-top:10px}
+#cncMonitoringPage .cnc-machine-panel .cnc-production-grid .cnc-metric{padding:8px!important}
+#cncMonitoringPage .cnc-machine-panel .cnc-production-grid .cnc-metric>strong{font-size:16px}
+#cncMonitoringPage .cnc-machine-footer{padding:10px 14px}
+@media(max-width:480px){#cncMonitoringPage .cnc-machine-content{padding:10px}#cncMonitoringPage .cnc-day-panels{gap:9px;padding:10px 8px}#cncMonitoringPage .cnc-day-ring{width:100px;height:100px}#cncMonitoringPage .cnc-day-runtime .cnc-day-ring strong{font-size:15px}#cncMonitoringPage .cnc-instrument-face{width:98px;height:98px}#cncMonitoringPage .cnc-machine-heading{padding:12px 10px}}
