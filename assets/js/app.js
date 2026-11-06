@@ -1,7 +1,7 @@
 import {buildCncReport,vnDate} from "./cnc-reports.js?v=20261105-part-count";
 ﻿import { downloadInventoryWorkbook } from "./inventory-xlsx.js?v=20261105-no-prices";
 import { maintenancePlan, repairHistoryForm, alarmHistoryForm, movementVoucherForm, downloadMaintenanceWorkbook } from "./maintenance-xlsx.js?v=20261105-voucher";
-import { renderCncMachineCard } from "./cnc-dashboard.js?v=20261106-operation-strip";
+import { renderCncMachineCard } from "./cnc-dashboard.js?v=20261106-minimal-header";
 import { openCncReports } from "./cnc-report-ui.js?v=20261105-part-count";
 import { cncDisplayState, cncIsFresh, cncMeasurement, cncMode, cncDuration, cncServerNow, setCncClockOffset } from "./cnc-status.js?v=20261029-web-sync";
 
@@ -544,8 +544,8 @@ import { cncDisplayState, cncIsFresh, cncMeasurement, cncMode, cncDuration, cncS
         els.pageHeading.textContent = "HỆ THỐNG KHO LTD";
         els.pageSubtitle.textContent = "Quản lý linh kiện bảo trì: mã linh kiện, vị trí kệ và số lượng còn trong kho.";
       } else if(pageId === "cncMonitoringPage") {
-        els.pageHeading.textContent = "GIÁM SÁT MÁY CNC FANUC";
-        els.pageSubtitle.textContent = "Theo dõi trạng thái CNC FANUC, tốc độ trục chính, chương trình và báo cáo vận hành.";
+        els.pageHeading.textContent = "";
+        els.pageSubtitle.textContent = "";
       } else if(pageId === "machinesPage") {
         els.pageHeading.textContent = "HỒ SƠ MÁY XƯỞNG";
         els.pageSubtitle.textContent = "Hệ thống lưu giữ thông tin hồ sơ thiết bị, thời hạn bảo hành của toàn xưởng.";

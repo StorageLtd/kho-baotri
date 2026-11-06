@@ -290,3 +290,9 @@ body[data-page="cncMonitoringPage"] #addCncMainBtn { background: #253448; border
 #cncMonitoringPage .cnc-day-runtime .cnc-day-ring strong{font-size:18px;font-weight:850}
 #cncMonitoringPage .cnc-part-ring strong{font-size:32px;font-weight:850}
 @container(max-width:500px){#cncMonitoringPage .cnc-operation-strip{grid-template-columns:repeat(3,minmax(0,1fr));row-gap:12px;padding:10px 0}#cncMonitoringPage .cnc-operation-strip>div:nth-child(4){border-left:0}#cncMonitoringPage .cnc-operation-strip>div:nth-child(n+4){border-top:1px solid #d4deed;padding-top:10px}#cncMonitoringPage .cnc-operation-strip strong{font-size:20px}#cncMonitoringPage .cnc-operation-strip .cnc-operating-mode strong{font-size:17px}}
+/* Minimal CNC toolbar: retain account and actions without a duplicate title. */
+body[data-page="cncMonitoringPage"] .topbar .page-title{display:none}
+body[data-page="cncMonitoringPage"] .topbar{padding-top:10px;padding-bottom:10px;min-height:0;justify-content:flex-end;gap:0}
+body[data-page="cncMonitoringPage"] .topbar .actions{margin-left:auto;align-items:center}
+#cncMonitoringPage{padding-top:16px}
+@media(max-width:700px){body[data-page="cncMonitoringPage"] .topbar{padding:10px 12px}body[data-page="cncMonitoringPage"] .topbar .actions{width:100%;margin-left:0;justify-content:flex-start}}
