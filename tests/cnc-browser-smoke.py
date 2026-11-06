@@ -51,6 +51,7 @@ window.renderFixture = (records) => {
 };
 window.startFixturePolling = startCncRealtimeSync;
 window.restoreFixtureClock = () => setCncClockOffset(0);
+window.seedDayFixture = () => {cncDayOwner=getUser().uid;cncDayStats.set('neway-1260s',{date:vnDate(cncServerNow()),row:{sessions:1,counterStart:20,counterEnd:21,counterResets:0,observedMs:7200000,runningMs:3600000,holdMs:1800000,alarmMs:900000,firstMs:cncServerNow()-7200000,lastMs:cncServerNow(),conflicts:0}});renderCncGridOnly()};
 '''
             await page.route('**/assets/js/app.js*', lambda route: route.fulfill(status=200, content_type='text/javascript', body=source+hook))
             await page.goto(f'http://127.0.0.1:{server.server_port}/', wait_until='networkidle')
@@ -92,8 +93,15 @@ window.restoreFixtureClock = () => setCncClockOffset(0);
             assert 'Chẩn đoán tín hiệu chu kỳ' not in await card.inner_text()
             assert 'Các nhóm mã lỗi liên kết kho' not in await page.locator('#cncMonitoringPage').inner_text()
             assert await page.locator('#cncLiveCharts').count()==0
-            assert await card.locator('.cnc-machine-art').count()==1
+            assert await card.locator('.cnc-machine-art').count()==0
+            assert await card.locator('.cnc-day-charts').count()==1
             assert await card.locator('.cnc-instrument').count()==2
+            await page.evaluate('seedDayFixture()')
+            assert '21' in await card.locator('.cnc-day-parts').inner_text()
+            assert await card.locator('.cnc-count-comparison label b').all_text_contents()==['20','21']
+            assert '1:00:00' in await card.locator('.cnc-day-runtime').inner_text()
+            assert await card.locator('.cnc-day-ring').evaluate("el=>el.style.getPropertyValue('--run')")=='50%'
+
             assert await card.get_by_text('Xử lý xong (Clear)').count() == 0
             assert await page.locator('#statCncRunning').inner_text() == '1'
             assert await page.locator('#cncConnectionReady').inner_text() == '1 / 2'

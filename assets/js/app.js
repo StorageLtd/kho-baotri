@@ -1,6 +1,7 @@
+import {buildCncReport,vnDate} from "./cnc-reports.js?v=20261105-part-count";
 ﻿import { downloadInventoryWorkbook } from "./inventory-xlsx.js?v=20261105-no-prices";
 import { maintenancePlan, repairHistoryForm, alarmHistoryForm, movementVoucherForm, downloadMaintenanceWorkbook } from "./maintenance-xlsx.js?v=20261105-voucher";
-import { renderCncMachineCard } from "./cnc-dashboard.js?v=20261106-machine-visuals";
+import { renderCncMachineCard } from "./cnc-dashboard.js?v=20261106-daily-charts";
 import { openCncReports } from "./cnc-report-ui.js?v=20261105-part-count";
 import { cncDisplayState, cncIsFresh, cncMeasurement, cncMode, cncDuration, cncServerNow, setCncClockOffset } from "./cnc-status.js?v=20261029-web-sync";
 
@@ -332,7 +333,7 @@ import { cncDisplayState, cncIsFresh, cncMeasurement, cncMode, cncDuration, cncS
         finally { syncingClock = false; showStatus(); refreshCncTelemetryView(); }
       };
       void readMachines(); void readAlarms(); void syncClock();
-      setInterval(() => { refreshCncTelemetryView(); void readMachines(); void readAlarms(); }, 5000);
+      setInterval(() => { refreshCncTelemetryView(); void refreshCncDayStats(); void readMachines(); void readAlarms(); }, 5000);
       setInterval(() => { void syncClock(); }, 15000);
       document.addEventListener("visibilitychange", () => {
         if (!document.hidden) { void syncClock(); void readMachines(); }
@@ -761,10 +762,32 @@ import { cncDisplayState, cncIsFresh, cncMeasurement, cncMode, cncDuration, cncS
     function renderCncTable() {
       document.querySelector(".cnc-plant-header")?.classList.toggle("has-live", cncs.some(c => cncIsFresh(c)));
       if (els.cncConnectionReady) els.cncConnectionReady.textContent = `${cncs.filter(c => cncIsFresh(c)).length} / ${cncs.length}`;
-      renderCncGridOnly();
+      renderCncGridOnly(); void refreshCncDayStats();
       renderCncAlarmsOnly();
     }
 
+    const cncDayStats = new Map();
+    let cncDayLoading=false,cncDayLoadedAt=0,cncDayOwner='';
+    async function refreshCncDayStats(){
+      const uid=getUser()?.uid;
+      if(!uid||cncDayLoading||els.cncMonitoringPage.hidden)return;
+      if(uid!==cncDayOwner){cncDayStats.clear();cncDayLoadedAt=0;cncDayOwner=uid;}
+      const date=vnDate(cncServerNow());
+      if(Date.now()-cncDayLoadedAt<30000&&[...cncDayStats.values()].every(x=>x.date===date))return;
+      cncDayLoading=true;cncDayLoadedAt=Date.now();
+      try{
+        const from=+new Date(date+'T00:00:00+07:00'),through=cncServerNow();
+        for(let i=0;i<cncs.length;i+=3)await Promise.all(cncs.slice(i,i+3).map(async machine=>{
+          try{
+            const data=await fbFetch(`cncReports/${encodeURIComponent(machine.id)}/${date}`,'GET',null,true);
+            if(getUser()?.uid!==uid)return;
+            const report=buildCncReport([machine],{[machine.id]:{[date]:data||{}}},{from,through,until:from+86400000,startDate:date,endDate:date});
+            cncDayStats.set(machine.id,{date,row:report.daily[0]});
+          }catch(error){if(getUser()?.uid===uid)cncDayStats.set(machine.id,{date,error:'Chưa tải được thống kê. Kiểm tra quyền đọc báo cáo.'});}
+        }));
+        if(getUser()?.uid===uid&&!els.cncMonitoringPage.hidden)renderCncGridOnly();
+      }finally{cncDayLoading=false;}
+    }
     function renderCncGridOnly() {
       const filteredCncs = cncs;
 
@@ -774,7 +797,7 @@ import { cncDisplayState, cncIsFresh, cncMeasurement, cncMode, cncDuration, cncS
       }
 
       const openErrors = new Set([...document.querySelectorAll("#cncListGrid .cnc-read-errors[open]")].map(node => node.closest("[data-machine-id]").dataset.machineId));
-      document.querySelector("#cncListGrid").innerHTML = filteredCncs.map(c => renderCncMachineCard(c, {errorsOpen: openErrors.has(c.id)})).join("");
+      document.querySelector("#cncListGrid").innerHTML = filteredCncs.map(c => renderCncMachineCard(c, {errorsOpen: openErrors.has(c.id), daily: cncDayOwner===getUser()?.uid&&cncDayStats.get(c.id)?.date===vnDate(cncServerNow())?cncDayStats.get(c.id):null})).join("");
     }
 
     // LIÊN KẾT THÔNG MINH ALARM CNC VỚI KHO LINH KIỆN LTD
