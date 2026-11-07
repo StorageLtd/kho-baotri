@@ -1,0 +1,7 @@
+{
+  "machineName": "CNC thu nghiem",
+  "cncIp": "192.168.1.1",
+  "cncPort": 8193,
+  "webPort": 8080,
+  "pollSeconds": 3
+}

@@ -1,0 +1,5 @@
+Copy your existing 64-bit FOCAS DLLs here:
+Fwlib64.dll
+fwlibe64.dll
+fwlib30i64.dll
+DLLs are not included in this package. Do not copy cloud bridge scripts or credentials here.
