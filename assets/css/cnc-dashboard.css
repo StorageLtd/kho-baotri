@@ -297,19 +297,19 @@ body[data-page="cncMonitoringPage"] .topbar .actions{margin-left:auto;align-item
 #cncMonitoringPage{padding-top:16px}
 @media(max-width:700px){body[data-page="cncMonitoringPage"] .topbar{padding:10px 12px}body[data-page="cncMonitoringPage"] .topbar .actions{width:100%;margin-left:0;justify-content:flex-start}}
 /* Three-machine workspace, balanced card heights and a brighter LTD palette. */
-body[data-page="cncMonitoringPage"]{background:#10243c}
+body[data-page="cncMonitoringPage"]{background:#050b19}
 body[data-page="cncMonitoringPage"] .content{
- background:radial-gradient(ellipse at 0 0,#287bba40,transparent 55%),radial-gradient(ellipse at 100% 15%,#0dc7a02b,transparent 50%),linear-gradient(145deg,#112b48 0%,#152d45 50%,#123d43 100%);
+ background:radial-gradient(ellipse at 3% 0,#1659ff52,transparent 43%),radial-gradient(ellipse at 100% 7%,#00d9be38,transparent 40%),radial-gradient(ellipse at 50% 100%,#5424c32b,transparent 55%),linear-gradient(145deg,#050b1c 0%,#081226 55%,#041e28 100%);
  min-height:calc(100vh - 58px);
 }
-body[data-page="cncMonitoringPage"] .sidebar{background:linear-gradient(180deg,#102d3c,#0d2532);border-right:1px solid #4f83932b}
-body[data-page="cncMonitoringPage"] .nav button.active{background:linear-gradient(110deg,#0c8076,#136875);color:#fff;box-shadow:inset 3px 0 0 #53e1c4,0 4px 12px #00192220}
+body[data-page="cncMonitoringPage"] .sidebar{background:linear-gradient(180deg,#071529,#030c19);border-right:1px solid #3c96bc40}
+body[data-page="cncMonitoringPage"] .nav button.active{background:linear-gradient(110deg,#087b8c,#124da4);color:#fff;box-shadow:inset 3px 0 0 #52ffe0,0 0 18px #10c5e32b}
 body[data-page="cncMonitoringPage"] .nav button:hover{background:#ffffff12;color:#fff}
-body[data-page="cncMonitoringPage"] .topbar{background:#10263d;border-bottom:1px solid #54849b40}
+body[data-page="cncMonitoringPage"] .topbar{background:#060e20;border-bottom:1px solid #3b81b94d}
 body[data-page="cncMonitoringPage"] #addCncMainBtn{background:linear-gradient(135deg,#087e77,#0c9b88);border-color:#078578;box-shadow:0 3px 8px #0b8a7720;color:#fff}
 body[data-page="cncMonitoringPage"] #exportCncBtn{border-color:#bfcede;color:#244e75;background:#f6faff;font-weight:750}
 #cncMonitoringPage{gap:15px}
-#cncMonitoringPage .cnc-plant-header{background:linear-gradient(115deg,#244c76,#205577 60%,#087e72);border:1px solid #5c9aa855;box-shadow:0 6px 24px #00102230;border-radius:13px}
+#cncMonitoringPage .cnc-plant-header{background:linear-gradient(115deg,#103d81,#154c88 48%,#008e87);border:1px solid #46d8d775;box-shadow:0 8px 28px #00071370,0 0 22px #00c6dc12;border-radius:13px}
 #cncMonitoringPage .cnc-sync-line{background:#102c4590;border-top-color:#ffffff18}
 #cncMonitoringPage .cnc-industry-mark{background:linear-gradient(145deg,#ffe49a,#ffcc59);border-color:#ffdb76;box-shadow:0 2px 10px #00000012;color:#23415e}
 #cncMonitoringPage .cnc-fleet-stats{gap:12px}
@@ -321,7 +321,7 @@ body[data-page="cncMonitoringPage"] #exportCncBtn{border-color:#bfcede;color:#24
 #cncMonitoringPage .cnc-fleet-hold{background:linear-gradient(115deg,#fff,#fff5dc)}
 #cncMonitoringPage .cnc-fleet-alarm{background:linear-gradient(115deg,#fff,#ffedf1)}
 #cncMonitoringPage .cnc-grid{grid-template-columns:repeat(3,minmax(0,1fr));align-items:stretch;gap:16px}
-#cncMonitoringPage .cnc-machine-panel{display:flex;flex-direction:column;align-self:stretch;border-radius:13px;border-color:#d1dfed;box-shadow:0 6px 22px #00172e2b;background:#fff;min-width:0;transition:box-shadow .18s ease,border-color .18s ease}
+#cncMonitoringPage .cnc-machine-panel{display:flex;flex-direction:column;align-self:stretch;border-radius:13px;border-color:#d1dfed;box-shadow:0 8px 26px #00050f5c;background:#fff;min-width:0;transition:box-shadow .18s ease,border-color .18s ease}
 #cncMonitoringPage .cnc-machine-panel:hover{border-color:#59d5c4;box-shadow:0 8px 26px #00112340}
 #cncMonitoringPage .cnc-machine-panel::before{flex:0 0 4px;height:4px;background:var(--machine-state)}
 #cncMonitoringPage .cnc-machine-heading{background:linear-gradient(115deg,#203d5b,#294965);min-height:78px;padding:11px 12px;gap:8px;flex-shrink:0;border-bottom:0}
