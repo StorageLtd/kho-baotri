@@ -377,20 +377,20 @@ body[data-page="cncMonitoringPage"] #exportCncBtn{border-color:#bfcede;color:#24
  #cncMonitoringPage .cnc-part-ring strong{font-size:30px}
 }
 /* Rich color surfaces inside each machine card. */
-#cncMonitoringPage .cnc-machine-panel{background:#152f4e;border-color:#47749b}
-#cncMonitoringPage .cnc-machine-content{background:linear-gradient(145deg,#1d3a60,#203253 55%,#17474e)}
-#cncMonitoringPage .cnc-operation-strip{background:linear-gradient(115deg,#264c86,#354578 58%,#245878);border-color:#668bbc80;box-shadow:inset 0 1px 0 #ffffff12}
+#cncMonitoringPage .cnc-machine-panel{background:#091426;border-color:#47749b}
+#cncMonitoringPage .cnc-machine-content{background:linear-gradient(145deg,#0c1830,#10162d 55%,#082a30)}
+#cncMonitoringPage .cnc-operation-strip{background:linear-gradient(115deg,#10264c,#1b1c43 58%,#0b3044);border-color:#668bbc80;box-shadow:inset 0 1px 0 #ffffff12}
 #cncMonitoringPage .cnc-operation-strip>div+div{border-left-color:#8daed144}
 #cncMonitoringPage .cnc-operation-strip span{color:#dceaff}
 #cncMonitoringPage .cnc-operation-strip strong,#cncMonitoringPage .cnc-operation-strip .cnc-operating-mode strong{color:#fff;text-shadow:0 1px 3px #07183140}
-#cncMonitoringPage .cnc-day-charts{background:linear-gradient(140deg,#302d60,#1d3b60 52%,#14545a);border-color:#6682b382;box-shadow:inset 0 1px 0 #ffffff10}
-#cncMonitoringPage .cnc-day-title{background:linear-gradient(100deg,#3e4986,#235b7a);color:#f1f6ff;border-bottom-color:#a9c6ec30}
+#cncMonitoringPage .cnc-day-charts{background:linear-gradient(140deg,#1b143b,#0b1d35 52%,#063137);border-color:#6682b382;box-shadow:inset 0 1px 0 #ffffff10}
+#cncMonitoringPage .cnc-day-title{background:linear-gradient(100deg,#282452,#0e3c55);color:#f1f6ff;border-bottom-color:#a9c6ec30}
 #cncMonitoringPage .cnc-day-title span{color:#d9e8ff}
 #cncMonitoringPage .cnc-day-date::before{background:#5bffce;box-shadow:0 0 6px #5bffce50}
 #cncMonitoringPage .cnc-day-date.is-pending::before{background:#a6bad1;box-shadow:none}
 #cncMonitoringPage .cnc-four-gauges .cnc-day-label,#cncMonitoringPage .cnc-four-gauges .cnc-instrument-label{color:#ecf3ff}
-#cncMonitoringPage .cnc-day-ring>div{background:radial-gradient(circle at 35% 20%,#214e64,#153347);box-shadow:inset 0 0 0 1px #72c7cb25}
-#cncMonitoringPage .cnc-part-ring>div{background:radial-gradient(circle at 35% 20%,#41346a,#25294e);box-shadow:inset 0 0 0 1px #c4b0ff25}
+#cncMonitoringPage .cnc-day-ring>div{background:radial-gradient(circle at 35% 20%,#0e3040,#051923);box-shadow:inset 0 0 0 1px #72c7cb25}
+#cncMonitoringPage .cnc-part-ring>div{background:radial-gradient(circle at 35% 20%,#281b48,#100e27);box-shadow:inset 0 0 0 1px #c4b0ff25}
 #cncMonitoringPage .cnc-part-ring strong{color:#e1c2ff;text-shadow:0 0 15px #be7fff20}
 #cncMonitoringPage .cnc-day-runtime .cnc-day-ring strong{color:#7affdb}
 #cncMonitoringPage .cnc-day-ring small{color:#d0dfef}
@@ -413,9 +413,9 @@ body[data-page="cncMonitoringPage"] #exportCncBtn{border-color:#bfcede;color:#24
 #cncMonitoringPage .cnc-instrument.feed .cnc-dial-track{stroke:#468a8a}
 #cncMonitoringPage .cnc-dial-ticks{opacity:.6}
 #cncMonitoringPage .cnc-dial-inner{opacity:.4}
-#cncMonitoringPage .cnc-machine-footer{background:linear-gradient(110deg,#163550,#173044);border-top-color:#7fa9c433}
+#cncMonitoringPage .cnc-machine-footer{background:linear-gradient(110deg,#0a1c30,#071622);border-top-color:#7fa9c433}
 #cncMonitoringPage .cnc-connection-meta,#cncMonitoringPage .cnc-connection-meta>span:first-child{color:#d0e2f6}
-#cncMonitoringPage .cnc-history-btn{background:#295477;border-color:#75a8cb70;color:#f4f9ff}
+#cncMonitoringPage .cnc-history-btn{background:#173956;border-color:#75a8cb70;color:#f4f9ff}
 #cncMonitoringPage .cnc-icon-action{color:#b3d4ee}
 #cncMonitoringPage .cnc-icon-action:hover{background:#ffffff16;color:#fff}
 #cncMonitoringPage .cnc-read-errors{color:#ffdf9b}
