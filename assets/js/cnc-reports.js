@@ -105,6 +105,14 @@ function cycleStatus(c){
  if(Number.isFinite(c.endMs))return c.startMs===null?'Thiếu giờ bắt đầu':'Đã kết thúc';
  return c.startMs===null?'Thiếu giờ bắt đầu':'Chưa kết thúc';
 }
+export function machiningContextText(c){
+ if(!c)return '';
+ const num=v=>Number.isFinite(v)?String(v):'—';
+ return `${c.toolNumber===null||c.toolNumber===undefined?'T—':'T'+c.toolNumber} · ${c.workCoordinate||'G—'} X${num(c.workX)} Y${num(c.workY)} Z${num(c.workZ)} · H${num(c.lengthOffsetNumber)} (${num(c.lengthGeometry)} / ${num(c.lengthWear)}) · D${num(c.radiusOffsetNumber)} (${num(c.radiusGeometry)} / ${num(c.radiusWear)}) ${c.unit||''}`;
+}
+export function reportCharts(report){
+ return report.summary.map(machine=>({name:machine.name,points:report.daily.filter(r=>r.machineId===machine.machineId).map(r=>({label:r.day.slice(8)+'/'+r.day.slice(5,7),value:r.observedMs>0?r.runningMs/r.observedMs:null,runMs:r.runningMs,observedMs:r.observedMs,missingMs:r.missingMs}))}));
+}
 export function reportSheets(report) {
   const p=report.period,meta=[['LTD VIET NAM · BÁO CÁO CNC'],[`Kỳ: ${p.startDate} → ${p.endDate} · Giờ Việt Nam`],[''],[]];
   const overview=[['Máy','Chương trình','Số lượt chạy','Giờ bắt đầu','Giờ kết thúc','Tổng thời gian chạy','Thời gian Alarm','Thời gian HOLD','PART COUNT đầu','PART COUNT cuối','Ghi chú']];
@@ -115,12 +123,13 @@ export function reportSheets(report) {
     overview.push([r.name,'Tổng kỳ',machineCycles.length||null,starts.length?cycleClock(starts.reduce((a,b)=>Math.min(a,b),Infinity)):'Không có mốc START',ends.length?cycleClock(ends.reduce((a,b)=>Math.max(a,b),-Infinity)):'Không có mốc STOP',cycleDuration(r.runningMs),cycleDuration(r.alarmMs),cycleDuration(r.holdMs),r.counterStart,r.counterEnd,r.quality]);
   }
   for(const g of report.programs)overview.push([g.name,g.program,g.cycles,cycleClock(g.firstStartMs)||'Chưa ghi nhận START',cycleClock(g.lastEndMs)||'Chưa ghi nhận kết thúc',cycleDuration(g.runMs),cycleDuration(g.alarmMs),cycleDuration(g.holdMs),g.counterStart??null,g.counterEnd??null,g.incomplete?`Thiếu mốc giờ: ${g.incomplete} lượt`:'']);
-  const detail=[['Ngày','Máy','Chương trình','Giờ bắt đầu','Giờ kết thúc','Thời gian chạy','Tổng thời gian','CYCLE TIME','Alarm','HOLD','PART COUNT đầu','PART COUNT cuối','Trạng thái']];
-  for(const c of report.cycles)detail.push([c.day,c.name,c.program||'',cycleClock(c.startMs)||'Chưa ghi nhận START',cycleClock(c.endMs)||'Chưa ghi nhận kết thúc',cycleDuration(c.runMs),cycleDuration(c.wallMs),cycleDuration(c.cncCycleTimeMs),cycleDuration(c.alarmMs),cycleDuration(c.holdMs),validCounter(c.partCountStart)?c.partCountStart:null,validCounter(c.partCountEnd)?c.partCountEnd:null,cycleStatus(c)]);
+  const detail=[['Ngày','Máy','Chương trình','Giờ bắt đầu','Giờ kết thúc','Thời gian chạy','Tổng thời gian','CYCLE TIME','Alarm','HOLD','PART COUNT đầu','PART COUNT cuối','Trạng thái','Dao T lúc đầu','Gốc X / Y / Z lúc đầu','H / D geometry / wear lúc đầu','Đơn vị','Thay đổi trong lượt chạy']];
+  for(const c of report.cycles)detail.push([c.day,c.name,c.activeProgramAtStart||c.program||'',cycleClock(c.startMs)||'Chưa ghi nhận START',cycleClock(c.endMs)||'Chưa ghi nhận kết thúc',cycleDuration(c.runMs),cycleDuration(c.wallMs),cycleDuration(c.cncCycleTimeMs),cycleDuration(c.alarmMs),cycleDuration(c.holdMs),validCounter(c.partCountStart)?c.partCountStart:null,validCounter(c.partCountEnd)?c.partCountEnd:null,cycleStatus(c),Number.isInteger(c.machiningContextAtStart?.toolNumber)?'T'+c.machiningContextAtStart.toolNumber:'',c.machiningContextAtStart?`${c.machiningContextAtStart.workCoordinate||'—'} · X ${c.machiningContextAtStart.workX??'—'} / Y ${c.machiningContextAtStart.workY??'—'} / Z ${c.machiningContextAtStart.workZ??'—'}`:'',c.machiningContextAtStart?`H${c.machiningContextAtStart.lengthOffsetNumber??'—'}: ${c.machiningContextAtStart.lengthGeometry??'—'} / ${c.machiningContextAtStart.lengthWear??'—'}; D${c.machiningContextAtStart.radiusOffsetNumber??'—'}: ${c.machiningContextAtStart.radiusGeometry??'—'} / ${c.machiningContextAtStart.radiusWear??'—'}`:'',c.machiningContextAtStart?.unit||'',Object.values(c.machiningContexts||{}).filter(x=>Number.isFinite(x.atMs)).map(x=>`${cycleClock(x.atMs)} · ${x.program||c.program||'—'} · ${machiningContextText(x.context)}`).join('\n').slice(0,30000)+(c.contextTruncated?'\nĐã đạt giới hạn lưu thay đổi trong lượt chạy':'')]);
   // Old day totals remain visible without inventing individual runs or boundaries.
   const coveredDays=new Set();
   for(const c of report.cycles){coveredDays.add(c.machineId+'|'+c.day);for(const day of Object.keys(c.days||{}))coveredDays.add(c.machineId+'|'+day)}
   for(const r of report.daily)if(r.sessions>0&&!coveredDays.has(r.machineId+'|'+r.day))detail.push([r.day,r.name,'Tổng hợp ngày','Chưa ghi nhận','Chưa ghi nhận',cycleDuration(r.runningMs),'','',cycleDuration(r.alarmMs),cycleDuration(r.holdMs),r.counterStart,r.counterEnd,'Thiếu mốc giờ']);
   const sortedDetail=[detail[0],...detail.slice(1).sort((a,b)=>a[0].localeCompare(b[0])||a[1].localeCompare(b[1])||a[3].localeCompare(b[3]))];
-  return [{name:'Tổng quan',rows:[...meta,...overview],header:4},{name:'Theo ngày',rows:[...meta,...sortedDetail],header:4}];
+  const charts=reportCharts(report),chartRows=charts.length?Math.ceil(charts.length/2)*14:0;
+  return [{name:'Tổng quan',rows:[...meta,...Array.from({length:chartRows},()=>[]),...overview],header:4+chartRows,charts},{name:'Theo ngày',rows:[...meta,...sortedDetail],header:4,widths:[13,25,18,23,23,20,20,18,18,18,15,15,23,13,42,48,10,80],autoHeight:true}];
 }

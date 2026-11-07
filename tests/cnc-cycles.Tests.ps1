@@ -53,5 +53,18 @@ try{
  Add-CncReportSample (Sample 120 3 21 0 'O0003')
  Add-CncReportSample (Sample 125 0 22 0 'O0003')
  Assert-True ($script:ReportDays['2026-10-29'].partCountStart -eq 21 -and $script:ReportDays['2026-10-29'].partCountEnd -eq 22) 'Restart/program change reset absolute CNC counts'
+ Close-CncReports
+ Initialize-CncReports $folder 'neway-1260s' 'owner' $config
+ foreach($second in @(130,135,140,145,150)){
+   $run=if($second -in @(130,150)){0}else{3};$part=if($second -eq 150){23}else{22}
+   $sample=Sample $second $run $part 0 'O0010'
+   $sample|Add-Member -NotePropertyName activeProgram -NotePropertyValue 'O0010'
+   $tool=if($second -ge 145){8}else{7}
+   $sample|Add-Member -NotePropertyName machiningContext -NotePropertyValue ([pscustomobject]@{sampledAtUtc=[string]$second;toolNumber=$tool;workCoordinate='G54';workX=-12.3;lengthOffsetNumber=$tool})
+   Add-CncReportSample $sample
+ }
+ $c=@($script:ReportDays['2026-10-29'].cycles.Values)[0]
+ Assert-True ($c.machiningContextAtStart.toolNumber -eq 7 -and $c.activeProgramAtStart -eq 'O0010') 'Start tool/program snapshot missing'
+ Assert-True ($c.machiningContexts.Count -le 2 -and $c.machiningContexts[-1].context.toolNumber -eq 8) 'Context changes lost or timestamp changes created duplicate entries'
  Write-Output 'PASS: cycle rows; HOLD/resume kept together; RUN/alarm/HOLD durations; part deltas; no false M30; gaps and mid-run startup remain incomplete.'
 }finally{Close-CncReports;if(Test-Path $folder){Remove-Item $folder -Recurse -Force}}

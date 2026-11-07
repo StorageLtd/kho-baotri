@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';import test from 'node:test';import {readFile,writeFile} from 'node:fs/promises';
 const load=async file=>import('data:text/javascript;base64,'+Buffer.from(await readFile(new URL('../assets/js/'+file,import.meta.url))).toString('base64'));
-const {reportPeriod,buildCncReport,reportSheets,cycleDuration}=await load('cnc-reports.js');
+const {reportPeriod,buildCncReport,reportSheets,cycleDuration,reportCharts}=await load('cnc-reports.js');
 const {createCncWorkbook}=await load('cnc-xlsx.js');
 const now=Date.parse('2026-10-29T05:00:00Z'),machine={id:'neway-1260s',name:'Neway 1260S'},start=Date.parse('2026-10-28T00:00:00+07:00');
 const session=(extra={})=>({schemaVersion:1,source:'focas',machineId:machine.id,sessionId:'a',date:'2026-10-28',firstMs:start,lastMs:start+3600000,observedMs:3600000,runningMs:1800000,idleMs:600000,holdMs:600000,alarmMs:600000,unknownStateMs:0,counterDelta:12,counterObservedMs:3600000,counterResets:0,counterVerified:false,partsPerCount:1,...extra});
@@ -37,7 +37,7 @@ test('cycle rows preserve observed start/end, hold and alarm; summary groups by 
  const sheets=reportSheets(report);assert.deepEqual(sheets.map(s=>s.name),['Tổng quan','Theo ngày']);assert.equal(sheets[1].rows[5][10],10);assert.equal(sheets[1].rows[5][12],'Đã kết thúc');
  assert.equal(sheets[1].rows[5][3],'2026-10-28 00:00:01');
  assert.equal(sheets[1].rows[5][4],'2026-10-28 00:00:26');
- assert.equal(sheets[0].rows[5][5],'30 phút 0 giây');assert.equal(sheets[0].rows[6][5],'15 giây');
+ assert.equal(sheets[0].rows[sheets[0].header+1][5],'30 phút 0 giây');assert.equal(sheets[0].rows[sheets[0].header+2][5],'15 giây');
  assert.equal(sheets[1].rows[5][5],'15 giây');assert.equal(sheets[1].rows[5][6],'25 giây');
 });
 
@@ -47,10 +47,10 @@ test('durations show explicit units and historical totals never invent START/STO
  assert.equal(cycleDuration(90061000),'25 giờ 1 phút 1 giây');
  assert.equal(cycleDuration(0),'0 giây');assert.equal(cycleDuration(null),'');
  const sheets=reportSheets(build({a:session()}));
- assert.equal(sheets[0].rows[5][3],'Không có mốc START');
- assert.equal(sheets[0].rows[5][4],'Không có mốc STOP');
- assert.equal(sheets[0].rows[5][5],'30 phút 0 giây');
- assert.ok(!sheets.flatMap(s=>s.rows[4]).some(h=>h.includes('(h)')));
+ assert.equal(sheets[0].rows[sheets[0].header+1][3],'Không có mốc START');
+ assert.equal(sheets[0].rows[sheets[0].header+1][4],'Không có mốc STOP');
+ assert.equal(sheets[0].rows[sheets[0].header+1][5],'30 phút 0 giây');
+ assert.ok(!sheets.flatMap(s=>s.rows[s.header]).some(h=>h.includes('(h)')));
 });
 
 test('daily table shows historical daily totals and concise headers without invented run times',()=>{
@@ -59,14 +59,26 @@ test('daily table shows historical daily totals and concise headers without inve
  assert.equal(daily.rows[5][3],'Chưa ghi nhận');assert.equal(daily.rows[5][4],'Chưa ghi nhận');
  assert.equal(daily.rows[5][5],'30 phút 0 giây');assert.equal(daily.rows[5][8],'10 phút 0 giây');
  assert.equal(daily.rows[5][10],null);
- for(const sheet of sheets)assert.ok(!sheet.rows[4].some(h=>/quan sát|\(h\)/.test(h)));
+ for(const sheet of sheets)assert.ok(!sheet.rows[sheet.header].some(h=>/quan sát|\(h\)/.test(h)));
 });
 
 test('absolute CNC counter markers survive collector sessions and do not become deltas or synthetic totals',()=>{
  const a=session({partCountStart:20,partCountEnd:21});
  const b=session({sessionId:'b',firstMs:start+3600000,lastMs:start+7200000,partCountStart:21,partCountEnd:22});
  const report=build({b,a});assert.equal(report.summary[0].counterStart,20);assert.equal(report.summary[0].counterEnd,22);
- const sheet=reportSheets(report)[0];assert.equal(sheet.rows[5][8],20);assert.equal(sheet.rows[5][9],22);
- assert.equal(reportSheets(build({a:session()}))[0].rows[5][9],null);
+ const sheet=reportSheets(report)[0];assert.equal(sheet.rows[sheet.header+1][8],20);assert.equal(sheet.rows[sheet.header+1][9],22);
+ assert.equal(reportSheets(build({a:session()}))[0].rows[reportSheets(build({a:session()}))[0].header+1][9],null);
  const reset=build({a:session({partCountStart:20,partCountEnd:0})});assert.equal(reset.summary[0].counterEnd,0);
+});
+
+test('chart ratios use observed time and retain unknown days as gaps',()=>{
+ const r=build({a:session()}),chart=reportCharts(r)[0];
+ assert.equal(chart.points.find(p=>p.label==='28/10').value,0.5);
+ assert.equal(chart.points.find(p=>p.label==='27/10').value,null);
+ const sheet=reportSheets(r)[0];assert.ok(sheet.charts.length===1&&sheet.header>4);
+});
+test('run export freezes program/tool/work/offset context and preserves changes',()=>{
+ const c={id:'cycle-context',program:'O0001',activeProgramAtStart:'O0010',observedFromMs:start,observedToMs:start+10000,startMs:start,endMs:start+10000,runMs:10000,holdMs:0,alarmMs:0,waitMs:0,wallMs:10000,days:{},machiningContextAtStart:{toolNumber:7,workCoordinate:'G55',workX:-123.456,workY:0,workZ:-10,lengthOffsetNumber:7,lengthGeometry:123.456,lengthWear:-0.01,radiusOffsetNumber:4,radiusGeometry:5,radiusWear:0,unit:'mm'},machiningContexts:[{atMs:start+5000,program:'O0010',context:{toolNumber:8,workCoordinate:'G54'}}]};
+ const r=build({a:session({cycles:{one:c}})}),sheet=reportSheets(r)[1],row=sheet.rows[sheet.header+1];
+ assert.equal(row[2],'O0010');assert.equal(row[13],'T7');assert.ok(row[14].includes('-123.456'));assert.ok(row[15].includes('H7: 123.456 / -0.01'));assert.equal(row[16],'mm');assert.ok(row[17].includes('T8'));
 });

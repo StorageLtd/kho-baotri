@@ -1,5 +1,5 @@
-import {reportPeriod,buildCncReport,reportSheets,cycleDuration,vnDate} from './cnc-reports.js?v=20261105-part-count';
-import {createCncWorkbook} from './cnc-xlsx.js?v=20261029-status-only';
+import {reportPeriod,buildCncReport,reportSheets,cycleDuration,vnDate,reportCharts} from './cnc-reports.js?v=20261107-tool-context';
+import {createCncWorkbook} from './cnc-xlsx.js?v=20261107-tool-context';
 const esc=s=>String(s??'').replaceAll('&','&amp;').replaceAll('<','&lt;').replaceAll('>','&gt;').replaceAll('"','&quot;');
 const n=v=>v===null||v===undefined?'—':Number(v).toLocaleString('vi-VN',{maximumFractionDigits:2});
 let dialog,options,result,revision=0;
@@ -10,6 +10,9 @@ async function loadMachine(id,period,token){
  if(!response.ok)throw new Error(response.status===401||response.status===403?'Chưa có quyền đọc thống kê. Quản trị viên cần Publish nhánh Rules cncReports trong Firebase; không mở quyền công khai.':`Không tải được báo cáo (HTTP ${response.status}).`);
  return await response.json()||{};
 }
+function renderCharts(report){
+ return `<div class="cr-machine-charts">${reportCharts(report).map(chart=>`<article class="cr-machine-chart"><h4>${esc(chart.name)}</h4><p>Tỷ lệ RUN / thời gian có dữ liệu</p><div class="cr-column-plot">${chart.points.map((point,i)=>`<div class="cr-column-item" title="${esc(point.label+': '+(point.value===null?'Không có dữ liệu':Math.round(point.value*100)+'% · RUN '+cycleDuration(point.runMs)+' · Có dữ liệu '+cycleDuration(point.observedMs)+' · Thiếu '+cycleDuration(point.missingMs)))}"><b>${chart.points.filter(p=>p.value!==null).length>14&&i%Math.ceil(chart.points.length/14)!==0?'':point.value===null?'—':Math.round(point.value*100)+'%'}</b><div class="cr-column-track"><i style="height:${point.value===null?0:point.value*100}%"></i></div><span>${i%Math.max(1,Math.ceil(chart.points.length/14))===0?esc(point.label):''}</span></div>`).join('')}</div></article>`).join('')}</div>`;
+}
 function renderReport(report){
  const rows=report.summary,run=rows.reduce((s,r)=>s+r.runningMs,0),hold=rows.reduce((s,r)=>s+r.holdMs,0),alarm=rows.reduce((s,r)=>s+r.alarmMs,0);
  const count=rows.length===1?rows[0].counterEnd:null;
@@ -17,7 +20,7 @@ function renderReport(report){
  const table=sheet=>`<div class="cr-scroll"><table><thead><tr>${sheet.rows[sheet.header].map(v=>`<th>${esc(v)}</th>`).join('')}</tr></thead><tbody>${sheet.rows.slice(sheet.header+1).map(row=>`<tr>${row.map(v=>`<td>${typeof v==='number'?n(v):esc(v??'—')}</td>`).join('')}</tr>`).join('')}</tbody></table></div>`;
  return `<header class="cr-heading"><h2>Báo cáo CNC</h2><p>${esc(report.period.startDate)} — ${esc(report.period.endDate)} · Giờ Việt Nam</p></header>
  <div class="cr-kpis"><article><span>RUN</span><strong>${cycleDuration(run)}</strong></article><article><span>Alarm</span><strong>${cycleDuration(alarm)}</strong></article><article><span>HOLD</span><strong>${cycleDuration(hold)}</strong></article><article><span>PART COUNT trên CNC</span><strong>${rows.length===1?n(count):`${rows.length} máy`}</strong>${rows.length>1?rows.map(r=>`<small>${esc(r.name)}: ${n(r.counterEnd)}</small>`).join(''):''}</article></div>
- <h3>Tổng quan</h3>${table(sheets[0])}<h3>Theo ngày</h3>${table(sheets[1])}`;
+ <h3>Tổng quan</h3>${renderCharts(report)}${table(sheets[0])}<h3>Theo ngày</h3>${table(sheets[1])}`;
 }
 function ensureDialog(){
  if(dialog)return;
@@ -44,7 +47,7 @@ function ensureDialog(){
  dialog.querySelector('[data-action=xlsx]').onclick=()=>{if(result)download(createCncWorkbook(reportSheets(result)),`LTD-CNC-${result.period.kind}-${result.period.startDate}.xlsx`)};
  dialog.querySelector('[data-action=print]').onclick=()=>{
   if(!result)return;const popup=window.open('','_blank');if(!popup){dialog.querySelector('.cr-status').textContent='Trình duyệt đang chặn cửa sổ in.';return}
-  popup.document.write(`<!doctype html><html lang="vi"><head><meta charset="UTF-8"><title>LTD CNC Report</title><link rel="stylesheet" href="${new URL('assets/css/cnc-report.css?v=20261105-report-scroll',document.baseURI)}"></head><body class="cr-print">${renderReport(result)}</body></html>`);popup.document.close();popup.onload=()=>{popup.document.querySelectorAll('details').forEach(d=>d.open=true);popup.print()};
+  popup.document.write(`<!doctype html><html lang="vi"><head><meta charset="UTF-8"><title>LTD CNC Report</title><link rel="stylesheet" href="${new URL('assets/css/cnc-report.css?v=20261107-tool-context',document.baseURI)}"></head><body class="cr-print">${renderReport(result)}</body></html>`);popup.document.close();popup.onload=()=>{popup.document.querySelectorAll('details').forEach(d=>d.open=true);popup.print()};
  };
 }
 export function openCncReports(config){

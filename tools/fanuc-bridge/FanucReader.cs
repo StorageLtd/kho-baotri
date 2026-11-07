@@ -85,6 +85,105 @@ public static class FanucReader
           catch(InvalidOperationException error) { snapshot.readErrors["alarms"]=error.Message; }
         finally { Marshal.FreeHGlobal(buffer); }
     }
+    [StructLayout(LayoutKind.Sequential, Pack = 4)]
+    public struct MacroReading { public short datano, dummy; public int value; public short decimals; }
+    [StructLayout(LayoutKind.Sequential, Pack = 4)]
+    public struct ModalTool { public short datano, type; public int value; public byte flag1, flag2; public short padding; }
+    [StructLayout(LayoutKind.Sequential, Pack = 4)]
+    public struct OffsetInfo { public short memoryType, count; }
+    [StructLayout(LayoutKind.Sequential, Pack = 4)]
+    public struct OffsetReading { public short number, type; public int value; }
+    public sealed class MachiningContext
+    {
+        public string sampledAtUtc, toolSource, workCoordinate, unit, offsetSource, profile;
+        public int? toolNumber, lengthOffsetNumber, radiusOffsetNumber;
+        public double? workX, workY, workZ, lengthGeometry, lengthWear, radiusGeometry, radiusWear;
+        public bool spindleToolConfirmed;
+    }
+    [DllImport("Fwlib64.dll", CallingConvention=CallingConvention.Winapi, ExactSpelling=true)]
+    private static extern short cnc_modal(ushort handle, short type, short block, IntPtr data);
+    [DllImport("Fwlib64.dll", CallingConvention=CallingConvention.Winapi, ExactSpelling=true)]
+    private static extern short cnc_toolnum(ushort handle,short group,short useNumber,out CounterParameter data);
+    [DllImport("Fwlib64.dll", CallingConvention=CallingConvention.Winapi, ExactSpelling=true)]
+    private static extern short cnc_rdaxisname(ushort handle,ref short count,[Out] byte[] names);
+    [DllImport("Fwlib64.dll", CallingConvention=CallingConvention.Winapi, ExactSpelling=true)]
+    private static extern short cnc_rdmacro(ushort handle, short number, short length, out MacroReading data);
+    [DllImport("Fwlib64.dll", CallingConvention=CallingConvention.Winapi, ExactSpelling=true)]
+    private static extern short cnc_rdtofsinfo(ushort handle, out OffsetInfo data);
+    [DllImport("Fwlib64.dll", CallingConvention=CallingConvention.Winapi, ExactSpelling=true)]
+    private static extern short cnc_rdtofs(ushort handle, short number, short type, short length, out OffsetReading data);
+    [DllImport("Fwlib64.dll", CallingConvention=CallingConvention.Winapi, ExactSpelling=true)]
+    private static extern short cnc_getfigure(ushort handle, short type, out short valid, [Out] short[] input, [Out] short[] output);
+    public static double? MacroValue(MacroReading value)
+    {
+        if(value.decimals<0 || value.decimals>9 || value.value==Int32.MinValue) return null;
+        return value.value/Math.Pow(10,value.decimals);
+    }
+    private static double? ReadMacro(ushort handle,short number)
+    {
+        MacroReading value;
+        return cnc_rdmacro(handle,number,10,out value)==0 && value.datano==number ? MacroValue(value):null;
+    }
+    private static int? IntegerCode(double? value)
+    {
+        return value.HasValue && value.Value>=0 && value.Value<=32767 && value.Value==Math.Floor(value.Value)?(int?)value.Value:null;
+    }
+    private static double? ReadOffset(ushort handle,int? number,short type,int decimals,int limit)
+    {
+        if(!number.HasValue || number.Value<1 || number.Value>limit) return null;
+        OffsetReading value;
+        return cnc_rdtofs(handle,(short)number.Value,type,8,out value)==0 && value.number==number.Value && value.type==type ? (double?)(value.value/Math.Pow(10,decimals)):null;
+    }
+    public static bool SupportsContextProfile(Snapshot snapshot,bool verified)
+    { return verified && snapshot!=null && snapshot.machineType=="M" && snapshot.axes=="03"; }
+    private static void ReadMachiningContext(ushort handle,Snapshot snapshot,bool verifiedProfile)
+    {
+        MachiningContext c=new MachiningContext { sampledAtUtc=DateTime.UtcNow.ToString("o"), toolSource="cnc_modal(108,0); T modal, spindle tool not confirmed", spindleToolConfirmed=false, profile=verifiedProfile?"verified-fanuc-m-3axis-memory-c":"unverified" };
+        snapshot.machiningContext=c;
+        try {
+            CounterParameter tool;
+            if(cnc_toolnum(handle,0,0,out tool)==0 && tool.value>0){c.toolNumber=tool.value;c.toolSource="cnc_toolnum(0,0): tool-life current tool, not physical spindle sensor";}
+        } catch(EntryPointNotFoundException) { }
+        try {
+            // Allocate the complete largest ODBMDL union (MAX_AXIS up to 96), not a small aux-only buffer.
+            IntPtr buffer=Marshal.AllocHGlobal(4+96*8);
+            try {
+                Marshal.Copy(new byte[4+96*8],0,buffer,4+96*8);
+                if(cnc_modal(handle,108,0,buffer)==0) {
+                    ModalTool t=(ModalTool)Marshal.PtrToStructure(buffer,typeof(ModalTool));
+                    if(!c.toolNumber.HasValue && t.datano==108 && t.value>=0)c.toolNumber=t.value;
+                }
+            } finally {Marshal.FreeHGlobal(buffer);}
+        } catch(EntryPointNotFoundException) {if(!c.toolNumber.HasValue)snapshot.readErrors["tool"]="cnc_modal unavailable";}
+        if(!SupportsContextProfile(snapshot,verifiedProfile)){c.profile="unverified";snapshot.readErrors["contextProfile"]="XYZ and H/D values disabled: requires a verified M-series 3-axis machine/offset profile";return;}
+        try {
+            short axisCount=3;byte[] names=new byte[192];
+            if(cnc_rdaxisname(handle,ref axisCount,names)!=0 || axisCount!=3 || names[0]!='X' || names[2]!='Y' || names[4]!='Z') {
+                c.profile="unverified";snapshot.readErrors["contextProfile"]="XYZ mapping not verified by CNC axis names";return;
+            }
+            c.lengthOffsetNumber=IntegerCode(ReadMacro(handle,4111));
+            c.radiusOffsetNumber=IntegerCode(ReadMacro(handle,4107));
+            int? units=IntegerCode(ReadMacro(handle,4006));c.unit=units==21?"mm":units==20?"inch":null;
+            double? g=ReadMacro(handle,4014);
+            if(g.HasValue)c.workCoordinate="G"+g.Value.ToString("0.###",System.Globalization.CultureInfo.InvariantCulture);
+            if(g.HasValue && g.Value==Math.Floor(g.Value) && g.Value>=54 && g.Value<=59) {
+                int first=5221+20*((int)g.Value-54);
+                c.workX=ReadMacro(handle,(short)first);c.workY=ReadMacro(handle,(short)(first+1));c.workZ=ReadMacro(handle,(short)(first+2));
+            } else if(g.HasValue) snapshot.readErrors["workOffset"]="Only standard G54-G59 XYZ supported; extended P offsets not inferred";
+            // Standard 3-axis machining-centre memory C only; no guessed offsets for lathes or other tables.
+            OffsetInfo info;short valid;short[] input=new short[96],output=new short[96];
+            if(snapshot.machineType=="M" && snapshot.axes=="03" && c.unit!=null && cnc_rdtofsinfo(handle,out info)==0 && info.memoryType==2 &&
+               cnc_getfigure(handle,0,out valid,input,output)==0 && input[0]>=0 && input[0]<=9 && input[0]==input[1] && input[1]==input[2]) {
+                int decimals=input[0];
+                c.lengthGeometry=ReadOffset(handle,c.lengthOffsetNumber,0,decimals,info.count);
+                c.lengthWear=ReadOffset(handle,c.lengthOffsetNumber,1,decimals,info.count);
+                c.radiusGeometry=ReadOffset(handle,c.radiusOffsetNumber,2,decimals,info.count);
+                c.radiusWear=ReadOffset(handle,c.radiusOffsetNumber,3,decimals,info.count);
+                c.offsetSource="FOCAS memory C; cnc_getfigure input precision; verify against CNC before production reports";
+            } else snapshot.readErrors["toolOffsets"]="Offset values unavailable: requires M 3-axis memory C, known units and consistent input precision";
+        } catch(EntryPointNotFoundException) {snapshot.readErrors["machiningContext"]="Optional macro/offset API unavailable";}
+        c.sampledAtUtc=DateTime.UtcNow.ToString("o");
+    }
     public sealed class Snapshot
     {
         public string timestampUtc, ip, cncType, machineType, series, version, axes;
@@ -96,6 +195,7 @@ public static class FanucReader
         public int? partCounter;
         public long? runTimeMs, cycleTimeMs;
         public string timerSource;
+        public MachiningContext machiningContext;
         public string spindleUnit, feedrateUnit, activeProgram, mainProgram;
         public Dictionary<string, string> readErrors = new Dictionary<string, string>();
     }
@@ -241,6 +341,12 @@ public static class FanucReader
         throw new InvalidOperationException(operation + " returned FOCAS code " + code + ". " + hint);
     }
     public static Snapshot Read(string ip, ushort port, string libraryDirectory)
+    { return ReadInternal(ip,port,libraryDirectory,false,false); }
+    public static Snapshot ReadWithContext(string ip, ushort port, string libraryDirectory)
+    { return ReadInternal(ip,port,libraryDirectory,true,false); }
+    public static Snapshot ReadWithContext(string ip, ushort port, string libraryDirectory,bool verifiedProfile)
+    { return ReadInternal(ip,port,libraryDirectory,true,verifiedProfile); }
+    private static Snapshot ReadInternal(string ip, ushort port, string libraryDirectory,bool context,bool verifiedProfile)
     {
         if (IntPtr.Size != 8) throw new InvalidOperationException("Use 64-bit Windows PowerShell.");
         if (Marshal.SizeOf(typeof(SysInfo)) != 18 || Marshal.SizeOf(typeof(Status)) != 18 ||
@@ -280,6 +386,7 @@ public static class FanucReader
                 maximumAxes = info.max_axis, rawStatus = status
             };
             ReadOptionalTelemetry(handle, snapshot);
+            if(context)ReadMachiningContext(handle,snapshot,verifiedProfile);
             ReadAlarms(handle, snapshot);
             snapshot.timestampUtc=DateTime.UtcNow.ToString("o");
             return snapshot;

@@ -1,8 +1,8 @@
-import {buildCncReport,vnDate} from "./cnc-reports.js?v=20261105-part-count";
+import {buildCncReport,vnDate} from "./cnc-reports.js?v=20261107-tool-context";
 ﻿import { downloadInventoryWorkbook } from "./inventory-xlsx.js?v=20261105-no-prices";
-import { maintenancePlan, repairHistoryForm, alarmHistoryForm, movementVoucherForm, downloadMaintenanceWorkbook } from "./maintenance-xlsx.js?v=20261105-voucher";
-import { renderCncMachineCard } from "./cnc-dashboard.js?v=20261106-three-machine-layout";
-import { openCncReports } from "./cnc-report-ui.js?v=20261105-part-count";
+import { maintenancePlan, repairHistoryForm, alarmHistoryForm, movementVoucherForm, downloadMaintenanceWorkbook } from "./maintenance-xlsx.js?v=20261107-tool-context";
+import { renderCncMachineCard } from "./cnc-dashboard.js?v=20261107-tool-context";
+import { openCncReports } from "./cnc-report-ui.js?v=20261107-tool-context";
 import { cncDisplayState, cncIsFresh, cncMeasurement, cncMode, cncDuration, cncServerNow, setCncClockOffset } from "./cnc-status.js?v=20261029-web-sync";
 
     import { initializeSession, onSessionChanged, signIn, signOutUser, sendVerification, registerAccount, getToken, getUser, loadProfile, role, canEdit, displayName } from "./auth.js?v=20261026-login";
@@ -122,6 +122,9 @@ import { cncDisplayState, cncIsFresh, cncMeasurement, cncMode, cncDuration, cncS
       cncIpInput: document.querySelector("#cncIpInput"),
       cncPortInput: document.querySelector("#cncPortInput"),
       cncModelInput: document.querySelector("#cncModelInput"),
+      cncKindInput: document.querySelector("#cncKindInput"),
+      cncOffsetTableInput: document.querySelector("#cncOffsetTableInput"),
+      cncOffsetConfirmedInput: document.querySelector("#cncOffsetConfirmedInput"),
 
       cncAlarmHistoryDialog: document.querySelector("#cncAlarmHistoryDialog"),
       cncAlarmHistoryTitle: document.querySelector("#cncAlarmHistoryTitle"),
@@ -864,7 +867,7 @@ import { cncDisplayState, cncIsFresh, cncMeasurement, cncMode, cncDuration, cncS
             <td><strong>${formatDateDisplay(a.timestamp)}</strong><div style="font-size:11px; color:var(--muted)">${new Date(a.timestamp).toLocaleTimeString("vi-VN")}</div></td>
             <td><strong>${escapeHtml(a.cncName)}</strong></td>
             <td><span class="pill danger" style="font-size:11px; font-family:monospace">${escapeHtml(a.alarmCode)}</span></td>
-            <td class="cnc-alarm-description">${escapeHtml(a.description || "—")}</td>
+            <td class="cnc-alarm-description">${escapeHtml(a.description || "—")}${a.machiningContext?`<div class="cnc-alarm-context">${escapeHtml(a.activeProgram||a.mainProgram||"—")} · ${Number.isInteger(a.machiningContext.toolNumber)?"T"+a.machiningContext.toolNumber:"T—"} · ${escapeHtml(a.machiningContext.workCoordinate||"G—")}</div>`:""}</td>
             <td>
               <div class="row-actions">
                 <button class="btn" style="min-height:28px; font-size:11px; padding:0 8px; background:var(--brand); color:#fff; border:0" onclick="autoCreateRepairHistoryFromCncAlarm('${a.id}')">Nhật ký sửa máy</button>
@@ -912,7 +915,7 @@ import { cncDisplayState, cncIsFresh, cncMeasurement, cncMode, cncDuration, cncS
               <div class="meta">${new Date(a.timestamp).toLocaleTimeString("vi-VN")}</div>
             </td>
             <td><span class="pill danger" style="font-size:11px; font-family:monospace">${escapeHtml(a.alarmCode)}</span></td>
-            <td class="cnc-alarm-description">${escapeHtml(a.description || "—")}</td>
+            <td class="cnc-alarm-description">${escapeHtml(a.description || "—")}${a.machiningContext?`<div class="cnc-alarm-context">${escapeHtml(a.activeProgram||a.mainProgram||"—")} · ${Number.isInteger(a.machiningContext.toolNumber)?"T"+a.machiningContext.toolNumber:"T—"} · ${escapeHtml(a.machiningContext.workCoordinate||"G—")}</div>`:""}</td>
             <td>${statusPill}</td>
           </tr>
         `;
@@ -951,6 +954,10 @@ import { cncDisplayState, cncIsFresh, cncMeasurement, cncMode, cncDuration, cncS
         ip: els.cncIpInput.value.trim(),
         port: Number(els.cncPortInput.value),
         model: els.cncModelInput.value,
+        machineKind: els.cncKindInput.value,
+        offsetTable: els.cncOffsetTableInput.value,
+        offsetProfileConfirmed: els.cncOffsetConfirmedInput.checked,
+        machiningContextProfile: els.cncKindInput.value==='mill-3axis'&&els.cncOffsetTableInput.value==='m-c'&&els.cncOffsetConfirmedInput.checked?'verified-fanuc-m-3axis-memory-c':'unverified',
         ...(els.cncId.value ? {} : { source: "pending", connected: false, status: "offline" })
       };
 
@@ -967,14 +974,26 @@ import { cncDisplayState, cncIsFresh, cncMeasurement, cncMode, cncDuration, cncS
       await Promise.all([fbFetch(`cncs/${id}`, "PATCH", payload), syncNode("activities", activities)]);
     }
 
+    function updateCncProfileHint(){
+      const supported=els.cncKindInput.value==='mill-3axis'&&els.cncOffsetTableInput.value==='m-c';
+      els.cncOffsetConfirmedInput.disabled=!supported;
+      if(!supported)els.cncOffsetConfirmedInput.checked=false;
+      document.querySelector('#cncProfileHelp').textContent=supported?'Đối chiếu bộ điều khiển, bảng offset và đơn vị trước khi bật. Cầu nối mới cập nhật lựa chọn trong tối đa 60 giây.':'Vẫn giám sát trạng thái và T. Giá trị gốc/offset hiện chỉ hỗ trợ hồ sơ phay 3 trục Memory C đã đối chiếu; các loại khác để trống.';
+    }
     function openCncDialog(id = "") {
       const c = cncs.find(x => x.id === id);
-      els.cncTitle.textContent = c ? "Chỉnh sửa kết nối máy CNC" : "Thêm máy CNC mới";
+      els.cncTitle.textContent = c ? "Cài đặt máy CNC" : "Thêm máy CNC mới";
       els.cncId.value = c?.id || "";
       els.cncNameInput.value = c?.name || "";
       els.cncIpInput.value = c?.ip || "";
       els.cncPortInput.value = c?.port || 8193;
-      els.cncModelInput.value = c?.model || "Fanuc 0i-F";
+      const model=c?.model||'Chưa xác định';
+      if(![...els.cncModelInput.options].some(o=>o.value===model))els.cncModelInput.add(new Option(model,model));
+      els.cncModelInput.value=model;
+      els.cncKindInput.value=c?.machineKind||'unknown';
+      els.cncOffsetTableInput.value=c?.offsetTable||'unverified';
+      els.cncOffsetConfirmedInput.checked=c?.offsetProfileConfirmed===true;
+      updateCncProfileHint();
       els.cncDialog.showModal();
     }
     function closeCncDialog() { els.cncDialog.close(); els.cncForm.reset(); }
@@ -1594,6 +1613,7 @@ import { cncDisplayState, cncIsFresh, cncMeasurement, cncMode, cncDuration, cncS
       if (button.dataset.cncAction === "edit") openCncDialog(id);
       if (button.dataset.cncAction === "delete") deleteCnc(id);
     });
+    for(const input of [els.cncKindInput,els.cncOffsetTableInput])input.addEventListener('change',()=>{els.cncOffsetConfirmedInput.checked=false;updateCncProfileHint()});
     els.cncForm.addEventListener("submit", saveCnc); // Submit Form CNC
     els.moveForm.addEventListener("submit", saveMovement);
     els.historyForm.addEventListener("submit", saveRepairHistory);

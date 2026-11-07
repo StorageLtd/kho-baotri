@@ -33,9 +33,9 @@ const displayTimestamp=value=>{const date=dateValue(value);return date?new Intl.
 export function alarmHistoryForm(records){
  const ordered=records.map(record=>({record,date:dateValue(record.timestamp)})).sort((a,b)=>(b.date?+b.date:-Infinity)-(a.date?+a.date:-Infinity)||compareText(a.record.cncName,b.record.cncName));
  return {title:'LỊCH SỬ ALARM MÁY CNC',sheetName:'Lịch sử Alarm CNC',tableName:'LTDCncAlarmHistory',filename:'LTD-Lich-su-Alarm-CNC',
-  headings:['STT','Thời gian phát hiện','Tên máy CNC','Mã Alarm','Loại','Trục','Mô tả chi tiết lỗi','Trạng thái','Thời gian kết thúc'],widths:[6,24,26,16,10,10,70,26,24],statusColumn:7,
+  headings:['STT','Thời gian phát hiện','Tên máy CNC','Mã Alarm','Loại','Trục','Mô tả chi tiết lỗi','Trạng thái','Thời gian kết thúc','Chương trình','Dao T','Gốc làm việc'],widths:[6,24,26,16,10,10,70,26,24,18,12,18],statusColumn:7,
   summary:[['TỔNG SỰ CỐ',records.length],['CHƯA GHI NHẬN KẾT THÚC',records.filter(r=>!r.resolvedAt).length],['THIẾT BỊ',new Set(records.map(r=>r.cncId||r.cncName).filter(Boolean)).size]],
-  data:ordered.map(({record:r},i)=>[i+1,displayTimestamp(r.timestamp),r.cncName||'',String(r.alarmCode??''),r.alarmType??'',r.axis??'',r.description||'',r.resolvedAt?(r.source==='focas'?'Hết tín hiệu lỗi':'Đã xử lý'):'Chưa ghi nhận kết thúc',r.resolvedAt?displayTimestamp(r.resolvedAt):''])};
+  data:ordered.map(({record:r},i)=>[i+1,displayTimestamp(r.timestamp),r.cncName||'',String(r.alarmCode??''),r.alarmType??'',r.axis??'',r.description||'',r.resolvedAt?(r.source==='focas'?'Hết tín hiệu lỗi':'Đã xử lý'):'Chưa ghi nhận kết thúc',r.resolvedAt?displayTimestamp(r.resolvedAt):'',r.activeProgram||r.mainProgram||'',Number.isInteger(r.machiningContext?.toolNumber)?'T'+r.machiningContext.toolNumber:'',r.machiningContext?.workCoordinate||''])};
 }
 export function movementVoucherForm(movement,documentNo){
  const incoming=movement.type==='in';

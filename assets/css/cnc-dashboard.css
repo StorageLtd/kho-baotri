@@ -420,3 +420,34 @@ body[data-page="cncMonitoringPage"] #exportCncBtn{border-color:#bfcede;color:#24
 #cncMonitoringPage .cnc-icon-action:hover{background:#ffffff16;color:#fff}
 #cncMonitoringPage .cnc-read-errors{color:#ffdf9b}
 @container(max-width:500px){#cncMonitoringPage .cnc-operation-strip>div:nth-child(n+3){border-top-color:#8daed144}#cncMonitoringPage .cnc-operation-strip>div:nth-child(4){border-left-color:#8daed144}#cncMonitoringPage .cnc-four-gauges .cnc-day-runtime{border-left-color:#aac8ef30}#cncMonitoringPage .cnc-four-gauges>.cnc-instrument{border-top-color:#aac8ef30}}
+/* Whole-card state colors follow sampled FOCAS status, never inferred spindle motion. */
+#cncMonitoringPage .cnc-machine-panel.is-running{border-color:#20ce8c;box-shadow:0 5px 22px #00b86b24}
+#cncMonitoringPage .cnc-machine-panel.is-running .cnc-machine-heading{background:linear-gradient(115deg,#08613e,#098b50)}
+#cncMonitoringPage .cnc-machine-panel.is-running .cnc-machine-content{background:linear-gradient(145deg,#0a3429,#064c35)}
+#cncMonitoringPage .cnc-machine-panel.is-running .cnc-operation-strip{background:linear-gradient(115deg,#12543c,#126348);border-color:#4ec79170}
+#cncMonitoringPage .cnc-machine-panel.is-running .cnc-day-charts{background:linear-gradient(140deg,#103e31,#06503e);border-color:#4ec79170}
+#cncMonitoringPage .cnc-machine-panel.is-running .cnc-day-title,#cncMonitoringPage .cnc-machine-panel.is-running .cnc-machine-footer{background:#075237;border-color:#4ec79140}
+#cncMonitoringPage .cnc-machine-panel.is-alarm{border-color:#fa587a;box-shadow:0 5px 22px #f52b5424}
+#cncMonitoringPage .cnc-machine-panel.is-alarm .cnc-machine-heading{background:linear-gradient(115deg,#8f1737,#c41e43)}
+#cncMonitoringPage .cnc-machine-panel.is-alarm .cnc-machine-content{background:linear-gradient(145deg,#4b1429,#67152d)}
+#cncMonitoringPage .cnc-machine-panel.is-alarm .cnc-operation-strip{background:linear-gradient(115deg,#70213c,#842440);border-color:#f68b9a70}
+#cncMonitoringPage .cnc-machine-panel.is-alarm .cnc-day-charts{background:linear-gradient(140deg,#4b1b35,#681d33);border-color:#f68b9a70}
+#cncMonitoringPage .cnc-machine-panel.is-alarm .cnc-day-title,#cncMonitoringPage .cnc-machine-panel.is-alarm .cnc-machine-footer{background:#7b1937;border-color:#f68b9a40}
+#cncMonitoringPage .cnc-machine-panel.is-hold{border-color:#ffce38;box-shadow:0 5px 22px #f7b50024}
+#cncMonitoringPage .cnc-machine-panel.is-hold .cnc-machine-heading{background:linear-gradient(115deg,#f1b915,#ffd74a)}
+#cncMonitoringPage .cnc-machine-panel.is-hold .cnc-machine-content{background:linear-gradient(145deg,#edbf35,#f7d86a)}
+#cncMonitoringPage .cnc-machine-panel.is-hold .cnc-operation-strip{background:linear-gradient(115deg,#ffe39a,#f8d46a);border-color:#91641160}
+#cncMonitoringPage .cnc-machine-panel.is-hold .cnc-day-charts{background:linear-gradient(140deg,#ffedb2,#f9d76a);border-color:#91641160}
+#cncMonitoringPage .cnc-machine-panel.is-hold .cnc-day-title,#cncMonitoringPage .cnc-machine-panel.is-hold .cnc-machine-footer{background:#f5c74c;border-color:#91641140}
+#cncMonitoringPage .cnc-machine-panel.is-hold .cnc-machine-identity h3,#cncMonitoringPage .cnc-machine-panel.is-hold .cnc-controller,#cncMonitoringPage .cnc-machine-panel.is-hold .cnc-operation-strip span,#cncMonitoringPage .cnc-machine-panel.is-hold .cnc-operation-strip strong,#cncMonitoringPage .cnc-machine-panel.is-hold .cnc-day-title,#cncMonitoringPage .cnc-machine-panel.is-hold .cnc-day-date,#cncMonitoringPage .cnc-machine-panel.is-hold .cnc-day-label,#cncMonitoringPage .cnc-machine-panel.is-hold .cnc-instrument-label,#cncMonitoringPage .cnc-machine-panel.is-hold .cnc-count-comparison label,#cncMonitoringPage .cnc-machine-panel.is-hold .cnc-count-comparison b,#cncMonitoringPage .cnc-machine-panel.is-hold .cnc-part-increase,#cncMonitoringPage .cnc-machine-panel.is-hold .cnc-connection-meta,#cncMonitoringPage .cnc-machine-panel.is-hold .cnc-connection-meta>span:first-child{color:#4a350d;text-shadow:none}
+#cncMonitoringPage .cnc-machine-panel.is-hold .cnc-day-legend span{color:#574018}
+#cncMonitoringPage .cnc-machine-panel.is-hold .cnc-day-legend span:first-child{color:#075b45}
+#cncMonitoringPage .cnc-machine-panel.is-hold .cnc-day-legend span:nth-child(3){color:#a9163d}
+#cncMonitoringPage .cnc-machine-panel.is-hold .cnc-four-gauges .cnc-instrument.spindle{--instrument-color:#345ac8}
+#cncMonitoringPage .cnc-machine-panel.is-hold .cnc-four-gauges .cnc-instrument.feed{--instrument-color:#087762}
+#cncMonitoringPage .cnc-machine-panel.is-hold .cnc-instrument-reading strong,#cncMonitoringPage .cnc-machine-panel.is-hold .cnc-instrument-reading small{color:#17375e}
+#cncMonitoringPage .cnc-machine-panel.is-hold .cnc-icon-action{color:#64461a}
+#cncMonitoringPage .cnc-operation-strip{grid-template-columns:repeat(6,minmax(0,1fr))}
+.cnc-alarm-context{font-size:11px;font-weight:800;margin-top:5px;color:#567398}
+@container(max-width:500px){#cncMonitoringPage .cnc-operation-strip>div{grid-column:span 2}#cncMonitoringPage .cnc-operation-strip>div:nth-child(-n+2){grid-column:span 2}#cncMonitoringPage .cnc-operation-strip>div:nth-child(3){border-top:0;border-left:1px solid #8daed144;padding-top:0}#cncMonitoringPage .cnc-operation-strip>div:nth-child(4){border-left:0}}
+#cncMonitoringPage .cnc-machine-panel.is-hold .cnc-four-gauges .cnc-instrument.feed .cnc-instrument-reading strong{color:#075444}

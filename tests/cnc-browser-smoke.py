@@ -77,17 +77,29 @@ window.seedDayFixture = () => {cncDayOwner=getUser().uid;cncDayStats.set('neway-
                 assert maintenance_download.suggested_filename.endswith('.xlsx')
                 await maintenance_download.save_as(path)
             await page.evaluate('''renderFixture([
-              {id:'neway-1260s',name:'Neway 1260S',source:'focas',connected:true,lastSeen:Date.now(),rawStatus:{run:3,alarm:0,emergency:0,aut:1},ip:'169.254.85.99',port:8193,model:'FANUC 0i-MF Plus'},
+              {id:'neway-1260s',name:'Neway 1260S',source:'focas',connected:true,lastSeen:Date.now(),machiningContext:{toolNumber:7},rawStatus:{run:3,alarm:0,emergency:0,aut:1},ip:'169.254.85.99',port:8193,model:'FANUC 0i-MF Plus'},
               {id:'old',name:'Old demo data',status:'running',spindleSpeed:1200,ip:'192.168.1.101',port:8193}
             ])''')
             assert not await page.locator('.topbar .page-title').is_visible()
             assert await page.locator('#pageHeading').text_content()==''
+            await page.get_by_role('button',name='Cài đặt máy Neway 1260S',exact=True).click()
+            profile=page.locator('#cncDialog')
+            assert await profile.locator('#cncKindInput').input_value()=='unknown'
+            await profile.locator('#cncKindInput').select_option('mill-3axis')
+            await profile.locator('#cncOffsetTableInput').select_option('m-c')
+            await profile.locator('#cncOffsetConfirmedInput').check()
+            await profile.locator('#cncKindInput').select_option('lathe')
+            assert not await profile.locator('#cncOffsetConfirmedInput').is_checked()
+            assert await profile.locator('#cncOffsetConfirmedInput').is_disabled()
+            await profile.evaluate('e=>e.close()')
+
             assert await page.get_by_role('button',name='Báo cáo vận hành CNC',exact=True).is_visible()
             card = page.locator('#card-neway-1260s')
             assert 'Dữ liệu thật' in await card.inner_text()
             assert 'ĐANG CHẠY (START)' in await card.inner_text()
             assert '— RPM' in await card.inner_text()
             assert 'Chưa đọc' in await card.inner_text()
+            assert 'T7' in await card.locator('.cnc-tool-number').inner_text()
             assert 'PART COUNT:' in await card.inner_text()
             assert 'Vị trí nhà xưởng' not in await card.inner_text()
             assert 'RUN TIME:' in await card.inner_text()
@@ -101,7 +113,7 @@ window.seedDayFixture = () => {cncDayOwner=getUser().uid;cncDayStats.set('neway-
             assert await card.locator('.cnc-four-gauges > div').count()==4
             assert await card.locator('.cnc-four-gauges .cnc-instrument').count()==2
             assert await card.locator('.cnc-day-foot').count()==0
-            assert await card.locator('.cnc-operation-strip > div > span').all_text_contents()==['Chế độ','Chương trình','CYCLE TIME:','RUN TIME:','PART COUNT:']
+            assert await card.locator('.cnc-operation-strip > div > span').all_text_contents()==['Chế độ','Chương trình','Dao T · CNC','CYCLE TIME:','RUN TIME:','PART COUNT:']
             assert await card.locator('.cnc-production-grid').count()==0
             assert await card.locator('.cnc-machine-content').evaluate("el=>el.firstElementChild.classList.contains('cnc-program-line')")
             await page.evaluate('seedDayFixture()')
@@ -114,7 +126,7 @@ window.seedDayFixture = () => {cncDayOwner=getUser().uid;cncDayStats.set('neway-
             assert await card.get_by_text('Xử lý xong (Clear)').count() == 0
             assert await page.locator('#statCncRunning').inner_text() == '1'
             assert await page.locator('#cncConnectionReady').inner_text() == '1 / 2'
-            await card.get_by_role('button',name='Sửa IP Neway 1260S',exact=True).click()
+            await card.get_by_role('button',name='Cài đặt máy Neway 1260S',exact=True).click()
             assert await page.locator('#cncDialog').is_visible()
             await page.locator('#cncDialog').evaluate('e=>e.close()')
             await card.get_by_role('button',name='Alarm của máy').click()
@@ -192,6 +204,8 @@ window.seedDayFixture = () => {cncDayOwner=getUser().uid;cncDayStats.set('neway-
             await report.get_by_role('button',name='Xem báo cáo').click()
             await page.wait_for_function("document.querySelector('#cncReportDialog .cr-report').textContent.includes('Tổng quan')")
             assert 'Neway 1260S' in await report.inner_text()
+            assert await report.locator('.cr-machine-chart').count()==1
+            assert '50%' in await report.locator('.cr-machine-chart').inner_text()
             assert '32' in await report.locator('.cr-kpis').inner_text()
             assert '30 phút 0 giây' in await report.locator('.cr-kpis').inner_text()
             assert '15 giây' in await report.locator('table').nth(1).inner_text()

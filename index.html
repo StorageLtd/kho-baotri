@@ -5,8 +5,8 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>LTD VIET NAM - Cloud Maintenance System</title>
   <link rel="stylesheet" href="assets/css/app.css?v=20261105-compact-alarm">
-  <link rel="stylesheet" href="assets/css/cnc-report.css?v=20261105-report-scroll">
-  <link rel="stylesheet" href="assets/css/cnc-dashboard.css?v=20261107-deeper-machine-panels">
+  <link rel="stylesheet" href="assets/css/cnc-report.css?v=20261107-tool-context">
+  <link rel="stylesheet" href="assets/css/cnc-dashboard.css?v=20261107-tool-context">
 </head>
 <body class="locked">
   <!-- Screen Đăng Nhập -->
@@ -248,7 +248,7 @@
       <section class="content" id="cncMonitoringPage" hidden>
         <section class="cnc-plant-header" aria-label="Tổng quan kết nối CNC">
           <div class="cnc-plant-title"><span class="cnc-industry-mark" aria-hidden="true">LTD</span><div><span class="cnc-eyebrow">MACHINE MONITORING</span><h2>Trạng thái thiết bị</h2></div></div>
-          <div class="cnc-plant-connection"><span class="cnc-network-dot" aria-hidden="true"></span><div><span>Kết nối trực tuyến</span><strong id="cncConnectionReady">0 / 0</strong></div><a class="cnc-bridge-download" href="downloads/Neway-1260S-PartCount.zip">Cầu nối Windows <span aria-hidden="true">↓</span></a></div>
+          <div class="cnc-plant-connection"><span class="cnc-network-dot" aria-hidden="true"></span><div><span>Kết nối trực tuyến</span><strong id="cncConnectionReady">0 / 0</strong></div><a class="cnc-bridge-download" href="downloads/FANUC-ToolContext-Bridge.zip">Cầu nối Windows <span aria-hidden="true">↓</span></a></div>
           <div class="cnc-sync-line"><span class="cnc-live-tag">LIVE DATA</span><p id="cncSyncStatus" role="status">Chờ đồng bộ tín hiệu Firebase…</p><span class="cnc-refresh-info">FOCAS · 5 giây/lần</span></div>
         </section>
         <div class="cnc-fleet-stats">
@@ -499,12 +499,15 @@
         </div>
         <div class="field">
           <label for="cncModelInput">Model Bộ điều khiển</label>
-          <select id="cncModelInput" class="input">
+          <select id="cncModelInput" class="input"><option value="Chưa xác định">Chưa xác định</option><option value="FANUC 0i-MF Plus">FANUC 0i-MF Plus</option><option value="Fanuc 0i-TF">FANUC 0i-TF</option>
             <option value="Fanuc 0i-F">Fanuc Series 0i-MODEL F</option>
             <option value="Fanuc 31i-B">Fanuc Series 31i-MODEL B</option>
             <option value="Fanuc 0i-D">Fanuc Series 0i-MODEL D</option>
           </select>
         </div>
+        <div class="field"><label for="cncKindInput">Loại máy</label><select id="cncKindInput" class="input"><option value="unknown">Chưa xác định</option><option value="mill-3axis">Máy phay 3 trục XYZ</option><option value="lathe">Máy tiện</option><option value="mill-multiaxis">Máy phay nhiều trục / TCP</option><option value="other">Loại khác</option></select></div>
+        <div class="field"><label for="cncOffsetTableInput">Bảng offset</label><select id="cncOffsetTableInput" class="input"><option value="unverified">Chưa xác định</option><option value="m-c">Phay Memory C · H/D Geometry/Wear</option><option value="m-ab">Phay Memory A/B</option><option value="turning">Tiện · X/Z và mũi dao</option><option value="other">Bảng khác</option></select></div>
+        <div class="field wide"><label><input type="checkbox" id="cncOffsetConfirmedInput"> Đã đối chiếu bảng offset và đơn vị trên máy</label><p class="meta" id="cncProfileHelp">Chưa biết loại máy: để Chưa xác định. Giá trị offset chưa xác minh sẽ để trống.</p></div>
       </div>
       <div class="modal-foot">
         <button class="btn" id="cancelCncBtn" type="button">Hủy</button>
@@ -753,6 +756,6 @@
 
   <div class="toast" id="toast" role="status" aria-live="polite"></div>
 
-  <script type="module" src="assets/js/app.js?v=20261106-three-machine-layout"></script>
+  <script type="module" src="assets/js/app.js?v=20261107-tool-context"></script>
 </body>
 </html>

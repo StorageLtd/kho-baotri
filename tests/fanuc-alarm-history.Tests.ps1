@@ -13,7 +13,10 @@ $config=@{machineId='neway-1260s';machineName='Neway 1260S';databaseUrl='https:/
 $script:Auth=@{idToken='fixture';uid='user1'}
 Initialize-BridgeAlarmHistory $folder $config.machineId 'user1'
 $sample=[pscustomobject]@{timestampUtc='2026-10-30T02:00:00Z';alarmDetailsRead=$true;alarmsMayBeTruncated=$false;alarmDetails=@([pscustomobject]@{number=500;type=4;axis=1;message='OVERTRAVEL'})}
+$sample|Add-Member -NotePropertyName activeProgram -NotePropertyValue 'O0012'
+$sample|Add-Member -NotePropertyName machiningContext -NotePropertyValue ([pscustomobject]@{toolNumber=7;workCoordinate='G55';workX=-123.456;lengthOffsetNumber=7})
 Add-BridgeAlarmSample $config $sample
+Assert ((@($script:AlarmPending.Values)[0]).machiningContext.toolNumber -eq 7 -and (@($script:AlarmPending.Values)[0]).activeProgram -eq 'O0012') 'Alarm did not freeze tool/program context'
 Assert ($script:AlarmPending.Count -eq 1) 'Alarm not saved immediately'
 $firstId=@($script:AlarmPending.Keys)[0]
 $script:FailUpload=$true

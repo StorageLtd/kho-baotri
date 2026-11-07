@@ -1,5 +1,5 @@
 NEWAY 1260S - FOCAS STATUS ONLY (KHÔNG ĐỌC PMC)
-Bridge build: 20261105-part-count
+Bridge build: 20261107-tool-context
 
 BẢN NÀY LÀM GÌ?
 - Đọc trạng thái CNC, tốc độ, số chương trình, PART COUNT và timer qua FOCAS.
@@ -36,7 +36,7 @@ CẬP NHẬT QUAN TRỌNG
 6. Nhập email/mật khẩu CMMS tại lời nhắc, không ghi mật khẩu vào lệnh/config.
    Token và mật khẩu không được lưu trong file. Cần tài khoản email đã xác minh,
    vai trò technician, manager hoặc admin.
-7. Phải thấy Bridge build: 20261105-part-count. Bản mới từ chối sử dụng lớp C# cũ.
+7. Phải thấy Bridge build: 20261107-tool-context. Bản mới từ chối sử dụng lớp C# cũ.
    Cấu hình cũ có pmcCycleSignals=true cũng không bật được PMC trong mã mới.
 8. Giữ LAN nối CNC, Wi-Fi có Internet và cửa sổ cầu nối mở. Không chạy hai bản cùng máy.
 
@@ -79,3 +79,30 @@ KIỂM CHỨNG
 Đã kiểm tra danh sách API native, không có import PMC, luồng nền hoặc lệnh ghi CNC;
 đã biên dịch C#, thử các luồng với dữ liệu giả và giao diện Chromium/Excel hai sheet.
 Cần chạy thực tế để xác nhận dữ liệu timer và quy tắc quan sát phù hợp với máy của bạn.
+
+BỔ SUNG 20261107-tool-context
+- Hiển thị T modal qua cnc_modal(108,0); số T này có thể là dao đã chọn trước.
+  Không khẳng định dao đang trên trục chính và không đọc PMC để suy diễn.
+- Lưu chương trình và ngữ cảnh dao trong sự cố, khi bắt đầu lượt chạy,
+  và khi T / chương trình / gốc / offset thay đổi trong lượt chạy.
+- Dữ liệu cũ không có ngữ cảnh được để trống, không lấy giá trị hiện tại bù vào lịch sử.
+- Mặc định machiningContextProfile là unverified: chưa đọc/diễn giải XYZ và H/D.
+  Chỉ sau khi xác minh máy phay FANUC 3 trục, Memory C, macro và độ chia offset
+  mới dùng verified-fanuc-m-3axis-memory-c trong bridge-config.json.
+  Không tự bật cấu hình này cho máy khác hoặc bảng offset khác.
+- Hồ sơ M-C dùng #4006 (đơn vị), #4014 (G54-G59), #4111 (H), #4107 (D),
+  macro #5221…#5323 cho bảng XYZ, cnc_rdtofsinfo / cnc_rdtofs / cnc_getfigure.
+  G54.1/P, G52, xoay hệ tọa độ, TCP và bảng offset khác chưa được diễn giải.
+  Giá trị là bảng gốc làm việc, không phải vị trí trục hoặc tổng biến đổi tọa độ.
+- Đối chiếu số T, gốc và offset trên màn hình CNC trước khi dùng số liệu cho báo cáo.
+- Bản này vẫn chỉ đọc. Không có hàm truyền, ghi đè hoặc chạy chương trình.
+  Bản thử truyền chương trình nằm trong gói FANUC-Program-Transfer-Trial riêng.
+- Trên web: Sửa IP → Loại máy → Bảng offset. Nếu chưa rõ, chọn Chưa xác định.
+  Chỉ đánh dấu đã đối chiếu khi đã xác nhận trực tiếp bảng và đơn vị trên CNC.
+  Cầu nối mới đọc lại lựa chọn mỗi 60 giây. Chỉ hồ sơ Phay 3 trục / Memory C
+  đã đối chiếu mới được diễn giải offset; các loại khác hiện chỉ lưu phân loại.
+- Ưu tiên cnc_toolnum(0,0) nếu CNC có tool-life management, sau đó mới dùng
+  T modal. Cả hai đều là dữ liệu CNC trả về, không phải đọc cảm biến dao vật lý.
+- Khi dùng web, lựa chọn trong Cài đặt máy là nguồn cấu hình đọc offset;
+  chỉnh tay machiningContextProfile trong JSON không thay thế xác nhận trên web.
+  Chỉ chế độ -LocalOnly mới dùng trực tiếp hồ sơ trong file JSON.

@@ -156,6 +156,15 @@ function Add-CncCycleSample($Sample,[long]$TimeMs) {
             if($null -ne $previous.counter -and $null -ne $Sample.partCounter -and [long]$Sample.partCounter -ge [long]$previous.counter) {$cycle.observedCountDelta+=([long]$Sample.partCounter-[long]$previous.counter)}
             else {$cycle.counterComplete=$false}
             $cycle.partCountEnd=$Sample.partCounter
+            if($null -ne $Sample.machiningContext){
+                $encoded=$Sample.machiningContext|Select-Object -Property * -ExcludeProperty sampledAtUtc|ConvertTo-Json -Depth 6 -Compress
+                if($encoded -ne $script:LastContextJson -or [string]$Sample.activeProgram -ne $script:LastContextProgram){
+                    if(-not $cycle.ContainsKey('machiningContexts')){$cycle.machiningContexts=@()}
+                    if($cycle.machiningContexts.Count -lt 500){$cycle.machiningContexts+=@{atMs=$TimeMs;program=$Sample.activeProgram;context=$Sample.machiningContext}}
+                    else{$cycle.contextTruncated=$true}
+                    $script:LastContextJson=$encoded;$script:LastContextProgram=[string]$Sample.activeProgram
+                }
+            }
             if($null -ne $Sample.cycleTimeMs -and ($null -eq $cycle.cncCycleTimeMs -or $Sample.cycleTimeMs -gt $cycle.cncCycleTimeMs)){$cycle.cncCycleTimeMs=$Sample.cycleTimeMs}
             if($null -ne $cycle.cncRunStartMs -and $null -ne $Sample.runTimeMs -and $Sample.runTimeMs -ge $cycle.cncRunStartMs){$cycle.cncRunDeltaMs=[long]$Sample.runTimeMs-[long]$cycle.cncRunStartMs}else{$cycle.cncRunDeltaMs=$null}
             if($Sample.rawStatus.run -in @(0,1)){Finish-CncCycle 'STOP/RESET quan sát qua FOCAS' $TimeMs}
@@ -167,6 +176,7 @@ function Add-CncCycleSample($Sample,[long]$TimeMs) {
         $script:CycleIndex++
         $script:ActiveCycle=@{
             id=($script:ReportSession+'-'+$script:CycleIndex.ToString('D6')); program=$program
+            activeProgramAtStart=$Sample.activeProgram;machiningContextAtStart=$Sample.machiningContext;machiningContexts=@();contextTruncated=$false
             observedFromMs=$TimeMs;observedToMs=$TimeMs;startMs=if($knownStart){$TimeMs}else{$null};endMs=$null
             runMs=0L;holdMs=0L;alarmMs=0L;waitMs=0L;wallMs=$null
             partCountStart=if($knownStart -and $null -ne $previous.counter){$previous.counter}else{$Sample.partCounter};partCountEnd=$Sample.partCounter;partCountDelta=$null;observedCountDelta=if($knownStart -and $null -ne $previous.counter -and $null -ne $Sample.partCounter -and $Sample.partCounter -ge $previous.counter){[long]$Sample.partCounter-[long]$previous.counter}else{0L}

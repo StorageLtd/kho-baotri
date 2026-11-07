@@ -94,7 +94,7 @@ function Add-BridgeAlarmSample {
         $id='focas-'+[Guid]::NewGuid().ToString('N')
         $record=@{id=$id;cncId=$Config.machineId;cncName=$Config.machineName;timestamp=$Snapshot.timestampUtc;
             alarmCode=[string]$detail.number;alarmType=[int]$detail.type;axis=[int]$detail.axis;
-            description=[string]$detail.message;source='focas';uid=$script:AlarmUid;observedBy='cnc_rdalmmsg2'}
+            description=[string]$detail.message;activeProgram=$Snapshot.activeProgram;mainProgram=$Snapshot.mainProgram;machiningContext=$Snapshot.machiningContext;source='focas';uid=$script:AlarmUid;observedBy='cnc_rdalmmsg2'}
         $script:AlarmActive[$key]=$record; $script:AlarmPending[$id]=$record; $changed=$true
     }
     if ($Snapshot.alarmsMayBeTruncated -ne $true) {
@@ -124,6 +124,13 @@ function Send-PendingBridgeAlarms {
         $sent++; if($sent -ge 10){break}
     }
 }
+function Apply-BridgeMachiningProfile {
+    param($Config,$Record)
+    $profile='unverified'
+    if($null -ne $Record -and $Record.machineKind -eq 'mill-3axis' -and $Record.offsetTable -eq 'm-c' -and $Record.offsetProfileConfirmed -is [bool] -and $Record.offsetProfileConfirmed){$profile='verified-fanuc-m-3axis-memory-c'}
+    if(-not $Config.PSObject.Properties['machiningContextProfile']){$Config|Add-Member -NotePropertyName machiningContextProfile -NotePropertyValue $profile}
+    else{$Config.machiningContextProfile=$profile}
+}
 function New-BridgePayload {
     param($Snapshot)
     $state = 'unknown'
@@ -138,7 +145,7 @@ function New-BridgePayload {
         controllerInfo = @{ cncType = $Snapshot.cncType; series = $Snapshot.series; version = $Snapshot.version; axes = $Snapshot.axes }
         alarm = $alarm
         alarmDetails = $Snapshot.alarmDetails; alarmDetailsRead = ($Snapshot.alarmDetailsRead -eq $true); alarmsMayBeTruncated = ($Snapshot.alarmsMayBeTruncated -eq $true)
-        activeProgram = $Snapshot.activeProgram; mainProgram = $Snapshot.mainProgram
+        activeProgram = $Snapshot.activeProgram; mainProgram = $Snapshot.mainProgram; machiningContext = $Snapshot.machiningContext
         spindleSpeed = $Snapshot.spindleSpeed; spindleUnit = $Snapshot.spindleUnit
         feedrate = $Snapshot.feedrate; feedrateUnit = $Snapshot.feedrateUnit
         readErrors = $Snapshot.readErrors; partCounter = $Snapshot.partCounter
@@ -161,12 +168,13 @@ try {
     if ($config.databaseUrl -cne 'https://ltdst-80b3e-default-rtdb.asia-southeast1.firebasedatabase.app') { throw 'Unexpected database URL. No credentials will be sent.' }
     if ($config.firebaseApiKey -notmatch '^[A-Za-z0-9_-]+$') { throw 'Invalid Firebase Web API key.' }
     if (-not ('FanucReader' -as [type])) { Add-Type -Path (Join-Path $PSScriptRoot 'FanucReader.cs') }
-    if (-not ([FanucReader].GetProperty('AccessMode')) -or [FanucReader]::AccessMode -ne 'FOCAS_STATUS_ONLY_V1') { throw 'Old reader loaded. CLOSE this PowerShell window and open a new one. The new bridge refuses to reuse the previous reader.' }
-    Write-Host "Bridge build: 20261105-part-count"
+    if (-not ([FanucReader].GetProperty('AccessMode')) -or [FanucReader]::AccessMode -ne 'FOCAS_STATUS_ONLY_V1' -or -not ([FanucReader].GetMethods()|Where-Object {$_.Name -eq 'ReadWithContext' -and $_.GetParameters().Count -eq 4})) { throw 'Old reader loaded. CLOSE this PowerShell window and open a new one. The new bridge refuses to reuse the previous reader.' }
+    Write-Host "Bridge build: 20261107-tool-context"
     Write-Host "Machine: $($config.machineName) | CNC $($config.cncIp):$($config.port)"
     Write-Host 'Read-only CNC access. Reading status, actual spindle/feed and current/main O-number. Reading alarm messages with cnc_rdalmmsg2; no PMC access or CNC writes.'
+    Write-Host 'T modal enabled (not spindle confirmation). XYZ/H/D require a verified machine profile; no PMC.'
     # Test a real FOCAS read before requesting any credentials or creating the cloud record.
-    $sample = [FanucReader]::Read([string]$config.cncIp, [uint16]$config.port, (Join-Path $PSScriptRoot 'lib'))
+    $sample = [FanucReader]::ReadWithContext([string]$config.cncIp, [uint16]$config.port, (Join-Path $PSScriptRoot 'lib'),($config.machiningContextProfile -eq 'verified-fanuc-m-3axis-memory-c'))
     if (-not $LocalOnly) {
         $email = Read-Host 'CMMS email (the same verified account used on the website)'
         $password = Read-Host 'CMMS password (hidden; never saved)' -AsSecureString
@@ -180,6 +188,8 @@ try {
                 throw 'Machine identity differs from bridge-config.json. Nothing was overwritten. Send only the Existing machine line for diagnosis.'
             }
         }
+        Apply-BridgeMachiningProfile $config $existing
+        $script:ProfileCheckedAt=[DateTime]::UtcNow
         if($config.partsPerCount -lt 1 -or $config.partsPerCount -gt 1000 -or [double]$config.partsPerCount -ne [Math]::Truncate([double]$config.partsPerCount)){throw 'partsPerCount must be an integer from 1 to 1000.'}
         Initialize-CncReports (Join-Path $PSScriptRoot 'report-outbox') $config.machineId $script:Auth.uid $config
         Initialize-BridgeAlarmHistory (Join-Path $PSScriptRoot 'report-outbox') $config.machineId $script:Auth.uid
@@ -191,7 +201,12 @@ try {
     Write-Host 'Bridge active. Keep this window open. Ctrl+C stops it.'
     do {
         if ($null -eq $sample) {
-            try { $sample = [FanucReader]::Read([string]$config.cncIp, [uint16]$config.port, (Join-Path $PSScriptRoot 'lib')) }
+            if(-not $LocalOnly -and ([DateTime]::UtcNow-$script:ProfileCheckedAt).TotalSeconds -ge 60){
+                try{Update-BridgeToken $config;$record=Invoke-BridgeHttp "$($config.databaseUrl)/cncs/$($config.machineId).json?auth=$($script:Auth.idToken)" 'GET' $null 'Refresh machine profile';Apply-BridgeMachiningProfile $config $record}
+                catch{Apply-BridgeMachiningProfile $config $null}
+                $script:ProfileCheckedAt=[DateTime]::UtcNow
+            }
+            try { $sample = [FanucReader]::ReadWithContext([string]$config.cncIp, [uint16]$config.port, (Join-Path $PSScriptRoot 'lib'),($config.machiningContextProfile -eq 'verified-fanuc-m-3axis-memory-c')) }
             catch {
                 if($reportingStarted){Break-CncReportObservation}
                 Write-Warning ('CNC read failed: ' + $_.Exception.GetBaseException().Message)

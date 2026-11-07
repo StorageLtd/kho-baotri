@@ -18,6 +18,13 @@ foreach ($case in @(@(0,'idle'),@(1,'idle'),@(2,'hold'),@(3,'running'),@(4,'idle
 }
 $sample.rawStatus.alarm = 1; Assert-True ((New-BridgePayload $sample).status -eq 'alarm') 'Alarm flag ignored'
 $sample.rawStatus.alarm = 0; $sample.rawStatus.emergency = 1; Assert-True ((New-BridgePayload $sample).status -eq 'alarm') 'Emergency flag ignored'
+$profileConfig=[pscustomobject]@{machiningContextProfile='unverified'}
+Apply-BridgeMachiningProfile $profileConfig ([pscustomobject]@{machineKind='mill-3axis';offsetTable='m-c';offsetProfileConfirmed=$true})
+Assert-True ($profileConfig.machiningContextProfile -eq 'verified-fanuc-m-3axis-memory-c') 'Verified compatible machine profile not applied'
+foreach($profileRecord in @([pscustomobject]@{machineKind='lathe';offsetTable='m-c';offsetProfileConfirmed=$true},[pscustomobject]@{machineKind='mill-3axis';offsetTable='m-c';offsetProfileConfirmed='true'},$null)){
+ Apply-BridgeMachiningProfile $profileConfig $profileRecord
+ Assert-True ($profileConfig.machiningContextProfile -eq 'unverified') 'Unknown / incompatible / nonboolean profile enabled offset interpretation'
+}
 $global:BridgeTest_existingResponse = $null
 $global:BridgeTest_collision = $false
 $global:BridgeTest_calls = @(); $global:BridgeTest_verified = $true; $global:BridgeTest_role = 'technician'; $global:BridgeTest_failHttp = $false
@@ -80,7 +87,7 @@ public class FixtureSnapshot {
  public System.Collections.Generic.Dictionary<string,string> readErrors=new System.Collections.Generic.Dictionary<string,string>();
  public FixtureRaw rawStatus=new FixtureRaw();
 }
-public static class FanucReader { public static string AccessMode { get { return "FOCAS_STATUS_ONLY_V1"; } } public static string ProgramNumber(uint n) { return "O"+n.ToString(); } public static int Calls; public static FixtureSnapshot Read(string ip,ushort port,string folder) { Calls++;return new FixtureSnapshot(); } }
+public static class FanucReader { public static string AccessMode { get { return "FOCAS_STATUS_ONLY_V1"; } } public static string ProgramNumber(uint n) { return "O"+n.ToString(); } public static int Calls; public static FixtureSnapshot ReadWithContext(string ip,ushort port,string folder,bool verifiedProfile) { Calls++;return new FixtureSnapshot(); } }
 '@
 $fixtureDirectory=Join-Path ([IO.Path]::GetTempPath()) ('fanuc-bridge-test-'+[guid]::NewGuid().ToString('N'))
 $null=New-Item -ItemType Directory -Path $fixtureDirectory

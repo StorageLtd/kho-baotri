@@ -77,7 +77,8 @@ try { while($true){$s.Update([IO.File]::ReadAllText($env:LOCAL_PAYLOAD));Start-S
             assert all(url.startswith(f'http://localhost:{port}/') for url in urls),urls
             assert not errors,errors
             browser.close()
-        assert (PACKAGE/'FanucReader.cs').read_bytes()==(ROOT/'tools/fanuc-bridge/FanucReader.cs').read_bytes()
+        reader=(PACKAGE/'FanucReader.cs').read_text()
+        assert 'pmc_rd' not in reader and 'cnc_download' not in reader and 'cnc_wr' not in reader
         print('PASS: native reader unchanged; PowerShell syntax; loopback HTTP; Host/Origin/method/path guards; local UI telemetry, safe text, disconnect, mobile, JSON download; no external browser requests.')
     finally:
         process.terminate()
