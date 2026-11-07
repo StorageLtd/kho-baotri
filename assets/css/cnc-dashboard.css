@@ -297,17 +297,23 @@ body[data-page="cncMonitoringPage"] .topbar .actions{margin-left:auto;align-item
 #cncMonitoringPage{padding-top:16px}
 @media(max-width:700px){body[data-page="cncMonitoringPage"] .topbar{padding:10px 12px}body[data-page="cncMonitoringPage"] .topbar .actions{width:100%;margin-left:0;justify-content:flex-start}}
 /* Three-machine workspace, balanced card heights and a brighter LTD palette. */
-body[data-page="cncMonitoringPage"]{background:#edf3f9}
-body[data-page="cncMonitoringPage"] .content{background:radial-gradient(ellipse at 5% 0,#dceafc88,transparent 50%),radial-gradient(ellipse at 100% 0,#d8f3ed88,transparent 45%),#f0f4f9}
-body[data-page="cncMonitoringPage"] .topbar{background:#ffffffed;border-bottom:1px solid #dbe5f0}
+body[data-page="cncMonitoringPage"]{background:#10243c}
+body[data-page="cncMonitoringPage"] .content{
+ background:radial-gradient(ellipse at 0 0,#287bba40,transparent 55%),radial-gradient(ellipse at 100% 15%,#0dc7a02b,transparent 50%),linear-gradient(145deg,#112b48 0%,#152d45 50%,#123d43 100%);
+ min-height:calc(100vh - 58px);
+}
+body[data-page="cncMonitoringPage"] .sidebar{background:linear-gradient(180deg,#102d3c,#0d2532);border-right:1px solid #4f83932b}
+body[data-page="cncMonitoringPage"] .nav button.active{background:linear-gradient(110deg,#0c8076,#136875);color:#fff;box-shadow:inset 3px 0 0 #53e1c4,0 4px 12px #00192220}
+body[data-page="cncMonitoringPage"] .nav button:hover{background:#ffffff12;color:#fff}
+body[data-page="cncMonitoringPage"] .topbar{background:#10263d;border-bottom:1px solid #54849b40}
 body[data-page="cncMonitoringPage"] #addCncMainBtn{background:linear-gradient(135deg,#087e77,#0c9b88);border-color:#078578;box-shadow:0 3px 8px #0b8a7720;color:#fff}
 body[data-page="cncMonitoringPage"] #exportCncBtn{border-color:#bfcede;color:#244e75;background:#f6faff;font-weight:750}
 #cncMonitoringPage{gap:15px}
-#cncMonitoringPage .cnc-plant-header{background:linear-gradient(115deg,#163454,#21496a 65%,#12655e);border:1px solid #244b6a;box-shadow:0 5px 20px #153e6514;border-radius:13px}
+#cncMonitoringPage .cnc-plant-header{background:linear-gradient(115deg,#244c76,#205577 60%,#087e72);border:1px solid #5c9aa855;box-shadow:0 6px 24px #00102230;border-radius:13px}
 #cncMonitoringPage .cnc-sync-line{background:#102c4590;border-top-color:#ffffff18}
 #cncMonitoringPage .cnc-industry-mark{background:linear-gradient(145deg,#ffe49a,#ffcc59);border-color:#ffdb76;box-shadow:0 2px 10px #00000012;color:#23415e}
 #cncMonitoringPage .cnc-fleet-stats{gap:12px}
-#cncMonitoringPage .cnc-fleet-stat{border-color:#d8e3ef;box-shadow:0 3px 12px #23476506}
+#cncMonitoringPage .cnc-fleet-stat{border-color:#ffffffb3;box-shadow:0 4px 14px #00162d1a}
 #cncMonitoringPage .cnc-fleet-stat>span{color:#3c5270;font-weight:800}
 #cncMonitoringPage .cnc-fleet-stat small{color:#687c96;font-weight:600}
 #cncMonitoringPage .cnc-fleet-total{background:linear-gradient(115deg,#fff,#edf3ff)}
@@ -315,8 +321,8 @@ body[data-page="cncMonitoringPage"] #exportCncBtn{border-color:#bfcede;color:#24
 #cncMonitoringPage .cnc-fleet-hold{background:linear-gradient(115deg,#fff,#fff5dc)}
 #cncMonitoringPage .cnc-fleet-alarm{background:linear-gradient(115deg,#fff,#ffedf1)}
 #cncMonitoringPage .cnc-grid{grid-template-columns:repeat(3,minmax(0,1fr));align-items:stretch;gap:16px}
-#cncMonitoringPage .cnc-machine-panel{display:flex;flex-direction:column;align-self:stretch;border-radius:13px;border-color:#d1dfed;box-shadow:0 4px 16px #23476b09;background:#fff;min-width:0;transition:box-shadow .18s ease,border-color .18s ease}
-#cncMonitoringPage .cnc-machine-panel:hover{border-color:#97b8d8;box-shadow:0 7px 22px #23476b13}
+#cncMonitoringPage .cnc-machine-panel{display:flex;flex-direction:column;align-self:stretch;border-radius:13px;border-color:#d1dfed;box-shadow:0 6px 22px #00172e2b;background:#fff;min-width:0;transition:box-shadow .18s ease,border-color .18s ease}
+#cncMonitoringPage .cnc-machine-panel:hover{border-color:#59d5c4;box-shadow:0 8px 26px #00112340}
 #cncMonitoringPage .cnc-machine-panel::before{flex:0 0 4px;height:4px;background:var(--machine-state)}
 #cncMonitoringPage .cnc-machine-heading{background:linear-gradient(115deg,#203d5b,#294965);min-height:78px;padding:11px 12px;gap:8px;flex-shrink:0;border-bottom:0}
 #cncMonitoringPage .cnc-machine-panel.is-running .cnc-machine-heading{background:linear-gradient(115deg,#173b51,#146359)}
