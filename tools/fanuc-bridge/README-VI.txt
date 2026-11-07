@@ -1,5 +1,5 @@
 NEWAY 1260S - FOCAS STATUS ONLY (KHÔNG ĐỌC PMC)
-Bridge build: 20261107-tool-context
+Bridge build: 20261107-machine-manager
 
 BẢN NÀY LÀM GÌ?
 - Đọc trạng thái CNC, tốc độ, số chương trình, PART COUNT và timer qua FOCAS.
@@ -36,7 +36,7 @@ CẬP NHẬT QUAN TRỌNG
 6. Nhập email/mật khẩu CMMS tại lời nhắc, không ghi mật khẩu vào lệnh/config.
    Token và mật khẩu không được lưu trong file. Cần tài khoản email đã xác minh,
    vai trò technician, manager hoặc admin.
-7. Phải thấy Bridge build: 20261107-tool-context. Bản mới từ chối sử dụng lớp C# cũ.
+7. Phải thấy Bridge build: 20261107-machine-manager. Bản mới từ chối sử dụng lớp C# cũ.
    Cấu hình cũ có pmcCycleSignals=true cũng không bật được PMC trong mã mới.
 8. Giữ LAN nối CNC, Wi-Fi có Internet và cửa sổ cầu nối mở. Không chạy hai bản cùng máy.
 
@@ -106,3 +106,9 @@ BỔ SUNG 20261107-tool-context
 - Khi dùng web, lựa chọn trong Cài đặt máy là nguồn cấu hình đọc offset;
   chỉnh tay machiningContextProfile trong JSON không thay thế xác nhận trên web.
   Chỉ chế độ -LocalOnly mới dùng trực tiếp hồ sơ trong file JSON.
+
+BRIDGE MANAGER
+Gói FANUC-Bridge-Manager cung cấp cửa sổ chọn mẫu máy và quản lý cấu hình.
+Các tham số LibraryDirectory / DataDirectory chỉ thay vị trí DLL và dữ liệu
+trên laptop. StopRequestPath yêu cầu dừng cầu nối, không gửi lệnh dừng CNC.
+Mỗi máy dùng thư mục dữ liệu riêng để tránh xung đột report-outbox.

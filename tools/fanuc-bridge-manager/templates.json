@@ -1,0 +1,8 @@
+[
+ {"id":"vertical-3","name":"Vertical Mill · Phay đứng 3 trục","family":"Mill","machineKind":"mill-3axis","orientation":"vertical","axisNames":"X,Y,Z","spindleCount":1,"description":"Trung tâm gia công đứng. Bảng offset cần đối chiếu trên CNC."},
+ {"id":"horizontal-4","name":"Horizontal Mill · Phay ngang 4 trục","family":"Mill","machineKind":"mill-multiaxis","orientation":"horizontal","axisNames":"X,Y,Z,B","spindleCount":1,"description":"Trung tâm gia công ngang có bàn quay. Chưa diễn giải offset nhiều trục."},
+ {"id":"lathe-2","name":"Lathe · Máy tiện 2 trục","family":"Lathe","machineKind":"lathe","orientation":"horizontal","axisNames":"X,Z","spindleCount":1,"description":"Máy tiện. Giữ nguyên mã T do CNC trả về, không tách số dao/bù dao khi chưa xác minh."},
+ {"id":"turning-center","name":"Turning Center · Tiện có dao sống","family":"Lathe","machineKind":"lathe","orientation":"horizontal","axisNames":"X,Z,C","spindleCount":1,"description":"Máy tiện có trục C. Khai báo không tự bật đọc giá trị offset."},
+ {"id":"vertical-5","name":"Vertical Mill · Phay 5 trục","family":"Mill","machineKind":"mill-multiaxis","orientation":"vertical","axisNames":"X,Y,Z,A,C","spindleCount":1,"description":"Phay nhiều trục. Chưa diễn giải TCP hoặc bảng offset nhiều trục."},
+ {"id":"custom","name":"Custom CNC · Chưa xác định / loại khác","family":"Other","machineKind":"unknown","orientation":"unknown","axisNames":"","spindleCount":0,"description":"Dùng khi chưa rõ loại máy. Không suy đoán gốc hoặc offset."}
+]

@@ -87,7 +87,7 @@ public class FixtureSnapshot {
  public System.Collections.Generic.Dictionary<string,string> readErrors=new System.Collections.Generic.Dictionary<string,string>();
  public FixtureRaw rawStatus=new FixtureRaw();
 }
-public static class FanucReader { public static string AccessMode { get { return "FOCAS_STATUS_ONLY_V1"; } } public static string ProgramNumber(uint n) { return "O"+n.ToString(); } public static int Calls; public static FixtureSnapshot ReadWithContext(string ip,ushort port,string folder,bool verifiedProfile) { Calls++;return new FixtureSnapshot(); } }
+public static class FanucReader { public static string AccessMode { get { return "FOCAS_STATUS_ONLY_V1"; } } public static string ProgramNumber(uint n) { return "O"+n.ToString(); } public static int Calls; public static string LastLibrary; public static FixtureSnapshot ReadWithContext(string ip,ushort port,string folder,bool verifiedProfile) { LastLibrary=folder;Calls++;return new FixtureSnapshot(); } }
 '@
 $fixtureDirectory=Join-Path ([IO.Path]::GetTempPath()) ('fanuc-bridge-test-'+[guid]::NewGuid().ToString('N'))
 $null=New-Item -ItemType Directory -Path $fixtureDirectory
@@ -108,6 +108,15 @@ try {
     Assert-True ([FanucReader]::Calls -eq $before+1) 'Local-only mode did not read exactly once'
     Assert-True ($global:BridgeTest_calls.Count -eq 0) 'Local-only mode unexpectedly accessed the network'
     Assert-True (Test-Path (Join-Path $fixtureDirectory 'last-result.json')) 'Local result was not saved'
+    $dataFolder=Join-Path $fixtureDirectory 'per machine data'
+    $libraryFolder=Join-Path $fixtureDirectory 'shared library'
+    & (Join-Path $fixtureDirectory 'Start-FanucBridge.ps1') -Once -LocalOnly -DataDirectory $dataFolder -LibraryDirectory $libraryFolder
+    Assert-True (Test-Path (Join-Path $dataFolder 'last-result.json')) 'Per-machine data folder was ignored'
+    Assert-True ([FanucReader]::LastLibrary -eq $libraryFolder) 'Shared library path not passed to reader'
+    $stopFile=Join-Path $fixtureDirectory 'stop-request';[IO.File]::WriteAllText($stopFile,'stop bridge only')
+    $stoppedData=Join-Path $fixtureDirectory 'stopped data'
+    & (Join-Path $fixtureDirectory 'Start-FanucBridge.ps1') -Once -LocalOnly -DataDirectory $stoppedData -StopRequestPath $stopFile
+    Assert-True (-not (Test-Path (Join-Path $stoppedData 'last-result.json'))) 'Stop request did not stop the collection loop'
     $global:BridgeTest_existingResponse='null'
     $before=[FanucReader]::Calls
     & (Join-Path $fixtureDirectory 'Start-FanucBridge.ps1') -Once

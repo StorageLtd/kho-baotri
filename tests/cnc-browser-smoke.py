@@ -94,6 +94,9 @@ window.seedDayFixture = () => {cncDayOwner=getUser().uid;cncDayStats.set('neway-
             await profile.evaluate('e=>e.close()')
 
             assert await page.get_by_role('button',name='Báo cáo vận hành CNC',exact=True).is_visible()
+            assert await page.locator('.cnc-model-tile').count()==2
+            await page.get_by_role('button',name='Xem máy Neway 1260S',exact=True).click()
+            assert await page.locator('#cncMachineDetailsDialog').is_visible()
             card = page.locator('#card-neway-1260s')
             assert 'Dữ liệu thật' in await card.inner_text()
             assert 'ĐANG CHẠY (START)' in await card.inner_text()
@@ -132,7 +135,8 @@ window.seedDayFixture = () => {cncDayOwner=getUser().uid;cncDayStats.set('neway-
             await card.get_by_role('button',name='Alarm của máy').click()
             assert await page.locator('#cncAlarmHistoryDialog').is_visible()
             await page.locator('#cncAlarmHistoryDialog').evaluate('e=>e.close()')
-            assert 'CHƯA CÓ TÍN HIỆU THẬT' in await page.locator('#card-old').inner_text()
+            assert 'CHƯA CÓ TÍN HIỆU THẬT' in await page.locator('#model-old').inner_text()
+            await page.locator('#cncMachineDetailsDialog [data-close-details]').click()
             await page.evaluate("""renderAlarmFixture([{id:'alarm-fixture',cncId:'neway-1260s',cncName:'Neway 1260S',timestamp:'2026-11-05T02:00:00Z',alarmCode:'0500',alarmType:4,axis:1,description:'(X)+ OVERTRAVEL (SOFT 1). Kiểm tra hành trình trục X theo thông báo của CNC. Nội dung mô tả được hiển thị đầy đủ, không rút gọn bằng dấu ba chấm.',source:'focas'}])""")
             assert await page.locator('#cncSearchInput').count()==0
             assert 'Bảng điều khiển & Giám sát CNC (Thời gian thực)' not in await page.locator('#cncMonitoringPage').inner_text()
@@ -145,6 +149,7 @@ window.seedDayFixture = () => {cncDayOwner=getUser().uid;cncDayStats.set('neway-
             assert alarm_download.suggested_filename.endswith('.xlsx')
             await alarm_download.save_as('/tmp/alarm-browser.xlsx')
             await page.evaluate('''renderFixture([{id:'neway-1260s',name:'Neway 1260S',source:'focas',connected:true,lastSeen:Date.now(),rawStatus:{run:3,alarm:0,emergency:0,aut:1},ip:'192.168.1.1',port:8193,model:'FANUC 0i-MF Plus',spindleSpeed:1800,feedrate:12.5,feedrateUnit:'inch/min',activeProgram:'O12345678',mainProgram:'O0001'}])''')
+            await page.get_by_role('button',name='Xem máy Neway 1260S',exact=True).click()
             assert '1800 RPM' in await card.inner_text()
             assert '12.5 inch/min' in await card.inner_text()
             assert 'O12345678' in await card.inner_text()
@@ -192,6 +197,7 @@ window.seedDayFixture = () => {cncDayOwner=getUser().uid;cncDayStats.set('neway-
             await page.set_viewport_size({'width':390,'height':844})
             assert await card.is_visible()
             assert await page.evaluate('document.documentElement.scrollWidth<=innerWidth')
+            await page.locator('#cncMachineDetailsDialog [data-close-details]').click()
             # Report creation/export uses daily session fixtures, never the production database.
             import datetime, json
             report_start=int(datetime.datetime(2026,10,28,tzinfo=datetime.timezone(datetime.timedelta(hours=7))).timestamp()*1000)
@@ -276,6 +282,7 @@ window.seedDayFixture = () => {cncDayOwner=getUser().uid;cncDayStats.set('neway-
             for width in [1024,700,390]:
                 await page.set_viewport_size({'width':width,'height':844})
                 assert await page.evaluate('document.documentElement.scrollWidth<=innerWidth')
+            await page.get_by_role('button',name='Xem máy CNC 03',exact=True).click()
             assert await page.locator('#card-missing-day .cnc-day-runtime .cnc-day-ring strong').inner_text()=='—'
             assert not errors, errors
             await browser.close()

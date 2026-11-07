@@ -1,0 +1,5 @@
+Copy your matching 64-bit FOCAS libraries here:
+Fwlib64.dll
+fwlibe64.dll
+fwlib30i64.dll
+Do not copy them into Windows system folders.

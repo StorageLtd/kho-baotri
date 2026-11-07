@@ -1,7 +1,10 @@
 ﻿param(
     [string]$ConfigPath = (Join-Path $PSScriptRoot 'bridge-config.json'),
     [switch]$Once,
-    [switch]$LocalOnly
+    [switch]$LocalOnly,
+    [string]$LibraryDirectory = $LibraryDirectory,
+    [string]$DataDirectory = $PSScriptRoot,
+    [string]$StopRequestPath = ''
 )
 $ErrorActionPreference = 'Stop'
 # All credentials/tokens stay in process memory. Never print HTTP exceptions/URLs.
@@ -156,6 +159,7 @@ function New-BridgePayload {
 }
 try {
     if (-not [Environment]::Is64BitProcess) { throw 'Use 64-bit Windows PowerShell, not PowerShell (x86).' }
+    $null=New-Item -ItemType Directory -Path $DataDirectory -Force
     $config = Get-Content -LiteralPath $ConfigPath -Raw -Encoding UTF8 | ConvertFrom-Json
     if(-not $config.PSObject.Properties['partsPerCount']){$config|Add-Member -NotePropertyName partsPerCount -NotePropertyValue 1}
     if(-not $config.PSObject.Properties['partCounterVerified']){$config|Add-Member -NotePropertyName partCounterVerified -NotePropertyValue $false}
@@ -169,12 +173,12 @@ try {
     if ($config.firebaseApiKey -notmatch '^[A-Za-z0-9_-]+$') { throw 'Invalid Firebase Web API key.' }
     if (-not ('FanucReader' -as [type])) { Add-Type -Path (Join-Path $PSScriptRoot 'FanucReader.cs') }
     if (-not ([FanucReader].GetProperty('AccessMode')) -or [FanucReader]::AccessMode -ne 'FOCAS_STATUS_ONLY_V1' -or -not ([FanucReader].GetMethods()|Where-Object {$_.Name -eq 'ReadWithContext' -and $_.GetParameters().Count -eq 4})) { throw 'Old reader loaded. CLOSE this PowerShell window and open a new one. The new bridge refuses to reuse the previous reader.' }
-    Write-Host "Bridge build: 20261107-tool-context"
+    Write-Host "Bridge build: 20261107-machine-manager"
     Write-Host "Machine: $($config.machineName) | CNC $($config.cncIp):$($config.port)"
     Write-Host 'Read-only CNC access. Reading status, actual spindle/feed and current/main O-number. Reading alarm messages with cnc_rdalmmsg2; no PMC access or CNC writes.'
     Write-Host 'T modal enabled (not spindle confirmation). XYZ/H/D require a verified machine profile; no PMC.'
     # Test a real FOCAS read before requesting any credentials or creating the cloud record.
-    $sample = [FanucReader]::ReadWithContext([string]$config.cncIp, [uint16]$config.port, (Join-Path $PSScriptRoot 'lib'),($config.machiningContextProfile -eq 'verified-fanuc-m-3axis-memory-c'))
+    $sample = [FanucReader]::ReadWithContext([string]$config.cncIp, [uint16]$config.port, $LibraryDirectory,($config.machiningContextProfile -eq 'verified-fanuc-m-3axis-memory-c'))
     if (-not $LocalOnly) {
         $email = Read-Host 'CMMS email (the same verified account used on the website)'
         $password = Read-Host 'CMMS password (hidden; never saved)' -AsSecureString
@@ -188,11 +192,15 @@ try {
                 throw 'Machine identity differs from bridge-config.json. Nothing was overwritten. Send only the Existing machine line for diagnosis.'
             }
         }
-        Apply-BridgeMachiningProfile $config $existing
+        if($config.configurationSource -eq 'bridge-manager'){
+            $metadata=@{machineKind=$config.machineKind;orientation=$config.orientation;machineTemplate=$config.machineTemplate;axisNames=$config.axisNames;declaredAxisCount=$config.declaredAxisCount;spindleCount=$config.spindleCount;offsetTable=$config.offsetTable;offsetProfileConfirmed=($config.offsetProfileConfirmed -is [bool] -and $config.offsetProfileConfirmed);configurationSource='bridge-manager'}
+            Send-BridgePatch $config $metadata
+            Apply-BridgeMachiningProfile $config $config
+        } else {Apply-BridgeMachiningProfile $config $existing}
         $script:ProfileCheckedAt=[DateTime]::UtcNow
         if($config.partsPerCount -lt 1 -or $config.partsPerCount -gt 1000 -or [double]$config.partsPerCount -ne [Math]::Truncate([double]$config.partsPerCount)){throw 'partsPerCount must be an integer from 1 to 1000.'}
-        Initialize-CncReports (Join-Path $PSScriptRoot 'report-outbox') $config.machineId $script:Auth.uid $config
-        Initialize-BridgeAlarmHistory (Join-Path $PSScriptRoot 'report-outbox') $config.machineId $script:Auth.uid
+        Initialize-CncReports (Join-Path $DataDirectory 'report-outbox') $config.machineId $script:Auth.uid $config
+        Initialize-BridgeAlarmHistory (Join-Path $DataDirectory 'report-outbox') $config.machineId $script:Auth.uid
         $reportingStarted = $true
         Send-BridgePatch $config @{ id = $config.machineId; name = $config.machineName; ip = $config.cncIp; port = [int]$config.port; model = $config.model; source = 'focas'; connected = $false; status = 'offline' }
         $machineRegistered = $true
@@ -200,13 +208,14 @@ try {
     }
     Write-Host 'Bridge active. Keep this window open. Ctrl+C stops it.'
     do {
+        if($StopRequestPath -and (Test-Path -LiteralPath $StopRequestPath)){Write-Host 'Bridge stop requested by manager.';break}
         if ($null -eq $sample) {
             if(-not $LocalOnly -and ([DateTime]::UtcNow-$script:ProfileCheckedAt).TotalSeconds -ge 60){
                 try{Update-BridgeToken $config;$record=Invoke-BridgeHttp "$($config.databaseUrl)/cncs/$($config.machineId).json?auth=$($script:Auth.idToken)" 'GET' $null 'Refresh machine profile';Apply-BridgeMachiningProfile $config $record}
                 catch{Apply-BridgeMachiningProfile $config $null}
                 $script:ProfileCheckedAt=[DateTime]::UtcNow
             }
-            try { $sample = [FanucReader]::ReadWithContext([string]$config.cncIp, [uint16]$config.port, (Join-Path $PSScriptRoot 'lib'),($config.machiningContextProfile -eq 'verified-fanuc-m-3axis-memory-c')) }
+            try { $sample = [FanucReader]::ReadWithContext([string]$config.cncIp, [uint16]$config.port, $LibraryDirectory,($config.machiningContextProfile -eq 'verified-fanuc-m-3axis-memory-c')) }
             catch {
                 if($reportingStarted){Break-CncReportObservation}
                 Write-Warning ('CNC read failed: ' + $_.Exception.GetBaseException().Message)
@@ -226,7 +235,7 @@ try {
                 try { Send-BridgePatch $config $payload; $uploaded = $true }
                 catch { Write-Warning $_.Exception.Message; if ($Once) { throw } }
             }
-            $sample | ConvertTo-Json -Depth 5 | Set-Content -LiteralPath (Join-Path $PSScriptRoot 'last-result.json') -Encoding UTF8
+            $sample | ConvertTo-Json -Depth 5 | Set-Content -LiteralPath (Join-Path $DataDirectory 'last-result.json') -Encoding UTF8
             if ($sample.readErrors -and $sample.readErrors.Count -gt 0) {
                 foreach ($item in $sample.readErrors.GetEnumerator()) { Write-Warning ("Telemetry {0}: {1}" -f $item.Key, $item.Value) }
             }
