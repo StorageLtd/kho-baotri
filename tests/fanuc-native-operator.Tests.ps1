@@ -7,13 +7,15 @@ public static class FixtureNative {
  [DllImport("Fwlib64.dll")] public static extern void fixture_memory(int value);
  [DllImport("Fwlib64.dll")] public static extern void fixture_bad_column(int value);
  [DllImport("Fwlib64.dll")] public static extern int fixture_ends();
+ [DllImport("Fwlib64.dll")] public static extern int fixture_upload_calls();
+ [DllImport("Fwlib64.dll")] public static extern void fixture_disable_macros(int value);
 }
 '@
 function Assert($ok,$message){if(-not $ok){throw $message}}
 function Read-Private($name,$arguments){$nativeArgs=New-Object 'object[]' $arguments.Count;for($i=0;$i -lt $arguments.Count;$i++){$nativeArgs[$i]=$arguments[$i].PSObject.BaseObject};[FanucReader].GetMethod($name,[Reflection.BindingFlags]'NonPublic,Static').Invoke($null,$nativeArgs)|Out-Null}
 foreach($memory in @(0,1,2)){
  [FixtureNative]::fixture_memory($memory)
- $snapshot=New-Object FanucReader+Snapshot;$snapshot.machineType='M';$snapshot.axes='03'
+ $snapshot=New-Object FanucReader+Snapshot;$snapshot.machineType=' M';$snapshot.axes=' 3'
  Read-Private 'ReadMachiningContext' @([uint16]42,$snapshot,$true,[int]$memory)
  $c=$snapshot.machiningContext
  Assert ($c.spindleToolNumber -eq 1 -and $c.nextToolNumber -eq 4 -and $c.commandedToolNumber -eq 99 -and $c.toolNumber -eq 1 -and $c.spindleToolConfirmed) 'Actual HD.T incorrectly replaced with modal T'
@@ -23,7 +25,7 @@ foreach($memory in @(0,1,2)){
  if($memory -eq 1){Assert ($snapshot.toolOffsets.rows[0].geometry -eq -1 -and $snapshot.toolOffsets.rows[0].wear -eq -1.0001) 'Memory B column decoding incorrect'}
  if($memory -eq 2){Assert ($snapshot.toolOffsets.rows[0].radiusWear -eq -1.0003) 'Memory C radius wear decoding incorrect';Assert ($c.lengthGeometry -eq 1.0003 -and $c.lengthWear -eq 1.0002 -and $c.radiusGeometry -eq 4.0001 -and $c.radiusWear -eq 4) 'Single-value offset API incorrectly used range API column types'}
 }
-$snapshot=New-Object FanucReader+Snapshot;$snapshot.machineType='M';$snapshot.axes='03'
+$snapshot=New-Object FanucReader+Snapshot;$snapshot.machineType=' M';$snapshot.axes=' 3'
 Read-Private 'ReadMachiningContext' @([uint16]42,$snapshot,$true,[int]0)
 Assert ($null -eq $snapshot.toolOffsets) 'Mismatched declared/native offset table accepted'
 Read-Private 'ReadGcodes' @([uint16]42,$snapshot)
@@ -38,3 +40,33 @@ Assert ($null -eq $snapshot.fullProgram -and [FixtureNative]::fixture_ends() -eq
 $snapshot=New-Object FanucReader+Snapshot;$snapshot.activeProgram='O7022';Read-Private 'ReadFullProgram' @([uint16]42,$snapshot)
 Assert ($null -eq $snapshot.fullProgram -and [FixtureNative]::fixture_ends() -eq 3) 'Partial file accepted or failed session not released'
 Write-Output 'PASS: native ABI fixture for HD.T/NX.T, separate commanded T, A/B/C table arrays, G-code groups, signed XYZ, complete file transfer/retry and failure cleanup. No CNC connected.'
+
+$firstError=$snapshot.readErrors['fullProgram'];$ends=[FixtureNative]::fixture_ends()
+$retry=New-Object FanucReader+Snapshot;$retry.activeProgram='O7022';Read-Private 'ReadFullProgram' @([uint16]42,$retry)
+Assert ($retry.readErrors['fullProgram'].Contains($firstError)) 'Retry message discarded the original program failure'
+Assert ([FixtureNative]::fixture_ends() -eq $ends) 'Retry cooldown unexpectedly started another native session'
+Write-Output 'PASS: padded M/3 profiles reach the XYZ/offset reads; retries preserve the first full-program failure.'
+
+$snapshot=New-Object FanucReader+Snapshot;$snapshot.activeProgram='O7023';Read-Private 'ReadFullProgram' @([uint16]42,$snapshot)
+Assert ($snapshot.readErrors['fullProgram'].Contains('FOCAS 5')) 'Initial native upload refusal lost'
+$retry=New-Object FanucReader+Snapshot;$retry.activeProgram='O7023';Read-Private 'ReadFullProgram' @([uint16]42,$retry)
+Assert ($retry.readErrors['fullProgram'].Contains('cnc_upstart3') -and $retry.readErrors['fullProgram'].Contains('FOCAS 5')) 'Cooldown hid original native API and error code'
+
+$snapshot=New-Object FanucReader+Snapshot;$snapshot.activeProgram='O7024'
+$watch=[Diagnostics.Stopwatch]::StartNew();Read-Private 'ReadFullProgram' @([uint16]42,$snapshot)
+Assert ($snapshot.fullProgram.complete) 'Delayed producer failed to yield a complete program'
+Assert ([FixtureNative]::fixture_upload_calls() -lt 40) 'Upload reader busy-spun before CNC had data ready'
+Assert ($watch.ElapsedMilliseconds -ge 100) 'Reader did not wait for asynchronously produced bytes'
+Write-Output 'PASS: upload waits for delayed CNC data instead of exhausting an immediate retry loop.'
+
+[FixtureNative]::fixture_memory(2);[FixtureNative]::fixture_disable_macros(1)
+$snapshot=New-Object FanucReader+Snapshot;$snapshot.machineType=' M';$snapshot.axes=' 3'
+$positions=foreach($axis in @('X','Y','Z')){$p=New-Object FanucReader+AxisPosition;$p.axis=$axis;$p.machine=New-Object FanucReader+PositionValue;$p.machine.unit='inch';$p}
+$snapshot.positions=[FanucReader+AxisPosition[]]$positions
+$g=New-Object FanucReader+Gcode;$g.group=13;$g.code='G54';$snapshot.modalGcodes=[FanucReader+Gcode[]]@($g)
+Read-Private 'ReadMachiningContext' @([uint16]42,$snapshot,$true,[int]2)
+Read-Private 'ReadWorkCoordinates' @([uint16]42,$snapshot)
+Assert ($snapshot.toolOffsets.rows.Length -eq 32 -and $snapshot.machiningContext.lengthOffsetNumber -eq 1 -and $snapshot.machiningContext.radiusOffsetNumber -eq 4) 'Tool offset table or modal H/D incorrectly depends on macro access'
+Assert ($snapshot.workCoordinates[1].x -eq -21.5024 -and $snapshot.machiningContext.workX -eq -21.5024) 'Dedicated work-zero API did not populate XYZ and active G54'
+[FixtureNative]::fixture_disable_macros(0)
+Write-Output 'PASS: direct work zero and offset tables read with macro access unavailable; active H/D use CNC modal data.'

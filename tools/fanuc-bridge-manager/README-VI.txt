@@ -1,5 +1,5 @@
 LTD CNC BRIDGE MANAGER
-Build 20261109-inline-login · Windows 10/11 64-bit
+Build 20261109-profile-fix · Windows 10/11 64-bit
 
 CẬP NHẬT
 1. Trong bản Manager cũ: dừng từng cầu nối, chờ tiến trình dừng.
@@ -42,8 +42,9 @@ THỐNG KÊ: các biểu đồ trong ngày và báo cáo đã có.
 NGUỒN DỮ LIỆU / GIỚI HẠN
 - HD.T và NX.T đọc bằng cnc_rdhdnxt (vị trí trục chính/chờ thứ nhất của CNC).
   T modal chỉ lưu riêng; không dùng thay thế HD.T. Không phải cảm biến vật lý.
-- Bảng gốc XYZ lấy các macro hệ thống có số lẻ do CNC trả về. EXT và G54–G59
-  là giá trị cài đặt; không suy ra bằng cách lấy MACHINE trừ ABSOLUTE.
+- Bảng gốc XYZ dùng cnc_rdzofs theo từng trục, cnc_getfigure cho độ chia và
+  đơn vị CNC đã xác minh. EXT / G54–G59 là giá trị cài đặt, không suy ra
+  bằng MACHINE trừ ABSOLUTE. H/D ưu tiên CNC modal, không phụ thuộc macro.
   G54.1/P, G52, xoay tọa độ, TCP và gốc của máy tiện chưa được diễn giải.
 - Offset được đối chiếu kiểu khai báo với cnc_rdtofsinfo; lấy độ chia từ
   cnc_getfigure. Chỉ diễn giải phay XYZ 3 trục đã xác nhận; bảng tiện để trống.
@@ -51,7 +52,7 @@ NGUỒN DỮ LIỆU / GIỚI HẠN
 - Full file O đọc bằng cnc_upstart3/upload3/upend3 theo chiều CNC → PC.
   Không truyền chương trình từ PC sang CNC; không bật sửa hoặc bỏ bảo vệ.
   Đổi O thì đọc lại; cùng O làm mới khoảng 60 giây. Tối đa 2 MiB, ngân sách
-  vòng đọc 2 giây (mỗi lời gọi vẫn chịu timeout thư viện). Chỉ hiển thị là đủ
+  vòng đọc 8 giây (mỗi lời gọi vẫn chịu timeout thư viện). Chỉ hiển thị là đủ
   file khi kiểm tra đúng số O và ký tự kết thúc %. File lỗi/thiếu không giả làm đủ.
   CNC bận, chế độ hoặc tùy chọn không cho phép: để Chưa đọc và hiện chẩn đoán.
 - Path 1 / trục chính mặc định; mẫu nhiều trục không tự bật thu thập đa kênh.
@@ -61,7 +62,7 @@ NGUỒN DỮ LIỆU / GIỚI HẠN
 - Đã kiểm tra bằng fixture và trình duyệt. Chưa thử GUI Windows/CNC thật;
   cần đối chiếu lần đầu HD.T/NX.T, đơn vị, gốc và bảng offset với màn hình máy.
 
-ĐĂNG NHẬP TRỰC TIẾP TRONG MANAGER — 20261109-inline-login
+ĐĂNG NHẬP TRỰC TIẾP TRONG MANAGER — 20261109-profile-fix
 - Có sẵn tab Đăng nhập CMMS, không chờ hộp thoại từ tiến trình nền.
 - Chọn máy → Chạy cầu nối → nhập email và mật khẩu → Đăng nhập và kết nối.
 - Manager chuyển tài khoản một lần qua stdin riêng cho tiến trình cầu nối.
@@ -73,3 +74,15 @@ NGUỒN DỮ LIỆU / GIỚI HẠN
   Chỉ đóng đúng phần mềm cầu nối trên laptop, không gửi lệnh tới CNC.
 - Đã kiểm tra luồng tài khoản và tiến trình con thực trên môi trường thử Linux.
   Chưa chạy thử WinForms trên Windows hoặc kết nối CNC thật của người dùng.
+
+SỬA NHẬN DẠNG VÀ ĐỌC DỮ LIỆU — 20261109-profile-fix
+- Mã ASCII cố định có đệm: " M", "03", " 3" được chuẩn hóa đúng.
+  Vẫn kiểm tra máy phay 3 trục, tên trục XYZ, bảng thật và xác nhận của người dùng.
+- Đọc gốc bằng cnc_rdzofs; không cần đọc biến macro khi đã có đơn vị/vị trí CNC.
+- Khi EW_BUFFER, chờ 10 ms để CNC có thời gian cung cấp dữ liệu.
+  Ngân sách vòng đọc file 8 giây / 2 MiB; không ghi hay đổi con trỏ chương trình.
+- Nếu chưa xong, giữ lỗi đầu tiên và số byte/lượt chờ khi thử lại sau 30 giây.
+- Tab PROGRAM / WORK dùng đoạn CNC đang trả về nếu chưa có đủ file O;
+  có nhãn phân biệt đoạn chương trình với file đầy đủ.
+- Dừng cầu nối, thoát Manager qua menu khay trước khi nâng cấp.
+  Bản mới từ chối lớp C# cũ nếu chưa khởi động lại tiến trình.

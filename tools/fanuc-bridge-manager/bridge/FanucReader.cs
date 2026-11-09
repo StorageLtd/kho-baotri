@@ -8,6 +8,7 @@ using System.Text;
 // Read-only FOCAS probe. Structures follow the uploaded FS30D Fwlib64.h.
 public static class FanucReader
 {
+    public static string ReaderBuild {get{return "20261109-profile-fix";}}
     [StructLayout(LayoutKind.Sequential, Pack = 4)]
     public struct SysInfo
     {
@@ -142,8 +143,36 @@ public static class FanucReader
         OffsetReading value;
         return cnc_rdtofs(handle,(short)number.Value,type,8,out value)==0 && value.number==number.Value && value.type==type && value.value!=Int32.MinValue ? (double?)(value.value/Math.Pow(10,decimals)):null;
     }
+    public static string NormalizeCncText(byte[] value)
+    { return value==null?String.Empty:Encoding.ASCII.GetString(value).Trim('\0',' '); }
+    private static bool IsThreeAxisMill(Snapshot snapshot)
+    {
+        int axes;
+        return snapshot!=null&&String.Equals((snapshot.machineType??String.Empty).Trim('\0',' '),"M",StringComparison.Ordinal)&&Int32.TryParse((snapshot.axes??String.Empty).Trim('\0',' '),System.Globalization.NumberStyles.None,System.Globalization.CultureInfo.InvariantCulture,out axes)&&axes==3;
+    }
     public static bool SupportsContextProfile(Snapshot snapshot,bool verified)
-    { return verified && snapshot!=null && snapshot.machineType=="M" && snapshot.axes=="03"; }
+    { return verified&&IsThreeAxisMill(snapshot); }
+    private static string ProfileIdentity(Snapshot snapshot)
+    { return "reported type='"+snapshot.machineType+"', axes='"+snapshot.axes+"'"; }
+    private static string PositionUnit(Snapshot snapshot)
+    {
+        if(snapshot.positions==null)return null;
+        string result=null;int found=0;
+        foreach(string name in new string[]{"X","Y","Z"}){
+            AxisPosition axis=null;foreach(AxisPosition candidate in snapshot.positions)if(candidate.axis==name){axis=candidate;break;}
+            string unit=axis==null||axis.machine==null?null:axis.machine.unit;
+            if(unit!="mm"&&unit!="inch")return null;
+            if(result!=null&&result!=unit)return null;result=unit;found++;
+        }return found==3?result:null;
+    }
+    private static int? ReadModalNumber(ushort handle,short type)
+    {
+        IntPtr buffer=Marshal.AllocHGlobal(4+96*8);
+        try{Marshal.Copy(new byte[4+96*8],0,buffer,4+96*8);if(cnc_modal(handle,type,0,buffer)!=0)return null;ModalTool value=(ModalTool)Marshal.PtrToStructure(buffer,typeof(ModalTool));return value.datano==type&&value.value>=0?(int?)value.value:null;}
+        catch(EntryPointNotFoundException){return null;}finally{Marshal.FreeHGlobal(buffer);}
+    }
+    private static string ActiveWorkCoordinate(Snapshot snapshot)
+    {if(snapshot.modalGcodes!=null)foreach(Gcode code in snapshot.modalGcodes)if(code.group==13)return code.code;return null;}
     private static void ReadMachiningContext(ushort handle,Snapshot snapshot,bool verifiedProfile,int expectedTable)
     {
         MachiningContext c=new MachiningContext { sampledAtUtc=DateTime.UtcNow.ToString("o"), toolSource="cnc_modal(108,0); T modal, spindle tool not confirmed", spindleToolConfirmed=false, profile=verifiedProfile?"verified-fanuc-m-3axis-memory-"+(char)('a'+expectedTable):"unverified" };
@@ -161,26 +190,26 @@ public static class FanucReader
                 if(cnc_modal(handle,108,0,buffer)==0){ModalTool t=(ModalTool)Marshal.PtrToStructure(buffer,typeof(ModalTool));if(t.datano==108&&t.value>=0)c.commandedToolNumber=t.value;}
             }finally{Marshal.FreeHGlobal(buffer);}
         }catch(EntryPointNotFoundException){}
-        if(snapshot.machineType=="M"&&snapshot.axes=="03")try{int? u=IntegerCode(ReadMacro(handle,4006));c.unit=u==20?"inch":u==21?"mm":null;double? w=ReadMacro(handle,4014);if(w.HasValue)c.workCoordinate="G"+w.Value.ToString("0.###",System.Globalization.CultureInfo.InvariantCulture);}catch(EntryPointNotFoundException){}
-        if(!SupportsContextProfile(snapshot,verifiedProfile)){c.profile="unverified";snapshot.readErrors["contextProfile"]="Active H/D offset context disabled: requires a confirmed M-series XYZ / Memory A/B/C profile";return;}
+        c.unit=PositionUnit(snapshot);c.workCoordinate=ActiveWorkCoordinate(snapshot);
+        if(IsThreeAxisMill(snapshot))try{if(c.unit==null){int? u=IntegerCode(ReadMacro(handle,4006));c.unit=u==20?"inch":u==21?"mm":null;}if(c.workCoordinate==null){double? w=ReadMacro(handle,4014);if(w.HasValue)c.workCoordinate="G"+w.Value.ToString("0.###",System.Globalization.CultureInfo.InvariantCulture);}}catch(EntryPointNotFoundException){}
+        if(!SupportsContextProfile(snapshot,verifiedProfile)){c.profile="unverified";snapshot.readErrors["contextProfile"]="Active H/D offset context disabled: requires a confirmed M-series XYZ / Memory A/B/C profile ("+ProfileIdentity(snapshot)+", confirmed="+verifiedProfile+")";return;}
         try {
             short axisCount=3;byte[] names=new byte[192];
             if(cnc_rdaxisname(handle,ref axisCount,names)!=0 || axisCount!=3 || names[0]!='X' || names[2]!='Y' || names[4]!='Z') {
                 c.profile="unverified";snapshot.readErrors["contextProfile"]="XYZ mapping not verified by CNC axis names";return;
             }
-            c.lengthOffsetNumber=IntegerCode(ReadMacro(handle,4111));
-            c.radiusOffsetNumber=IntegerCode(ReadMacro(handle,4107));
-            int? units=IntegerCode(ReadMacro(handle,4006));c.unit=units==21?"mm":units==20?"inch":null;
-            double? g=ReadMacro(handle,4014);
-            if(g.HasValue)c.workCoordinate="G"+g.Value.ToString("0.###",System.Globalization.CultureInfo.InvariantCulture);
-            if(g.HasValue && g.Value==Math.Floor(g.Value) && g.Value>=54 && g.Value<=59) {
-                int first=5221+20*((int)g.Value-54);
-                c.workX=ReadMacro(handle,(short)first);c.workY=ReadMacro(handle,(short)(first+1));c.workZ=ReadMacro(handle,(short)(first+2));
-            } else if(g.HasValue) snapshot.readErrors["workOffset"]="Only standard G54-G59 XYZ supported; extended P offsets not inferred";
+            c.lengthOffsetNumber=ReadModalNumber(handle,104)??IntegerCode(ReadMacro(handle,4111));
+            c.radiusOffsetNumber=ReadModalNumber(handle,101)??IntegerCode(ReadMacro(handle,4107));
             // Only a verified XYZ machining-centre memory A/B/C profile matching CNC readback.
             OffsetInfo info;short valid;short[] input=new short[96],output=new short[96];
-            if(snapshot.machineType=="M" && snapshot.axes=="03" && c.unit!=null && cnc_rdtofsinfo(handle,out info)==0 && info.memoryType==expectedTable && info.memoryType>=0 && info.memoryType<=2 &&
-               cnc_getfigure(handle,1,out valid,input,output)==0 && valid>0 && input[0]>=0 && input[0]<=9) {
+            if(c.unit==null){snapshot.readErrors["toolOffsets"]="Cannot validate offset unit from CNC positions/modal";return;}
+            short infoCode=cnc_rdtofsinfo(handle,out info);
+            if(infoCode!=0){snapshot.readErrors["toolOffsets"]="cnc_rdtofsinfo: FOCAS "+infoCode;return;}
+            if(info.memoryType!=expectedTable||info.memoryType<0||info.memoryType>2){snapshot.readErrors["toolOffsets"]="Offset table mismatch: declared="+expectedTable+", CNC="+info.memoryType;return;}
+            short figureCode=cnc_getfigure(handle,1,out valid,input,output);
+            if(figureCode!=0){snapshot.readErrors["toolOffsets"]="cnc_getfigure(tool precision): FOCAS "+figureCode;return;}
+            if(valid<=0||input[0]<0||input[0]>9||input[0]!=output[0]){snapshot.readErrors["toolOffsets"]="Cannot validate matching input/output tool-offset precision";return;}
+            {
                 int decimals=input[0];
                 c.lengthGeometry=ReadOffset(handle,c.lengthOffsetNumber,SingleOffsetType(info.memoryType,0),decimals,info.count);
                 c.lengthWear=info.memoryType==0?null:ReadOffset(handle,c.lengthOffsetNumber,SingleOffsetType(info.memoryType,1),decimals,info.count);
@@ -188,7 +217,7 @@ public static class FanucReader
                 c.radiusWear=info.memoryType==0?null:ReadOffset(handle,c.radiusOffsetNumber,SingleOffsetType(info.memoryType,3),decimals,info.count);
                 c.offsetSource="FOCAS memory "+(char)('A'+info.memoryType)+"; cnc_getfigure input precision";
                 snapshot.toolOffsets=ReadOffsetTable(handle,info,decimals,c.unit);if(snapshot.toolOffsets==null)snapshot.readErrors["toolOffsetTable"]="Full table read unavailable or rejected by CNC";
-            } else snapshot.readErrors["toolOffsets"]="Offset values unavailable: requires confirmed M 3-axis memory A/B/C matching CNC, known units and consistent input precision";
+            }
         } catch(EntryPointNotFoundException) {snapshot.readErrors["machiningContext"]="Optional macro/offset API unavailable";}
         c.sampledAtUtc=DateTime.UtcNow.ToString("o");
     }
@@ -199,7 +228,7 @@ public static class FanucReader
     [DllImport("Fwlib64.dll",CallingConvention=CallingConvention.Winapi,ExactSpelling=true)]
     private static extern short cnc_upend3(ushort handle);
     public sealed class FullProgram {public string program,text,sha256,sampledAtUtc;public bool complete;}
-    private static FullProgram programCache;private static string programCacheKey,lastProgramAttemptKey;private static DateTime lastProgramAttempt;
+    private static FullProgram programCache;private static string programCacheKey,lastProgramAttemptKey,lastProgramFailure;private static DateTime lastProgramAttempt;
     public static bool IsCompleteProgram(string text,int number)
     {
         if(String.IsNullOrWhiteSpace(text)||text.Length>2*1024*1024||!text.TrimEnd().EndsWith("%",StringComparison.Ordinal))return false;
@@ -211,15 +240,15 @@ public static class FanucReader
         int number;if(String.IsNullOrEmpty(snapshot.activeProgram)||snapshot.activeProgram[0]!='O'||!Int32.TryParse(snapshot.activeProgram.Substring(1),out number)||number<1)return;
         string key=currentReadKey+"/"+snapshot.activeProgram;
         if(programCache!=null&&programCacheKey==key&&(DateTime.UtcNow-DateTime.Parse(programCache.sampledAtUtc,null,System.Globalization.DateTimeStyles.RoundtripKind)).TotalSeconds<60){snapshot.fullProgram=programCache;return;}
-        if(lastProgramAttemptKey==key&&(DateTime.UtcNow-lastProgramAttempt).TotalSeconds<30){snapshot.readErrors["fullProgram"]="Waiting to retry complete program read";return;}
-        lastProgramAttemptKey=key;lastProgramAttempt=DateTime.UtcNow;
+        if(lastProgramAttemptKey==key&&(DateTime.UtcNow-lastProgramAttempt).TotalSeconds<30){snapshot.readErrors["fullProgram"]=(lastProgramFailure??"Complete program not obtained")+"; retry scheduled within 30 seconds";return;}
+        lastProgramAttemptKey=key;lastProgramAttempt=DateTime.UtcNow;lastProgramFailure=null;
         bool started=false,ended=false;FullProgram result=null;
         try{
             short code=cnc_upstart3(handle,0,number,number);if(code!=0){snapshot.readErrors["fullProgram"]="cnc_upstart3 (CNC to PC read): FOCAS "+code;return;}started=true;
-            System.Diagnostics.Stopwatch timer=System.Diagnostics.Stopwatch.StartNew();StringBuilder text=new StringBuilder();byte[] buffer=new byte[8192];int bytesRead=0;
-            for(int calls=0;calls<512&&timer.ElapsedMilliseconds<2000&&text.Length<2*1024*1024;calls++){
+            System.Diagnostics.Stopwatch timer=System.Diagnostics.Stopwatch.StartNew();StringBuilder text=new StringBuilder();byte[] buffer=new byte[8192];int bytesRead=0,bufferWaits=0;
+            for(int calls=0;calls<4096&&timer.ElapsedMilliseconds<8000&&text.Length<2*1024*1024;calls++){
                 int length=buffer.Length;code=cnc_upload3(handle,ref length,buffer);
-                if(code==10)continue;
+                if(code==10){bufferWaits++;System.Threading.Thread.Sleep(10);continue;}
                 if(code!=0||length<=0||length>buffer.Length){snapshot.readErrors["fullProgram"]="cnc_upload3: "+(code==0?"Invalid/empty chunk":"FOCAS "+code);break;}
                 bytesRead+=length;if(bytesRead>2*1024*1024){snapshot.readErrors["fullProgram"]="Full program exceeds 2 MiB read limit";break;}
                 text.Append(Encoding.Default.GetString(buffer,0,length).TrimEnd('\0'));
@@ -229,9 +258,12 @@ public static class FanucReader
                     result=new FullProgram{program=snapshot.activeProgram,text=content,sha256=BitConverter.ToString(hash).Replace("-","").ToLowerInvariant(),complete=true,sampledAtUtc=DateTime.UtcNow.ToString("o")};break;
                 }
             }
-            if(result==null&&!snapshot.readErrors.ContainsKey("fullProgram"))snapshot.readErrors["fullProgram"]="Complete program not obtained within 2 seconds / 2 MiB; partial text not presented as full file";
+            if(result==null&&!snapshot.readErrors.ContainsKey("fullProgram"))snapshot.readErrors["fullProgram"]="Complete program not obtained within 8 seconds / 2 MiB (elapsed="+timer.ElapsedMilliseconds+" ms, bytes="+bytesRead+", buffer waits="+bufferWaits+"); partial text not presented as full file";
         }catch(EntryPointNotFoundException){snapshot.readErrors["fullProgram"]="Optional read-only upload API unavailable";}
-        finally{if(started){try{short endCode=cnc_upend3(handle);ended=endCode==0;if(!ended)snapshot.readErrors["fullProgram"]="cnc_upend3: FOCAS "+endCode;}catch(EntryPointNotFoundException){snapshot.readErrors["fullProgram"]="cnc_upend3 unavailable";}}}
+        finally{
+            if(started){try{short endCode=cnc_upend3(handle);ended=endCode==0;if(!ended){string primary;snapshot.readErrors.TryGetValue("fullProgram",out primary);snapshot.readErrors["fullProgram"]=(primary==null?String.Empty:primary+"; ")+"cnc_upend3: FOCAS "+endCode;}}catch(EntryPointNotFoundException){snapshot.readErrors["fullProgram"]="cnc_upend3 unavailable";}}
+            snapshot.readErrors.TryGetValue("fullProgram",out lastProgramFailure);
+        }
         if(result!=null&&ended){snapshot.fullProgram=result;programCache=result;programCacheKey=key;}
     }
     [DllImport("Fwlib64.dll",CallingConvention=CallingConvention.Winapi,ExactSpelling=true)]
@@ -265,19 +297,32 @@ public static class FanucReader
             snapshot.modalGcodes=items.ToArray();snapshot.modalGcodesComplete=count<64;
         }catch(EntryPointNotFoundException){snapshot.readErrors["gcodes"]="cnc_rdgcode unavailable";}finally{Marshal.FreeHGlobal(buffer);}
     }
+    [DllImport("Fwlib64.dll",CallingConvention=CallingConvention.Winapi,ExactSpelling=true)]
+    private static extern short cnc_rdzofs(ushort handle,short number,short axis,short length,out OffsetReading data);
+    private static double? ReadWorkValue(ushort handle,short number,short axis,int decimals,Snapshot snapshot)
+    {
+        OffsetReading data;short code=cnc_rdzofs(handle,number,axis,8,out data);
+        if(code!=0){snapshot.readErrors["workCoordinates"]="cnc_rdzofs: FOCAS "+code+" (offset="+number+", axis="+axis+")";return null;}
+        if(data.number!=number||data.type!=axis){snapshot.readErrors["workCoordinates"]="cnc_rdzofs returned mismatched offset/axis data";return null;}
+        return data.value!=Int32.MinValue?(double?)(data.value/Math.Pow(10,decimals)):null;
+    }
     private static void ReadWorkCoordinates(ushort handle,Snapshot snapshot)
     {
-        // Read standard XYZ macro values with their own returned decimal scaling. No conversion or subtraction of live positions.
-        if(snapshot.machineType!="M"||snapshot.axes!="03") {snapshot.readErrors["workCoordinates"]="Standard XYZ work table not validated for this machine";return;}
+        // Dedicated single-axis API avoids MAX_AXIS-dependent all-axis buffer lengths and does not move a program pointer.
+        if(!IsThreeAxisMill(snapshot)){snapshot.readErrors["workCoordinates"]="Standard XYZ work table not validated for this machine ("+ProfileIdentity(snapshot)+")";return;}
         try {
             short count=3;byte[] names=new byte[192];if(cnc_rdaxisname(handle,ref count,names)!=0||count!=3||names[0]!='X'||names[2]!='Y'||names[4]!='Z'){snapshot.readErrors["workCoordinates"]="CNC axis names do not validate XYZ table";return;}
-            int? units=IntegerCode(ReadMacro(handle,4006));string unit=units==20?"inch":units==21?"mm":null;
+            string unit=PositionUnit(snapshot)??(snapshot.machiningContext==null?null:snapshot.machiningContext.unit);
+            if(unit==null){int? units=IntegerCode(ReadMacro(handle,4006));unit=units==20?"inch":units==21?"mm":null;}
             if(unit==null){snapshot.readErrors["workCoordinates"]="Cannot validate coordinate unit";return;}
-            int?[] decimals=new int?[3];short figures;short[] input=new short[96],output=new short[96];if(cnc_getfigure(handle,0,out figures,input,output)==0&&figures>0)for(int a=0;a<3;a++)if(input[a]>=0&&input[a]<=9)decimals[a]=input[a];
+            short figures;short[] input=new short[96],output=new short[96];short code=cnc_getfigure(handle,0,out figures,input,output);
+            if(code!=0||figures<=0){snapshot.readErrors["workCoordinates"]="cnc_getfigure(axis precision): FOCAS "+code;return;}
+            for(int i=0;i<3;i++)if(input[i]<0||input[i]>9||input[i]!=output[i]){snapshot.readErrors["workCoordinates"]="Input/output XYZ precision differs; unit conversion not inferred";return;}
             List<WorkCoordinate> rows=new List<WorkCoordinate>();
-            for(int i=0;i<7;i++){int first=i==0?5201:5221+20*(i-1);rows.Add(new WorkCoordinate{name=i==0?"EXT":"G"+(53+i),unit=unit,x=ReadMacro(handle,(short)first),y=ReadMacro(handle,(short)(first+1)),z=ReadMacro(handle,(short)(first+2)),decimalsX=decimals[0],decimalsY=decimals[1],decimalsZ=decimals[2]});}
+            for(short number=0;number<7;number++)rows.Add(new WorkCoordinate{name=number==0?"EXT":"G"+(53+number),unit=unit,x=ReadWorkValue(handle,number,1,input[0],snapshot),y=ReadWorkValue(handle,number,2,input[1],snapshot),z=ReadWorkValue(handle,number,3,input[2],snapshot),decimalsX=input[0],decimalsY=input[1],decimalsZ=input[2]});
             snapshot.workCoordinates=rows.ToArray();
-        }catch(EntryPointNotFoundException){snapshot.readErrors["workCoordinates"]="Optional work-coordinate read unavailable";}
+            if(snapshot.machiningContext!=null)foreach(WorkCoordinate row in rows)if(row.name==snapshot.machiningContext.workCoordinate){snapshot.machiningContext.workX=row.x;snapshot.machiningContext.workY=row.y;snapshot.machiningContext.workZ=row.z;}
+        }catch(EntryPointNotFoundException){snapshot.readErrors["workCoordinates"]="Dedicated work-coordinate API unavailable";}
     }
     public static OffsetRow[] DecodeOffsetColumns(int count,int memory,int decimals,int[][] columns)
     {
@@ -529,7 +574,7 @@ public static class FanucReader
     private static readonly object LibraryLock = new object();
     private static string loadedDirectory;
 
-    private static string Text(byte[] value) { return Encoding.ASCII.GetString(value).TrimEnd('\0', ' '); }
+    private static string Text(byte[] value) { return NormalizeCncText(value); }
     private static void Check(string operation, short code)
     {
         if (code == 0) return;
@@ -596,7 +641,7 @@ public static class FanucReader
             };
             currentReadKey=ip+":"+port;
             ReadOptionalTelemetry(handle, snapshot);
-            if(context){ReadMachiningContext(handle,snapshot,verifiedProfile,expectedTable);ReadOperatorTelemetry(handle,snapshot);ReadGcodes(handle,snapshot);ReadWorkCoordinates(handle,snapshot);}
+            if(context){ReadOperatorTelemetry(handle,snapshot);ReadGcodes(handle,snapshot);ReadMachiningContext(handle,snapshot,verifiedProfile,expectedTable);ReadWorkCoordinates(handle,snapshot);}
             ReadAlarms(handle, snapshot);
             if(context)ReadFullProgram(handle,snapshot);
             snapshot.timestampUtc=DateTime.UtcNow.ToString("o");

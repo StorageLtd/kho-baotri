@@ -181,7 +181,7 @@ function New-BridgePayload {
     return @{
         source = 'focas'; connected = $true; status = $state; lastSeen = @{ '.sv' = 'timestamp' }
         sampledAt = $Snapshot.timestampUtc; rawStatus = $Snapshot.rawStatus
-        controllerInfo = @{ cncType = $Snapshot.cncType; series = $Snapshot.series; version = $Snapshot.version; axes = $Snapshot.axes }
+        controllerInfo = @{ machineType=$Snapshot.machineType;cncType = $Snapshot.cncType; series = $Snapshot.series; version = $Snapshot.version; axes = $Snapshot.axes }
         alarm = $alarm
         alarmDetails = $Snapshot.alarmDetails; alarmDetailsRead = ($Snapshot.alarmDetailsRead -eq $true); alarmsMayBeTruncated = ($Snapshot.alarmsMayBeTruncated -eq $true)
         activeProgram = $Snapshot.activeProgram; mainProgram = $Snapshot.mainProgram; machiningContext = $Snapshot.machiningContext
@@ -218,8 +218,8 @@ try {
         Set-BridgePhase 'loading-reader'
     }
     if (-not ('FanucReader' -as [type])) { Add-Type -Path (Join-Path $PSScriptRoot 'FanucReader.cs') }
-    if (-not ([FanucReader].GetProperty('AccessMode')) -or [FanucReader]::AccessMode -ne 'FOCAS_STATUS_ONLY_V1' -or -not ([FanucReader].GetMethods()|Where-Object {$_.Name -eq 'ReadWithContext' -and $_.GetParameters().Count -eq 5})) { throw 'Old reader loaded. CLOSE this PowerShell window and open a new one. The new bridge refuses to reuse the previous reader.' }
-    Write-Host "Bridge build: 20261109-inline-login"
+    if (-not ([FanucReader].GetProperty('ReaderBuild')) -or [FanucReader]::ReaderBuild -ne '20261109-profile-fix' -or -not ([FanucReader].GetProperty('AccessMode')) -or [FanucReader]::AccessMode -ne 'FOCAS_STATUS_ONLY_V1' -or -not ([FanucReader].GetMethods()|Where-Object {$_.Name -eq 'ReadWithContext' -and $_.GetParameters().Count -eq 5})) { throw 'Old reader loaded. CLOSE this PowerShell window and open a new one. The new bridge refuses to reuse the previous reader.' }
+    Write-Host "Bridge build: 20261109-profile-fix"
     Write-Host "Machine: $($config.machineName) | CNC $($config.cncIp):$($config.port)"
     Write-Host 'Read-only CNC access. Reading status, actual spindle/feed and current/main O-number. Reading alarm messages with cnc_rdalmmsg2; no PMC access or CNC writes.'
     Write-Host 'HD.T / NX.T via cnc_rdhdnxt. Read-only G modal, work coordinates and confirmed offset tables; no PMC.'

@@ -2,7 +2,7 @@ import {buildCncReport,vnDate} from "./cnc-reports.js?v=20261107-tool-context";
 ﻿import { downloadInventoryWorkbook } from "./inventory-xlsx.js?v=20261105-no-prices";
 import { maintenancePlan, repairHistoryForm, alarmHistoryForm, movementVoucherForm, downloadMaintenanceWorkbook } from "./maintenance-xlsx.js?v=20261107-tool-context";
 import {renderMachineModel} from "./cnc-machine-shop.js?v=20261109-work-offset-tray";
-import {renderCncOperatorScreen} from "./cnc-operator-screen.js?v=20261109-work-offset-tray";
+import {renderCncOperatorScreen} from "./cnc-operator-screen.js?v=20261109-profile-fix";
 import { openCncReports } from "./cnc-report-ui.js?v=20261107-tool-context";
 import { cncDisplayState, cncIsFresh, cncMeasurement, cncMode, cncDuration, cncServerNow, setCncClockOffset } from "./cnc-status.js?v=20261029-web-sync";
 

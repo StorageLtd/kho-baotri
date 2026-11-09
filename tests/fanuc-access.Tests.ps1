@@ -2,10 +2,10 @@ $ErrorActionPreference='Stop'
 $root=Split-Path $PSScriptRoot -Parent
 $path=Join-Path $root 'tools/fanuc-bridge/FanucReader.cs'
 $source=Get-Content $path -Raw
-if($source -match 'pmc_rd|StartPmc|MonitorPmc|System.Threading|Task.Run'){throw 'Unexpected PMC/background reader code'}
+if($source -match 'pmc_rd|StartPmc|MonitorPmc|new\s+(System\.Threading\.)?Thread\b|Task\.Run|ThreadPool\.'){throw 'Unexpected PMC/background reader code'}
 Add-Type -Path $path
 if([FanucReader]::AccessMode -ne 'FOCAS_STATUS_ONLY_V1'){throw 'Wrong reader version'}
-$allowed=@('cnc_allclibhndl3','cnc_sysinfo','cnc_statinfo','cnc_freelibhndl','cnc_rdspeed','cnc_rdprgnumo8','cnc_rdprgnum','cnc_rdparam','cnc_rdtimer','cnc_rdalmmsg2','cnc_modal','cnc_rdaxisname','cnc_rdmacro','cnc_rdtofsinfo','cnc_rdtofs','cnc_getfigure','cnc_rdposition','cnc_rdsvmeter','cnc_rdseqnum','cnc_rdexecprog','cnc_rdhdnxt','cnc_rdgcode','cnc_rdtofsr','cnc_upstart3','cnc_upload3','cnc_upend3')
+$allowed=@('cnc_allclibhndl3','cnc_sysinfo','cnc_statinfo','cnc_freelibhndl','cnc_rdspeed','cnc_rdprgnumo8','cnc_rdprgnum','cnc_rdparam','cnc_rdtimer','cnc_rdalmmsg2','cnc_modal','cnc_rdaxisname','cnc_rdmacro','cnc_rdtofsinfo','cnc_rdtofs','cnc_getfigure','cnc_rdposition','cnc_rdsvmeter','cnc_rdseqnum','cnc_rdexecprog','cnc_rdhdnxt','cnc_rdgcode','cnc_rdtofsr','cnc_upstart3','cnc_upload3','cnc_upend3','cnc_rdzofs')
 foreach($method in [FanucReader].GetMethods([Reflection.BindingFlags]'NonPublic,Static')){
  $attribute=$method.GetCustomAttributes([Runtime.InteropServices.DllImportAttribute],$false)
  if($attribute.Count -and $attribute[0].Value -eq 'Fwlib64.dll' -and $method.Name -notin $allowed){throw ('Unexpected native API: '+$method.Name)}

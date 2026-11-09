@@ -122,6 +122,10 @@ window.seedDayFixture = () => {cncDayOwner=getUser().uid;cncDayStats.set('neway-
             await page.evaluate('renderFixture([operatorFixture])')
             assert await program.evaluate('e=>e.scrollTop')==200
             await page.screenshot(path='/tmp/cnc-program-work.png',full_page=True)
+            await page.evaluate('renderFixture([{...operatorFixture,fullProgram:null,programText:"O7020\\nN100 G20\\nN110 G0"}])')
+            assert 'N100 G20' in await page.locator('.operator-full-program pre').inner_text()
+            assert 'Chưa đọc đủ file O' in await page.locator('.operator-full-program').inner_text()
+            assert await page.locator('.operator-full-program').get_attribute('data-program-complete')=='false'
             await page.get_by_role('button',name='OFFSET',exact=True).click()
             assert '001' in await page.locator('.operator-offset').inner_text()
             await page.screenshot(path='/tmp/cnc-offset-sizing.png',full_page=True)

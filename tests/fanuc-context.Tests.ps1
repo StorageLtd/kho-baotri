@@ -14,3 +14,15 @@ Assert (-not [FanucReader]::SupportsContextProfile($snapshot,$false)) 'Unverifie
 $snapshot.machineType='T';Assert (-not [FanucReader]::SupportsContextProfile($snapshot,$true)) 'Lathe accepted as mill'
 $snapshot.machineType='M';$snapshot.axes='05';Assert (-not [FanucReader]::SupportsContextProfile($snapshot,$true)) 'Five-axis machine accepted as 3-axis'
 Write-Output 'PASS: macro/modal/offset native layouts and signed decimal, zero, undefined macro handling.'
+
+foreach($axisCount in @('03','3',' 3')){
+ $snapshot.machineType=' M';$snapshot.axes=$axisCount
+ Assert ([FanucReader]::SupportsContextProfile($snapshot,$true)) 'Valid fixed-width FANUC M/3 identification rejected'
+ Assert (-not [FanucReader]::SupportsContextProfile($snapshot,$false)) 'Normalization bypassed explicit profile confirmation'
+}
+$snapshot.machineType=' T';$snapshot.axes='03';Assert (-not [FanucReader]::SupportsContextProfile($snapshot,$true)) 'Padded lathe identifier accepted as mill'
+Assert ([FanucReader]::NormalizeCncText([Text.Encoding]::ASCII.GetBytes(" M`0 ")) -eq 'M') 'Leading/trailing SDK padding not normalized'
+Assert ([FanucReader]::NormalizeCncText([Text.Encoding]::ASCII.GetBytes(' 3')) -eq '3') 'Axis count padding not normalized'
+Write-Output 'PASS: real fixed-width FANUC identifiers preserve family/axis validation and operator confirmation.'
+
+foreach($invalid in @('+3','-3','3.0','3X','04')){$snapshot.machineType=' M';$snapshot.axes=$invalid;Assert (-not [FanucReader]::SupportsContextProfile($snapshot,$true)) 'Invalid or non-three axis count accepted'}

@@ -1,5 +1,5 @@
 LTD FANUC BRIDGE — CHỈ ĐỌC, KHÔNG TRUY CẬP PMC
-Bridge build: 20261109-inline-login
+Bridge build: 20261109-profile-fix
 
 KHUYÊN DÙNG GIAO DIỆN
 Tải FANUC-Bridge-Manager.zip trên web, chép ba DLL vào lib rồi nhấp đúp
@@ -17,7 +17,7 @@ CHẠY THỦ CÔNG GÓI NÀY
    Unblock-File .\FanucReader.cs
    Unblock-File .\ReportCollector.ps1
    .\Start-FanucBridge.ps1
-6. Phải thấy Bridge build: 20261109-inline-login. Đăng nhập tài khoản CMMS
+6. Phải thấy Bridge build: 20261109-profile-fix. Đăng nhập tài khoản CMMS
    đã xác minh, có vai trò phù hợp. Mật khẩu/token không lưu vào file.
    Chế độ thủ công cần giữ PowerShell mở; Ctrl+C dừng cầu nối, không dừng CNC.
 7. Chỉ kiểm tra cục bộ, không đăng nhập/gửi Firebase:
@@ -33,8 +33,8 @@ MÀN HÌNH CNC MỚI
 DAO / GỐC / OFFSET
 HD.T/NX.T đọc riêng bằng cnc_rdhdnxt. T modal không thay thế dao trên trục chính.
 Nguồn là vị trí đầu/chờ thứ nhất do CNC quản lý, không phải cảm biến vật lý.
-Gốc EXT/G54–G59 dùng macro hệ thống và số lẻ CNC trả về, không lấy chênh lệch
-vị trí để đoán gốc. Không diễn giải G54.1/P, G52, xoay tọa độ hoặc TCP.
+Gốc EXT/G54–G59 dùng cnc_rdzofs và độ chia cnc_getfigure, kiểm tra tên trục/đơn vị
+CNC. H/D ưu tiên CNC modal. Không lấy chênh lệch vị trí để đoán gốc. Không diễn giải G54.1/P, G52, xoay tọa độ hoặc TCP.
 Chọn đúng Phay XYZ 3 trục và Memory A/B/C, đánh dấu đã đối chiếu trên Manager
 hoặc web. Cầu nối đối chiếu với loại thật từ cnc_rdtofsinfo và cnc_getfigure.
 Loại/độ chia chưa xác minh hoặc máy tiện: không đoán giá trị offset.
@@ -45,7 +45,7 @@ TOÀN BỘ FILE O
 Chỉ đọc CNC → PC bằng cnc_upstart3/cnc_upload3/cnc_upend3. Không gọi download,
 không ghi/xóa/chạy chương trình. Không bỏ bảo vệ hoặc đổi chế độ máy.
 Đúng số O và kết thúc % mới được coi là đủ; tối đa 2 MiB và ngân sách vòng đọc
-2 giây, mỗi lời gọi vẫn chịu timeout của DLL. Đổi O thì đọc lại; cùng O làm mới
+8 giây, mỗi lời gọi vẫn chịu timeout của DLL. Đổi O thì đọc lại; cùng O làm mới
 khoảng 60 giây. File bận/bị bảo vệ/thiếu tùy chọn hiện Chưa đọc + chẩn đoán.
 Nội dung file gửi lên bản ghi máy trong dự án Firebase hiện tại, dùng quyền
 đọc/ghi hiện có. Nội dung lớn không được gửi lặp mỗi lần nếu hash không đổi.
@@ -67,7 +67,7 @@ Không đọc/ghi PMC hoặc ghi CNC. Không đổi offset, tham số, chương 
 Đã kiểm tra mã, ABI giả lập và giao diện; chưa kết nối CNC thật/GUI Windows.
 Đối chiếu lần đầu HD.T/NX.T, đơn vị, gốc và offset trên màn hình CNC.
 
-ĐĂNG NHẬP TRỰC TIẾP TRONG MANAGER — 20261109-inline-login
+ĐĂNG NHẬP TRỰC TIẾP TRONG MANAGER — 20261109-profile-fix
 - Có sẵn tab Đăng nhập CMMS, không chờ hộp thoại từ tiến trình nền.
 - Chọn máy → Chạy cầu nối → nhập email và mật khẩu → Đăng nhập và kết nối.
 - Manager chuyển tài khoản một lần qua stdin riêng cho tiến trình cầu nối.
@@ -79,3 +79,15 @@ Không đọc/ghi PMC hoặc ghi CNC. Không đổi offset, tham số, chương 
   Chỉ đóng đúng phần mềm cầu nối trên laptop, không gửi lệnh tới CNC.
 - Đã kiểm tra luồng tài khoản và tiến trình con thực trên môi trường thử Linux.
   Chưa chạy thử WinForms trên Windows hoặc kết nối CNC thật của người dùng.
+
+SỬA NHẬN DẠNG VÀ ĐỌC DỮ LIỆU — 20261109-profile-fix
+- Mã ASCII cố định có đệm: " M", "03", " 3" được chuẩn hóa đúng.
+  Vẫn kiểm tra máy phay 3 trục, tên trục XYZ, bảng thật và xác nhận của người dùng.
+- Đọc gốc bằng cnc_rdzofs; không cần đọc biến macro khi đã có đơn vị/vị trí CNC.
+- Khi EW_BUFFER, chờ 10 ms để CNC có thời gian cung cấp dữ liệu.
+  Ngân sách vòng đọc file 8 giây / 2 MiB; không ghi hay đổi con trỏ chương trình.
+- Nếu chưa xong, giữ lỗi đầu tiên và số byte/lượt chờ khi thử lại sau 30 giây.
+- Tab PROGRAM / WORK dùng đoạn CNC đang trả về nếu chưa có đủ file O;
+  có nhãn phân biệt đoạn chương trình với file đầy đủ.
+- Dừng cầu nối, thoát Manager qua menu khay trước khi nâng cấp.
+  Bản mới từ chối lớp C# cũ nếu chưa khởi động lại tiến trình.

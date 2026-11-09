@@ -89,7 +89,7 @@ public class FixtureSnapshot {
  public object[] positions=new object[]{new {axis="X",absolute=new {value=-125.25,unit="mm",decimals=3}}}; public object[] servoLoads=new object[]{new {axis="X",percent=23}}; public int? sequenceNumber=20,programBufferBlock=1; public string programText="N20 G1 X10"; public bool programTextLimited=false;
  public FixtureRaw rawStatus=new FixtureRaw();
 }
-public static class FanucReader { public static string AccessMode { get { return "FOCAS_STATUS_ONLY_V1"; } } public static string ProgramNumber(uint n) { return "O"+n.ToString(); } public static int Calls; public static string LastLibrary; public static FixtureSnapshot ReadWithContext(string ip,ushort port,string folder,bool verifiedProfile,string offsetTable) { LastLibrary=folder;Calls++;return new FixtureSnapshot(); } }
+public static class FanucReader { public static string ReaderBuild {get{return "20261109-profile-fix";}} public static string AccessMode { get { return "FOCAS_STATUS_ONLY_V1"; } } public static string ProgramNumber(uint n) { return "O"+n.ToString(); } public static int Calls; public static string LastLibrary; public static FixtureSnapshot ReadWithContext(string ip,ushort port,string folder,bool verifiedProfile,string offsetTable) { LastLibrary=folder;Calls++;return new FixtureSnapshot(); } }
 '@
 $fixtureDirectory=Join-Path ([IO.Path]::GetTempPath()) ('fanuc-bridge-test-'+[guid]::NewGuid().ToString('N'))
 $null=New-Item -ItemType Directory -Path $fixtureDirectory
