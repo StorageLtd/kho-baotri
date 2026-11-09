@@ -1,8 +1,8 @@
 import {buildCncReport,vnDate} from "./cnc-reports.js?v=20261107-tool-context";
 ﻿import { downloadInventoryWorkbook } from "./inventory-xlsx.js?v=20261105-no-prices";
 import { maintenancePlan, repairHistoryForm, alarmHistoryForm, movementVoucherForm, downloadMaintenanceWorkbook } from "./maintenance-xlsx.js?v=20261107-tool-context";
-import {renderMachineModel} from "./cnc-machine-shop.js?v=20261107-machine-shop";
-import {renderCncOperatorScreen} from "./cnc-operator-screen.js?v=20261109-operator-screen";
+import {renderMachineModel} from "./cnc-machine-shop.js?v=20261109-work-offset-tray";
+import {renderCncOperatorScreen} from "./cnc-operator-screen.js?v=20261109-work-offset-tray";
 import { openCncReports } from "./cnc-report-ui.js?v=20261107-tool-context";
 import { cncDisplayState, cncIsFresh, cncMeasurement, cncMode, cncDuration, cncServerNow, setCncClockOffset } from "./cnc-status.js?v=20261029-web-sync";
 
@@ -809,7 +809,7 @@ import { cncDisplayState, cncIsFresh, cncMeasurement, cncMode, cncDuration, cncS
       refreshCncMachineDetails();
     }
 
-    let cncDetailsDialog=null,cncSelectedMachineId=null,cncSelectedDetailView='position';
+    let cncDetailsDialog=null,cncSelectedMachineId=null,cncSelectedDetailView='position',cncOffsetPage=0,cncRenderedDetailView=null;
     function ensureCncDetails(){
       if(cncDetailsDialog)return;
       cncDetailsDialog=document.createElement('dialog');cncDetailsDialog.id='cncMachineDetailsDialog';cncDetailsDialog.className='cnc-machine-detail-dialog';cncDetailsDialog.setAttribute('aria-labelledby','cncDetailsTitle');
@@ -820,23 +820,26 @@ import { cncDisplayState, cncIsFresh, cncMeasurement, cncMode, cncDuration, cncS
       cncDetailsDialog.querySelector('#cncDetailsContent').addEventListener('click',handleCncAction);
     }
     function openCncMachineDetails(id){
-      ensureCncDetails();cncSelectedDetailView='position';cncSelectedMachineId=id;refreshCncMachineDetails();
+      ensureCncDetails();cncSelectedDetailView='position';cncOffsetPage=0;cncRenderedDetailView=null;cncSelectedMachineId=id;refreshCncMachineDetails();
       if(cncSelectedMachineId&&!cncDetailsDialog.open)cncDetailsDialog.showModal();
     }
     function refreshCncMachineDetails(){
       if(!cncDetailsDialog||!cncSelectedMachineId)return;
       const c=cncs.find(x=>x.id===cncSelectedMachineId);
       if(!c){cncDetailsDialog.close();cncSelectedMachineId=null;return;}
-      const content=cncDetailsDialog.querySelector('#cncDetailsContent'),scroll=cncDetailsDialog.scrollTop,errorsOpen=!!content.querySelector('.cnc-read-errors[open]');
-      const focus=content.contains(document.activeElement)?document.activeElement.dataset.cncAction:null;
+      const content=cncDetailsDialog.querySelector('#cncDetailsContent'),scroll=cncRenderedDetailView===cncSelectedDetailView?cncDetailsDialog.scrollTop:0,errorsOpen=!!content.querySelector('.cnc-read-errors[open]');
+      const focus=content.contains(document.activeElement)?document.activeElement.dataset.cncAction:null,focusedView=document.activeElement?.dataset?.view;
+      const innerScroll=cncRenderedDetailView===cncSelectedDetailView?[...content.querySelectorAll('.operator-program pre,.operator-table-scroll')].map(el=>({top:el.scrollTop,left:el.scrollLeft})):[];
       document.querySelector('#cncDetailsTitle').textContent=c.name;
-      content.innerHTML=renderCncOperatorScreen(c,{view:cncSelectedDetailView,errorsOpen,daily:cncDayOwner===getUser()?.uid&&cncDayStats.get(c.id)?.date===vnDate(cncServerNow())?cncDayStats.get(c.id):null});
-      cncDetailsDialog.scrollTop=scroll;if(focus)content.querySelector(`[data-cnc-action="${focus}"]`)?.focus({preventScroll:true});
+      cncDetailsDialog.classList.toggle('has-operator-screen',cncSelectedDetailView!=='statistics');
+      content.innerHTML=renderCncOperatorScreen(c,{view:cncSelectedDetailView,offsetPage:cncOffsetPage,errorsOpen,daily:cncDayOwner===getUser()?.uid&&cncDayStats.get(c.id)?.date===vnDate(cncServerNow())?cncDayStats.get(c.id):null});
+      cncRenderedDetailView=cncSelectedDetailView;cncDetailsDialog.scrollTop=scroll;[...content.querySelectorAll('.operator-program pre,.operator-table-scroll')].forEach((el,i)=>{if(innerScroll[i]){el.scrollTop=innerScroll[i].top;el.scrollLeft=innerScroll[i].left}});if(focus)[...content.querySelectorAll('[data-cnc-action]')].find(el=>el.dataset.cncAction===focus&&(!focusedView||el.dataset.view===focusedView))?.focus({preventScroll:true});
     }
     function handleCncAction(event){
       const button=event.target.closest('button[data-cnc-action]');if(!button)return;
       const id=button.dataset.cncId,action=button.dataset.cncAction;
-      if(action==='operator-view'){if(['position','program','alarm','statistics'].includes(button.dataset.view)){cncSelectedDetailView=button.dataset.view;refreshCncMachineDetails();}return;}
+      if(action==='offset-page'){const page=Number(button.dataset.page);if(Number.isInteger(page)&&page>=0&&page<125){cncOffsetPage=page;cncRenderedDetailView=null;refreshCncMachineDetails();}return;}
+      if(action==='operator-view'){if(['position','program','offset','alarm','statistics'].includes(button.dataset.view)){cncSelectedDetailView=button.dataset.view;refreshCncMachineDetails();}return;}
       if(action==='details'){openCncMachineDetails(id);return;}
       if(action==='history'){openCncMachineAlarmHistory(id);return;}
       if(!canEdit()){showToast('Tài khoản chưa có quyền chỉnh sửa máy.');return;}
@@ -979,10 +982,13 @@ import { cncDisplayState, cncIsFresh, cncMeasurement, cncMode, cncDuration, cncS
     // Xóa máy CNC
     async function deleteCnc(id) {
       if (!confirm("Bạn chắc chắn muốn xóa máy CNC này? Hãy dừng cầu nối trước, nếu không bản ghi có thể được tạo lại.")) return;
-      cncs = cncs.filter(c => c.id !== id);
-      addAct("Xóa máy CNC khỏi hệ thống giám sát.");
-      render();
-      await Promise.all([fbFetch(`cncs/${id}`, "DELETE"), syncNode("activities", activities)]);
+      try {
+        await fbFetch(`cncs/${id}`, "DELETE");
+        cncs = cncs.filter(c => c.id !== id);
+        addAct("Xóa máy CNC khỏi hệ thống giám sát.");render();
+        await syncNode("activities", activities);
+      } catch(error){showToast("Chưa hoàn tất xóa máy: "+error.message);}
+
     }
 
     // Cập nhật hoặc lưu thông tin CNC
@@ -999,7 +1005,7 @@ import { cncDisplayState, cncIsFresh, cncMeasurement, cncMode, cncDuration, cncS
         orientation: els.cncOrientationInput.value,
         offsetTable: els.cncOffsetTableInput.value,
         offsetProfileConfirmed: els.cncOffsetConfirmedInput.checked,
-        machiningContextProfile: els.cncKindInput.value==='mill-3axis'&&els.cncOffsetTableInput.value==='m-c'&&els.cncOffsetConfirmedInput.checked?'verified-fanuc-m-3axis-memory-c':'unverified',
+        machiningContextProfile: els.cncKindInput.value==='mill-3axis'&&['m-a','m-b','m-c'].includes(els.cncOffsetTableInput.value)&&els.cncOffsetConfirmedInput.checked?'verified-fanuc-m-3axis-memory-'+els.cncOffsetTableInput.value.slice(2):'unverified',
         ...(els.cncId.value ? {} : { source: "pending", connected: false, status: "offline" })
       };
 
@@ -1017,10 +1023,10 @@ import { cncDisplayState, cncIsFresh, cncMeasurement, cncMode, cncDuration, cncS
     }
 
     function updateCncProfileHint(){
-      const supported=els.cncKindInput.value==='mill-3axis'&&els.cncOffsetTableInput.value==='m-c';
+      const supported=els.cncKindInput.value==='mill-3axis'&&['m-a','m-b','m-c'].includes(els.cncOffsetTableInput.value);
       els.cncOffsetConfirmedInput.disabled=!supported;
       if(!supported)els.cncOffsetConfirmedInput.checked=false;
-      document.querySelector('#cncProfileHelp').textContent=supported?'Đối chiếu bộ điều khiển, bảng offset và đơn vị trước khi bật. Cầu nối mới cập nhật lựa chọn trong tối đa 60 giây.':'Vẫn giám sát trạng thái và T. Giá trị gốc/offset hiện chỉ hỗ trợ hồ sơ phay 3 trục Memory C đã đối chiếu; các loại khác để trống.';
+      document.querySelector('#cncProfileHelp').textContent=supported?'Đối chiếu bộ điều khiển, bảng offset và đơn vị trước khi bật. Cầu nối mới cập nhật lựa chọn trong tối đa 60 giây.':'Giám sát trạng thái và HD.T / NX.T nếu CNC hỗ trợ. Offset hiện hỗ trợ phay XYZ 3 trục với Memory A, B hoặc C đã đối chiếu.';
     }
     function openCncDialog(id = "") {
       const c = cncs.find(x => x.id === id);

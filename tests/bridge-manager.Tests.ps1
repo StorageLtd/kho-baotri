@@ -35,6 +35,13 @@ try{
  Remove-Item -LiteralPath (Join-Path (Get-MachineFolder 'cnc-2') 'runtime.json')
  $machineInput.axisNames='X,X,Z';$rejected=$false;try{$null=ConvertTo-MachineConfig $machineInput}catch{$rejected=$true};Assert $rejected 'Duplicate axes allowed'
  $machineInput.axisNames='X,Y,Z';$machineInput.port=70000;$rejected=$false;try{$null=ConvertTo-MachineConfig $machineInput}catch{$rejected=$true};Assert $rejected 'Invalid port allowed'
+ $machineInput.port=8193
+ foreach($table in @('m-a','m-b','m-c')){$machineInput.offsetTable=$table;$machineInput.offsetProfileConfirmed=$true;$normalized=ConvertTo-MachineConfig $machineInput;Assert ($normalized.machiningContextProfile -eq ('verified-fanuc-m-3axis-memory-'+$table.Substring(2))) 'A/B/C selection not preserved'}
+ $archiveSource=Get-MachineFolder 'cnc-2';[IO.File]::WriteAllText((Join-Path $archiveSource 'keep-report.txt'),'report data')
+ $archive=Remove-ManagerMachine 'cnc-2' (Get-FileHash -LiteralPath (Get-MachineConfigPath 'cnc-2')).Hash
+ Assert (-not (Test-Path -LiteralPath (Get-MachineConfigPath 'cnc-2'))) 'Removed machine still listed'
+ Assert ((Get-Content -LiteralPath (Join-Path $archive 'keep-report.txt') -Raw) -eq 'report data') 'Archiving discarded reports'
+ Remove-Item -LiteralPath $archive -Recurse -Force
  $e=$null;$t=$null;[void][Management.Automation.Language.Parser]::ParseFile((Join-Path $root 'tools/fanuc-bridge-manager/Start-Manager.ps1'),[ref]$t,[ref]$e);Assert ($e.Count -eq 0) 'GUI PowerShell syntax error'
  Write-Output 'PASS: templates, Vietnamese IDs, secure config projection, multi-machine save, backup, stale-edit/duplicate endpoint/path guards, profile confirmation and GUI syntax. No CNC/cloud calls.'
 }finally{if(Test-Path $folder){Remove-Item -LiteralPath $folder -Recurse -Force}}

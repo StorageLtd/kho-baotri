@@ -28,17 +28,17 @@ function ConvertTo-MachineConfig($InputConfig){
  if($interval -lt 3 -or $interval -gt 10){throw 'Chu kỳ đọc phải từ 3 đến 10 giây.'}
  $kind=[string]$InputConfig.machineKind;if($kind -notin @('unknown','mill-3axis','mill-multiaxis','lathe','other')){$kind='unknown'}
  $orientation=[string]$InputConfig.orientation;if($orientation -notin @('unknown','vertical','horizontal')){$orientation='unknown'}
- $table=[string]$InputConfig.offsetTable;if($table -notin @('unverified','m-c','m-ab','turning','other')){$table='unverified'}
+ $table=[string]$InputConfig.offsetTable;if($table -notin @('unverified','m-a','m-b','m-c','m-ab','turning','other')){$table='unverified'}
  $axes=(([string]$InputConfig.axisNames).ToUpperInvariant() -replace '\s','');$names=@($axes.Split(',')|Where-Object {$_})
  if($names.Count -gt 32 -or @($names|Where-Object {$_ -notmatch '^[A-Z][0-9]?$'}).Count -or @($names|Select-Object -Unique).Count -ne $names.Count){throw 'Tên trục phải khác nhau, dạng X,Y,Z hoặc X,Z,C; tối đa 32 trục.'}
  $spindles=[int]$InputConfig.spindleCount;if($spindles -lt 0 -or $spindles -gt 8){throw 'Số trục chính khai báo phải từ 0 đến 8.'}
  $confirmed=($InputConfig.offsetProfileConfirmed -is [bool] -and $InputConfig.offsetProfileConfirmed)
- if($confirmed -and ($kind -ne 'mill-3axis' -or $axes -ne 'X,Y,Z' -or $table -ne 'm-c')){throw 'Chỉ hồ sơ phay XYZ 3 trục / Memory C đã đối chiếu được bật diễn giải offset.'}
+ if($confirmed -and ($kind -ne 'mill-3axis' -or $axes -ne 'X,Y,Z' -or $table -notin @('m-a','m-b','m-c'))){throw 'Chỉ hồ sơ phay XYZ 3 trục / Memory A, B hoặc C đã đối chiếu được bật diễn giải offset.'}
  foreach($key in @('databaseUrl','firebaseApiKey')){if($InputConfig.$key -and $InputConfig.$key -cne $script:ManagerBase.$key){throw 'Cấu hình nhập thuộc dự án Firebase khác. Không thay đổi máy chủ trong giao diện này.'}}
  $model=([string]$InputConfig.model).Trim();if(-not $model){$model='Chưa xác định'};if($model.Length -gt 80 -or $model -match '[\x00-\x1f]'){throw 'Tên bộ điều khiển quá dài.'}
  $templateId=if(@((Get-MachineTemplates)|Where-Object id -eq ([string]$InputConfig.machineTemplate)).Count){[string]$InputConfig.machineTemplate}else{'custom'}
  $parts=if($InputConfig.partsPerCount){[int]$InputConfig.partsPerCount}else{1};if($parts -lt 1 -or $parts -gt 1000){throw 'Sản phẩm mỗi lần đếm phải từ 1 đến 1000.'}
- return [pscustomobject][ordered]@{machineId=$id;machineName=$name;cncIp=$ip.ToString();port=$port;intervalSeconds=$interval;model=$model;firebaseApiKey=$script:ManagerBase.firebaseApiKey;databaseUrl=$script:ManagerBase.databaseUrl;partCounterVerified=($InputConfig.partCounterVerified -is [bool] -and $InputConfig.partCounterVerified);partsPerCount=$parts;machineKind=$kind;orientation=$orientation;machineTemplate=$templateId;axisNames=$axes;declaredAxisCount=$names.Count;spindleCount=$spindles;pathNumber=1;offsetTable=$table;offsetProfileConfirmed=$confirmed;machiningContextProfile=if($confirmed){'verified-fanuc-m-3axis-memory-c'}else{'unverified'};configurationSource='bridge-manager'}
+ return [pscustomobject][ordered]@{machineId=$id;machineName=$name;cncIp=$ip.ToString();port=$port;intervalSeconds=$interval;model=$model;firebaseApiKey=$script:ManagerBase.firebaseApiKey;databaseUrl=$script:ManagerBase.databaseUrl;partCounterVerified=($InputConfig.partCounterVerified -is [bool] -and $InputConfig.partCounterVerified);partsPerCount=$parts;machineKind=$kind;orientation=$orientation;machineTemplate=$templateId;axisNames=$axes;declaredAxisCount=$names.Count;spindleCount=$spindles;pathNumber=1;offsetTable=$table;offsetProfileConfirmed=$confirmed;machiningContextProfile=if($confirmed){'verified-fanuc-m-3axis-memory-'+$table.Substring(2)}else{'unverified'};configurationSource='bridge-manager'}
 }
 function Get-ManagerMachines {
  $list=@();foreach($folder in @(Get-ChildItem -LiteralPath $script:ManagerHome -Directory)){
@@ -65,15 +65,32 @@ function Start-ManagerBridge([string]$Id){
  if(Get-ManagerProcess $Id){throw 'Cầu nối máy này đã chạy.'};$path=Get-MachineConfigPath $Id;if(-not (Test-Path -LiteralPath $path)){throw 'Lưu cấu hình trước khi chạy.'}
  foreach($name in @('Fwlib64.dll','fwlibe64.dll','fwlib30i64.dll')){if(-not (Test-Path -LiteralPath (Join-Path $script:ManagerPackage ('lib/'+$name)))){throw "Thiếu lib\$name. Chép 3 DLL chung vào lib trước."}}
  $folder=Get-MachineFolder $Id;$stop=Join-Path $folder 'stop-request';Remove-Item -LiteralPath $stop -Force -ErrorAction SilentlyContinue
+ Remove-Item -LiteralPath (Join-Path $folder 'bridge-state.json') -Force -ErrorAction SilentlyContinue
  $shell=Join-Path ([Environment]::SystemDirectory) 'WindowsPowerShell/v1.0/powershell.exe'
  $bridge=Join-Path $script:ManagerPackage 'bridge/Start-FanucBridge.ps1';$lib=Join-Path $script:ManagerPackage 'lib'
  # Arguments contain only validated/local file paths, never NC data or credentials.
  foreach($value in @($bridge,$path,$lib,$folder,$stop)){if($value.Contains('"')){throw 'Đường dẫn không hợp lệ.'}}
- $arguments='-NoLogo -NoProfile -ExecutionPolicy RemoteSigned -File "'+$bridge+'" -ConfigPath "'+$path+'" -LibraryDirectory "'+$lib+'" -DataDirectory "'+$folder+'" -StopRequestPath "'+$stop+'"'
- $process=Start-Process -FilePath $shell -ArgumentList $arguments -PassThru
+ $arguments='-NoLogo -NoProfile -STA -ExecutionPolicy RemoteSigned -File "'+$bridge+'" -ConfigPath "'+$path+'" -LibraryDirectory "'+$lib+'" -DataDirectory "'+$folder+'" -StopRequestPath "'+$stop+'" -BackgroundAfterLogin'
+ $process=Start-Process -FilePath $shell -ArgumentList $arguments -WindowStyle Hidden -PassThru
  [pscustomobject]@{pid=$process.Id;startedTicks=$process.StartTime.ToUniversalTime().Ticks}|ConvertTo-Json|Set-Content -LiteralPath (Join-Path $folder 'runtime.json') -Encoding UTF8
  return $process
 }
 function Stop-ManagerBridge([string]$Id){
  if(-not (Get-ManagerProcess $Id)){return};[IO.File]::WriteAllText((Join-Path (Get-MachineFolder $Id) 'stop-request'),'stop bridge only')
+}
+
+function Remove-ManagerMachine([string]$Id,[string]$ExpectedHash){
+ $path=Get-MachineConfigPath $Id
+ if(Get-ManagerProcess $Id){throw 'Dừng cầu nối trước khi gỡ cấu hình máy.'}
+ if(-not (Test-Path -LiteralPath $path)){throw 'Cấu hình không còn tồn tại.'}
+ if(-not $ExpectedHash -or (Get-FileHash -LiteralPath $path -Algorithm SHA256).Hash -cne $ExpectedHash){throw 'Cấu hình đã thay đổi. Chọn lại máy trước khi gỡ.'}
+ $archive=Join-Path (Split-Path $script:ManagerHome -Parent) 'archive';$null=New-Item -ItemType Directory -Path $archive -Force
+ $target=Join-Path $archive ($Id+'-'+[DateTime]::UtcNow.ToString('yyyyMMddHHmmss')+'-'+[Guid]::NewGuid().ToString('N').Substring(0,6))
+ Move-Item -LiteralPath (Get-MachineFolder $Id) -Destination $target
+ return $target
+}
+function Get-ManagerHeartbeat([string]$Id){
+ $file=Join-Path (Get-MachineFolder $Id) 'bridge-state.json'
+ if(Test-Path -LiteralPath $file){try{return Get-Content -LiteralPath $file -Raw -Encoding UTF8|ConvertFrom-Json}catch{}}
+ return $null
 }

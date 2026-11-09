@@ -1,5 +1,5 @@
 ﻿$ErrorActionPreference='Stop'
-$singleton=$null
+$singleton=$null;$notify=$null;$timer=$null;$script:ExitManager=$false
 try {
  if(-not [Environment]::Is64BitProcess){throw 'Use 64-bit Windows PowerShell.'}
  Add-Type -AssemblyName System.Windows.Forms
@@ -12,25 +12,28 @@ try {
  [Windows.Forms.Application]::EnableVisualStyles()
  $script:Loading=$false;$script:SelectedId='';$script:ExpectedHash='';$script:CurrentConfig=$null
  $templates=Get-MachineTemplates
- $form=New-Object Windows.Forms.Form;$form.Text='LTD CNC Bridge Manager';$form.Size=New-Object Drawing.Size(1160,820);$form.MinimumSize=New-Object Drawing.Size(1040,740);$form.StartPosition='CenterScreen';$form.Font=New-Object Drawing.Font('Segoe UI',10);$form.BackColor=[Drawing.Color]::FromArgb(237,242,248);$form.AutoScaleMode='Dpi'
+ $form=New-Object Windows.Forms.Form;$form.Text='LTD CNC Bridge Manager';$form.Size=New-Object Drawing.Size(1260,720);$form.MinimumSize=New-Object Drawing.Size(1120,680);$form.StartPosition='CenterScreen';$form.Font=New-Object Drawing.Font('Segoe UI',10);$form.BackColor=[Drawing.Color]::FromArgb(237,242,248);$form.AutoScaleMode='Dpi'
  $header=New-Object Windows.Forms.Panel;$header.Dock='Top';$header.Height=85;$header.BackColor=[Drawing.Color]::FromArgb(16,42,64);$form.Controls.Add($header)
- $brand=New-Object Windows.Forms.Label;$brand.Text='LTD  |  CNC BRIDGE MANAGER';$brand.ForeColor=[Drawing.Color]::White;$brand.Font=New-Object Drawing.Font('Segoe UI',18,[Drawing.FontStyle]::Bold);$brand.SetBounds(20,14,850,32);$header.Controls.Add($brand)
- $sub=New-Object Windows.Forms.Label;$sub.Text='Thư viện máy · Cấu hình kết nối · Kiểm tra FOCAS chỉ đọc';$sub.ForeColor=[Drawing.Color]::FromArgb(165,205,224);$sub.SetBounds(23,50,900,22);$header.Controls.Add($sub)
- $bar=New-Object Windows.Forms.FlowLayoutPanel;$bar.Dock='Top';$bar.Height=50;$bar.Padding=New-Object Windows.Forms.Padding(10,7,10,3);$bar.BackColor=[Drawing.Color]::White;$form.Controls.Add($bar);$bar.BringToFront()
+ $brand=New-Object Windows.Forms.Label;$brand.Text='LTD  |  CNC BRIDGE MANAGER';$brand.ForeColor=[Drawing.Color]::White;$brand.Font=New-Object Drawing.Font('Segoe UI',18,[Drawing.FontStyle]::Bold);$brand.SetBounds(145,14,850,32);$header.Controls.Add($brand)
+ $sub=New-Object Windows.Forms.Label;$sub.Text='Thư viện máy · Cấu hình kết nối · Kiểm tra FOCAS chỉ đọc';$sub.ForeColor=[Drawing.Color]::FromArgb(165,205,224);$sub.SetBounds(148,50,900,22);$header.Controls.Add($sub)
+ $logo=New-Object Windows.Forms.PictureBox;$logo.SetBounds(18,15,108,55);$logo.SizeMode='Zoom';$logo.Image=[Drawing.Image]::FromFile((Join-Path $PSScriptRoot 'logo.jpg'));$header.Controls.Add($logo)
+ $bar=New-Object Windows.Forms.FlowLayoutPanel;$bar.Dock='Top';$bar.Height=88;$bar.WrapContents=$true;$bar.Padding=New-Object Windows.Forms.Padding(10,7,10,3);$bar.BackColor=[Drawing.Color]::White;$form.Controls.Add($bar);$bar.BringToFront()
  function New-ToolbarButton([string]$Text,[int]$Width=125){$b=New-Object Windows.Forms.Button;$b.Text=$Text;$b.Width=$Width;$b.Height=33;$b.FlatStyle='Flat';$b.BackColor=[Drawing.Color]::White;$b.FlatAppearance.BorderColor=[Drawing.Color]::FromArgb(193,209,224);[void]$bar.Controls.Add($b);return $b}
  $new=New-ToolbarButton '+ Thêm máy' 115;$import=New-ToolbarButton 'Nhập cấu hình cũ' 145;$export=New-ToolbarButton 'Xuất cấu hình' 115;$save=New-ToolbarButton 'Lưu cấu hình' 125;$test=New-ToolbarButton 'Kiểm tra FOCAS' 140;$run=New-ToolbarButton 'Chạy cầu nối' 130;$stop=New-ToolbarButton 'Dừng cầu nối' 130
+ $remove=New-ToolbarButton 'Gỡ cấu hình' 120;$trayButton=New-ToolbarButton 'Chạy ở khay hệ thống' 175
  $run.BackColor=[Drawing.Color]::FromArgb(10,126,111);$run.ForeColor=[Drawing.Color]::White
  $status=New-Object Windows.Forms.StatusStrip;$statusLabel=New-Object Windows.Forms.ToolStripStatusLabel;$statusLabel.Spring=$true;$statusLabel.TextAlign='MiddleLeft';$statusLabel.Text='Sẵn sàng. Cấu hình lưu trên laptop; chưa kết nối CNC.';[void]$status.Items.Add($statusLabel);$form.Controls.Add($status)
- $split=New-Object Windows.Forms.SplitContainer;$split.Size=New-Object Drawing.Size(1100,600);$split.Dock='Fill';$split.SplitterDistance=245;$split.FixedPanel='Panel1';$split.Panel1.BackColor=[Drawing.Color]::FromArgb(228,237,246);$split.Panel2.Padding=New-Object Windows.Forms.Padding(12);$form.Controls.Add($split);$split.BringToFront()
- $tree=New-Object Windows.Forms.TreeView;$tree.Dock='Fill';$tree.BorderStyle='None';$tree.BackColor=$split.Panel1.BackColor;$tree.HideSelection=$false;$tree.ItemHeight=31;$split.Panel1.Controls.Add($tree)
+ $split=New-Object Windows.Forms.SplitContainer;$split.Size=New-Object Drawing.Size(1100,600);$split.Dock='Fill';$split.SplitterDistance=245;$split.FixedPanel='Panel1';$split.Panel1.BackColor=[Drawing.Color]::FromArgb(22,44,64);$split.Panel2.Padding=New-Object Windows.Forms.Padding(12);$form.Controls.Add($split);$split.BringToFront()
+ $tree=New-Object Windows.Forms.TreeView;$tree.Dock='Fill';$tree.BorderStyle='None';$tree.BackColor=$split.Panel1.BackColor;$tree.ForeColor=[Drawing.Color]::FromArgb(220,234,245);$tree.LineColor=[Drawing.Color]::FromArgb(64,93,116);$tree.FullRowSelect=$true;$tree.ShowLines=$false;$tree.HideSelection=$false;$tree.ItemHeight=31;$split.Panel1.Controls.Add($tree)
  $tabs=New-Object Windows.Forms.TabControl;$tabs.Dock='Fill';$split.Panel2.Controls.Add($tabs)
  $settings=New-Object Windows.Forms.TabPage;$settings.Text='Thiết lập máy';$settings.BackColor=[Drawing.Color]::White;$settings.AutoScroll=$true;[void]$tabs.TabPages.Add($settings)
  $libraryTab=New-Object Windows.Forms.TabPage;$libraryTab.Text='Thư viện mẫu';$libraryTab.BackColor=[Drawing.Color]::White;[void]$tabs.TabPages.Add($libraryTab)
  $connectionTab=New-Object Windows.Forms.TabPage;$connectionTab.Text='Kết nối và dữ liệu';$connectionTab.BackColor=[Drawing.Color]::White;[void]$tabs.TabPages.Add($connectionTab)
- $grid=New-Object Windows.Forms.TableLayoutPanel;$grid.Dock='Top';$grid.AutoSize=$true;$grid.ColumnCount=2;$grid.Padding=New-Object Windows.Forms.Padding(15);[void]$grid.ColumnStyles.Add((New-Object Windows.Forms.ColumnStyle('Absolute',205)));[void]$grid.ColumnStyles.Add((New-Object Windows.Forms.ColumnStyle('Percent',100)));$settings.Controls.Add($grid)
- function Add-Field([string]$Label,$Control){$row=$grid.RowCount;$grid.RowCount++;$l=New-Object Windows.Forms.Label;$l.Text=$Label;$l.AutoSize=$true;$l.Margin=New-Object Windows.Forms.Padding(0,9,10,8);$Control.Dock='Fill';$Control.Margin=New-Object Windows.Forms.Padding(0,4,0,6);$grid.Controls.Add($l,0,$row);$grid.Controls.Add($Control,1,$row)}
+ $grid=New-Object Windows.Forms.TableLayoutPanel;$grid.Dock='Top';$grid.AutoSize=$true;$grid.ColumnCount=4;$grid.Padding=New-Object Windows.Forms.Padding(15);[void]$grid.ColumnStyles.Add((New-Object Windows.Forms.ColumnStyle('Absolute',170)));[void]$grid.ColumnStyles.Add((New-Object Windows.Forms.ColumnStyle('Percent',100)));[void]$grid.ColumnStyles.Add((New-Object Windows.Forms.ColumnStyle('Absolute',170)));[void]$grid.ColumnStyles.Add((New-Object Windows.Forms.ColumnStyle('Percent',100)));$settings.Controls.Add($grid)
+ $script:FieldIndex=0
+ function Add-Field([string]$Label,$Control){$row=[int][Math]::Floor($script:FieldIndex/2);$column=($script:FieldIndex%2)*2;$script:FieldIndex++;$grid.RowCount=[Math]::Max($grid.RowCount,$row+1);$l=New-Object Windows.Forms.Label;$l.Text=$Label;$l.AutoSize=$true;$l.MaximumSize=New-Object Drawing.Size(155,0);$l.ForeColor=[Drawing.Color]::FromArgb(58,82,105);$l.Margin=New-Object Windows.Forms.Padding(0,9,8,10);$Control.Dock='Fill';if($Control -is [Windows.Forms.Label] -or $Control -is [Windows.Forms.CheckBox]){$Control.MaximumSize=New-Object Drawing.Size(280,0)};$Control.Margin=New-Object Windows.Forms.Padding(0,4,16,8);$grid.Controls.Add($l,$column,$row);$grid.Controls.Add($Control,$column+1,$row)}
  function New-Text{$t=New-Object Windows.Forms.TextBox;return $t}
- function New-Choice($Values){$c=New-Object Windows.Forms.ComboBox;$c.DropDownStyle='DropDownList';foreach($v in $Values){[void]$c.Items.Add([string]$v)};$c.SelectedIndex=0;return $c}
+ function New-Choice($Values){$c=New-Object Windows.Forms.ComboBox;$c.DropDownStyle='DropDownList';$c.DropDownWidth=450;foreach($v in $Values){[void]$c.Items.Add([string]$v)};$c.SelectedIndex=0;return $c}
  $preset=New-Choice @($templates|ForEach-Object {$_.name});Add-Field 'Mẫu máy / Template' $preset
  $name=New-Text;Add-Field 'Tên máy' $name
  $id=New-Text;$id.MaxLength=64;Add-Field 'ID đồng bộ (máy đã có giữ nguyên)' $id
@@ -43,17 +46,17 @@ try {
  $axes=New-Text;Add-Field 'Tên trục (ví dụ X,Y,Z)' $axes
  $spindles=New-Object Windows.Forms.NumericUpDown;$spindles.Minimum=0;$spindles.Maximum=8;Add-Field 'Số trục chính khai báo' $spindles
  $pathNote=New-Object Windows.Forms.Label;$pathNote.Text='Path 1 / trục chính mặc định. Khai báo nhiều trục không tự bật thu thập đa kênh.';$pathNote.AutoSize=$true;Add-Field 'Kênh thu thập' $pathNote
- $tables=@('unverified','m-c','m-ab','turning','other');$offset=New-Choice @('Chưa xác định','Phay Memory C · H/D Geometry/Wear','Phay Memory A/B','Tiện · X/Z, mũi dao','Bảng khác');Add-Field 'Bảng offset' $offset
+ $tables=@('unverified','m-a','m-b','m-c','m-ab','turning','other');$offset=New-Choice @('Chưa xác định','Phay Memory A · Giá trị chung','Phay Memory B · Geometry/Wear','Phay Memory C · H/D Geometry/Wear','A/B cũ · Cần chọn chính xác','Tiện · X/Z, mũi dao','Bảng khác');Add-Field 'Bảng offset' $offset
  $verified=New-Object Windows.Forms.CheckBox;$verified.Text='Đã đối chiếu loại máy, bảng offset và đơn vị trên CNC';$verified.AutoSize=$true;Add-Field 'Xác nhận hồ sơ đọc offset' $verified
  $hint=New-Object Windows.Forms.Label;$hint.AutoSize=$true;$hint.MaximumSize=New-Object Drawing.Size(600,0);$hint.ForeColor=[Drawing.Color]::FromArgb(70,94,119);Add-Field 'Phạm vi hỗ trợ' $hint
  $libraryFlow=New-Object Windows.Forms.FlowLayoutPanel;$libraryFlow.Dock='Fill';$libraryFlow.AutoScroll=$true;$libraryFlow.Padding=New-Object Windows.Forms.Padding(15);$libraryTab.Controls.Add($libraryFlow)
  $connectionInfo=New-Object Windows.Forms.TextBox;$connectionInfo.Multiline=$true;$connectionInfo.ReadOnly=$true;$connectionInfo.Dock='Fill';$connectionInfo.BackColor=[Drawing.Color]::FromArgb(245,248,252);$connectionInfo.BorderStyle='None';$connectionInfo.Font=New-Object Drawing.Font('Consolas',10);$connectionTab.Padding=New-Object Windows.Forms.Padding(18);$connectionTab.Controls.Add($connectionInfo)
  $folderButton=New-Object Windows.Forms.Button;$folderButton.Text='Mở thư mục dữ liệu của máy';$folderButton.Dock='Bottom';$folderButton.Height=35;$connectionTab.Controls.Add($folderButton)
  function Update-Hint{
-  $supported=$kinds[$kind.SelectedIndex] -eq 'mill-3axis' -and $tables[$offset.SelectedIndex] -eq 'm-c' -and (($axes.Text.ToUpperInvariant() -replace '\s','') -eq 'X,Y,Z')
+  $supported=$kinds[$kind.SelectedIndex] -eq 'mill-3axis' -and $tables[$offset.SelectedIndex] -in @('m-a','m-b','m-c') -and (($axes.Text.ToUpperInvariant() -replace '\s','') -eq 'X,Y,Z')
   $verified.Enabled=$supported;if(-not $supported){$verified.Checked=$false}
   $axisCount=@($axes.Text.Split(',')|Where-Object {$_.Trim()}).Count
-  $hint.Text=('Khai báo {0} trục / {1} trục chính. ' -f $axisCount,$spindles.Value)+$(if($supported){'Chỉ bật khi đã đối chiếu trực tiếp. Cầu nối chỉ đọc; không sửa offset CNC.'}else{'Vẫn đọc trạng thái và T nếu CNC hỗ trợ. Gốc/offset chưa xác minh sẽ để trống; hiện chỉ diễn giải phay XYZ 3 trục / Memory C.'})
+  $hint.Text=('Khai báo {0} trục / {1} trục chính. ' -f $axisCount,$spindles.Value)+$(if($supported){'Chỉ bật khi đã đối chiếu trực tiếp. Cầu nối chỉ đọc; không sửa offset CNC.'}else{'Đọc trạng thái và HD.T / NX.T nếu CNC hỗ trợ. Gốc/offset chưa xác minh sẽ để trống; hiện diễn giải phay XYZ 3 trục / Memory A, B, C đã xác nhận.'})
  }
  function Get-FormFingerprint {return (@($name.Text,$id.Text,$ip.Text,[string]$port.Value,[string]$interval.Value,$controller.Text,[string]$preset.SelectedIndex,[string]$kind.SelectedIndex,[string]$orientation.SelectedIndex,$axes.Text,[string]$spindles.Value,[string]$offset.SelectedIndex,[string]$verified.Checked)|ConvertTo-Json -Compress)}
  function Confirm-Discard {
@@ -63,7 +66,7 @@ try {
  function Refresh-Tree{
   $script:Loading=$true;$tree.BeginUpdate();$tree.Nodes.Clear();$groups=@{}
   foreach($group in @('Mill / Máy phay','Lathe / Máy tiện','Other / Chưa phân loại')){$groups[$group]=$tree.Nodes.Add($group)}
-  foreach($c in @(Get-ManagerMachines)){$g=if($c.machineKind -eq 'lathe'){'Lathe / Máy tiện'}elseif($c.machineKind -like 'mill-*'){'Mill / Máy phay'}else{'Other / Chưa phân loại'};$n=$groups[$g].Nodes.Add($c.machineName);$n.Tag=$c.machineId;if(Get-ManagerProcess $c.machineId){$n.ForeColor=[Drawing.Color]::FromArgb(0,129,87)};if($c.machineId -eq $script:SelectedId){$tree.SelectedNode=$n}}
+  foreach($c in @(Get-ManagerMachines)){$g=if($c.machineKind -eq 'lathe'){'Lathe / Máy tiện'}elseif($c.machineKind -like 'mill-*'){'Mill / Máy phay'}else{'Other / Chưa phân loại'};$n=$groups[$g].Nodes.Add($c.machineName);$n.Tag=$c.machineId;if(Get-ManagerProcess $c.machineId){$n.ForeColor=[Drawing.Color]::FromArgb(76,228,163);$n.Text='● '+$c.machineName};if($c.machineId -eq $script:SelectedId){$tree.SelectedNode=$n}}
   $tree.ExpandAll();$tree.EndUpdate();$script:Loading=$false
  }
  function Set-Form($c,[bool]$Saved){
@@ -73,8 +76,8 @@ try {
   $index=0;for($i=0;$i -lt $templates.Count;$i++){if($templates[$i].id -eq $c.machineTemplate){$index=$i;break}};$preset.SelectedIndex=$index
   $script:Loading=$false;Update-Hint
   $script:InitialFormState=Get-FormFingerprint
-  $running=$Saved -and ($null -ne (Get-ManagerProcess $c.machineId));$run.Enabled=$Saved -and -not $running;$stop.Enabled=$running;$save.Enabled=-not $running
-  $connectionInfo.Text="Cấu hình: $($c.machineName)`r`nCNC: $($c.cncIp):$($c.port)`r`n`r`nKiểm tra FOCAS: chỉ đọc, không gửi Firebase.`r`nChạy cầu nối: mở cửa sổ đăng nhập CMMS, gửi dữ liệu về web công ty.`r`nDừng cầu nối không dừng máy CNC.`r`n`r`nThư mục dữ liệu: $script:ManagerHome`r`nĐóng cửa sổ quản lý không tự dừng các cầu nối."
+  $running=$Saved -and ($null -ne (Get-ManagerProcess $c.machineId));$run.Enabled=$Saved -and -not $running;$stop.Enabled=$running;$save.Enabled=-not $running;$remove.Enabled=$Saved -and -not $running
+  $connectionInfo.Text="Cấu hình: $($c.machineName)`r`nCNC: $($c.cncIp):$($c.port)`r`n`r`nKiểm tra FOCAS: chỉ đọc, không gửi Firebase.`r`nChạy cầu nối: đăng nhập trong hộp thoại; sau đó chạy nền và gửi dữ liệu về web công ty.`r`nDừng cầu nối không dừng máy CNC.`r`n`r`nThư mục dữ liệu: $script:ManagerHome`r`nNút X thu nhỏ vào khay hệ thống. Laptop phải bật và không Sleep. Dừng cầu nối chỉ ngắt thu thập."
  }
  function New-Form{
   Set-Form ([pscustomobject]@{machineId='';machineName='';cncIp='192.168.1.1';port=8193;intervalSeconds=5;model='Chưa xác định';machineKind='unknown';orientation='unknown';machineTemplate='custom';axisNames='';spindleCount=0;offsetTable='unverified';offsetProfileConfirmed=$false;partsPerCount=1;partCounterVerified=$false}) $false
@@ -100,12 +103,28 @@ try {
  $export.Add_Click({try{$c=Get-FormConfig;$d=New-Object Windows.Forms.SaveFileDialog;$d.Filter='Bridge configuration (*.json)|*.json';$d.FileName=$c.machineId+'-bridge-config.json';if($d.ShowDialog() -eq 'OK'){$c|ConvertTo-Json -Depth 6|Set-Content -LiteralPath $d.FileName -Encoding UTF8;$statusLabel.Text='Đã xuất cấu hình. Không chứa mật khẩu hoặc token đăng nhập.'}}catch{[Windows.Forms.MessageBox]::Show($_.Exception.Message)}})
  $save.Add_Click({try{$c=Get-FormConfig;$saved=Save-MachineConfig $c $script:ExpectedHash;Set-Form $saved $true;Refresh-Tree;$statusLabel.Text='Đã lưu cấu hình và bản sao .bak. Không gửi dữ liệu ra ngoài.'}catch{[Windows.Forms.MessageBox]::Show($_.Exception.Message,'Không lưu được')}})
  $test.Add_Click({try{$c=Get-FormConfig;$form.UseWaitCursor=$true;$statusLabel.Text='Đang kiểm tra FOCAS chỉ đọc, có thể mất khoảng 10 giây...';$form.Refresh();$sample=[FanucReader]::Read($c.cncIp,[uint16]$c.port,(Join-Path $PSScriptRoot 'lib'));$connectionInfo.Text="KẾT NỐI FOCAS THÀNH CÔNG`r`nIP: $($sample.ip):$($sample.port)`r`nLoại CNC: $($sample.machineType)`r`nSeries / Version: $($sample.series) / $($sample.version)`r`nSố trục CNC trả về: $($sample.axes)`r`nRUN: $($sample.rawStatus.run) | ALARM: $($sample.rawStatus.alarm)`r`nPART COUNT: $($sample.partCounter)`r`n`r`nChỉ đọc. Không truy cập PMC, không ghi CNC và không gửi Firebase.";$tabs.SelectedTab=$connectionTab;$statusLabel.Text='Kiểm tra thành công. Kết nối kiểm tra đã được giải phóng.'}catch{$connectionInfo.Text=$_.Exception.GetBaseException().Message;$tabs.SelectedTab=$connectionTab;$statusLabel.Text='Kiểm tra thất bại; xem chi tiết trong tab Kết nối.'}finally{$form.UseWaitCursor=$false}})
- $run.Add_Click({try{if(-not $script:SelectedId){throw 'Bấm Lưu cấu hình trước.'};$current=Get-FormConfig;$stored=Get-Content -LiteralPath (Get-MachineConfigPath $script:SelectedId) -Raw -Encoding UTF8|ConvertFrom-Json;if(($current|ConvertTo-Json -Compress) -ne ((ConvertTo-MachineConfig $stored)|ConvertTo-Json -Compress)){throw 'Có thay đổi chưa lưu. Lưu cấu hình trước khi chạy.'};$null=Start-ManagerBridge $script:SelectedId;$statusLabel.Text='Đã mở cầu nối. Đăng nhập tài khoản CMMS trong cửa sổ vừa mở; không lưu mật khẩu.';Refresh-Tree}catch{[Windows.Forms.MessageBox]::Show($_.Exception.Message,'Chưa chạy được cầu nối')}})
- $stop.Add_Click({try{if(-not $script:SelectedId){return};Stop-ManagerBridge $script:SelectedId;$statusLabel.Text='Đã yêu cầu dừng cầu nối, không dừng CNC. Nếu cửa sổ đang chờ đăng nhập, nhấn Ctrl+C tại đó.'}catch{[Windows.Forms.MessageBox]::Show($_.Exception.Message)}})
+ $run.Add_Click({try{if(-not $script:SelectedId){throw 'Bấm Lưu cấu hình trước.'};$current=Get-FormConfig;$stored=Get-Content -LiteralPath (Get-MachineConfigPath $script:SelectedId) -Raw -Encoding UTF8|ConvertFrom-Json;if(($current|ConvertTo-Json -Compress) -ne ((ConvertTo-MachineConfig $stored)|ConvertTo-Json -Compress)){throw 'Có thay đổi chưa lưu. Lưu cấu hình trước khi chạy.'};$null=Start-ManagerBridge $script:SelectedId;$statusLabel.Text='Đã khởi động cầu nối nền. Đăng nhập trong hộp thoại CMMS; mật khẩu không lưu.';Refresh-Tree}catch{[Windows.Forms.MessageBox]::Show($_.Exception.Message,'Chưa chạy được cầu nối')}})
+ $stop.Add_Click({try{if(-not $script:SelectedId){return};Stop-ManagerBridge $script:SelectedId;$statusLabel.Text='Đã yêu cầu dừng cầu nối; không dừng CNC. Nếu đang đăng nhập, đóng hộp thoại đăng nhập.'}catch{[Windows.Forms.MessageBox]::Show($_.Exception.Message)}})
  $folderButton.Add_Click({try{if(-not $script:SelectedId){throw 'Chọn máy đã lưu trước.'};Start-Process explorer.exe -ArgumentList ('"'+(Get-MachineFolder $script:SelectedId)+'"')}catch{[Windows.Forms.MessageBox]::Show($_.Exception.Message)}})
- $timer=New-Object Windows.Forms.Timer;$timer.Interval=3000;$timer.Add_Tick({if($script:SelectedId){$running=$null -ne (Get-ManagerProcess $script:SelectedId);$run.Enabled=-not $running;$stop.Enabled=$running;$save.Enabled=-not $running}else{$run.Enabled=$false;$stop.Enabled=$false;$save.Enabled=$true}});$timer.Start()
- $form.Add_FormClosing({param($sender,$eventArgs);if(-not (Confirm-Discard)){$eventArgs.Cancel=$true}})
+ $remove.Add_Click({try{if(-not $script:SelectedId){return};if([Windows.Forms.MessageBox]::Show('Gỡ cấu hình máy khỏi Manager? Dữ liệu và báo cáo được chuyển vào thư mục archive để giữ lại. Bản ghi trên web không bị xóa.','Gỡ cấu hình máy','YesNo','Question') -ne 'Yes'){return};$target=Remove-ManagerMachine $script:SelectedId $script:ExpectedHash;New-Form;Refresh-Tree;$statusLabel.Text='Đã gỡ cấu hình. Bản lưu: '+$target}catch{[Windows.Forms.MessageBox]::Show($_.Exception.Message)}})
+ $logTab=New-Object Windows.Forms.TabPage;$logTab.Text='Nhật ký cầu nối';$logTab.Padding=New-Object Windows.Forms.Padding(12);[void]$tabs.TabPages.Add($logTab)
+ $log=New-Object Windows.Forms.TextBox;$log.Multiline=$true;$log.ReadOnly=$true;$log.Dock='Fill';$log.ScrollBars='Both';$log.WordWrap=$false;$log.Font=New-Object Drawing.Font('Consolas',10);$log.BackColor=[Drawing.Color]::FromArgb(17,35,51);$log.ForeColor=[Drawing.Color]::FromArgb(188,224,220);$logTab.Controls.Add($log)
+ $notify=New-Object Windows.Forms.NotifyIcon;$notify.Icon=[Drawing.SystemIcons]::Application;$form.Icon=$notify.Icon;$notify.Text='LTD CNC Bridge Manager';$notify.Visible=$true
+ $trayMenu=New-Object Windows.Forms.ContextMenuStrip
+ $restore=New-Object Windows.Forms.ToolStripMenuItem('Mở LTD Bridge Manager');$restore.Add_Click({$form.Show();$form.WindowState='Normal';$form.Activate()});[void]$trayMenu.Items.Add($restore)
+ $exit=New-Object Windows.Forms.ToolStripMenuItem('Thoát quản lý · Cầu nối vẫn chạy');$exit.Add_Click({if(Confirm-Discard){$script:ExitManager=$true;$form.Close()}});[void]$trayMenu.Items.Add($exit)
+ $notify.ContextMenuStrip=$trayMenu;$notify.Add_DoubleClick({$form.Show();$form.WindowState='Normal';$form.Activate()})
+ $trayButton.Add_Click({$form.Hide();$notify.ShowBalloonTip(2500,'LTD CNC','Cầu nối tiếp tục chạy. Nhấp biểu tượng ở khay hệ thống để mở lại.','Info')})
+ $timer=New-Object Windows.Forms.Timer;$timer.Interval=3000;$timer.Add_Tick({
+  if($script:SelectedId){
+   $running=$null -ne (Get-ManagerProcess $script:SelectedId);$run.Enabled=-not $running;$stop.Enabled=$running;$save.Enabled=-not $running;$remove.Enabled=-not $running
+   $beat=Get-ManagerHeartbeat $script:SelectedId
+   $statusLabel.Text=if(-not $running){'Cầu nối máy đang chọn đã dừng.'}elseif(-not $beat){'Tiến trình cầu nối đang chạy · Đang kiểm tra máy / chờ đăng nhập.'}else{$age=([DateTime]::UtcNow-[DateTime]::Parse($beat.at).ToUniversalTime()).TotalSeconds;if($age -gt 30){'Tiến trình đang chạy · Chưa có dữ liệu mới hơn 30 giây. Xem Nhật ký.'}elseif($beat.uploaded){'ĐANG GỬI DỮ LIỆU | '+$script:SelectedId+' | RUN '+$beat.run+' | ALARM '+$beat.alarm+' | '+$beat.program}else{'Đọc CNC được nhưng chưa gửi web thành công. Xem Nhật ký.'}}
+   if($tabs.SelectedTab -eq $logTab){$logPath=Join-Path (Get-MachineFolder $script:SelectedId) 'bridge-session.log';if(Test-Path -LiteralPath $logPath){$content=(Get-Content -LiteralPath $logPath -Tail 120 -Encoding UTF8 -ErrorAction SilentlyContinue) -join "`r`n";if($log.Text -ne $content){$log.Text=$content;$log.SelectionStart=$log.TextLength;$log.ScrollToCaret()}}else{$log.Text='Chưa có nhật ký. Nhật ký bắt đầu sau khi đăng nhập thành công.'}}
+  }else{$run.Enabled=$false;$stop.Enabled=$false;$save.Enabled=$true;$remove.Enabled=$false}
+ });$timer.Start()
+ $form.Add_FormClosing({param($sender,$eventArgs);if(-not $script:ExitManager){$eventArgs.Cancel=$true;$form.Hide();$notify.ShowBalloonTip(2000,'LTD CNC','Đã thu nhỏ vào khay hệ thống. Cầu nối tiếp tục chạy.','Info')}})
  Refresh-Tree;New-Form
- [void]$form.ShowDialog();$timer.Stop();$timer.Dispose()
-}catch{Write-Host $_.Exception.Message -ForegroundColor Red;Read-Host 'Enter to close'}
-finally{if($singleton){$singleton.Dispose()}}
+ [Windows.Forms.Application]::Run($form)
+}catch{try{[void][Windows.Forms.MessageBox]::Show($_.Exception.Message,'LTD · Bridge Manager','OK','Error')}catch{Write-Host 'Bridge Manager could not start.'}}
+finally{if($timer){$timer.Stop();$timer.Dispose()};if($notify){$notify.Visible=$false;$notify.Dispose()};if($singleton){$singleton.Dispose()}}

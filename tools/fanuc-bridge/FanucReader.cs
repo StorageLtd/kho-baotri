@@ -96,14 +96,12 @@ public static class FanucReader
     public sealed class MachiningContext
     {
         public string sampledAtUtc, toolSource, workCoordinate, unit, offsetSource, profile;
-        public int? toolNumber, lengthOffsetNumber, radiusOffsetNumber;
+        public int? toolNumber, spindleToolNumber, nextToolNumber, commandedToolNumber, lengthOffsetNumber, radiusOffsetNumber;
         public double? workX, workY, workZ, lengthGeometry, lengthWear, radiusGeometry, radiusWear;
         public bool spindleToolConfirmed;
     }
     [DllImport("Fwlib64.dll", CallingConvention=CallingConvention.Winapi, ExactSpelling=true)]
     private static extern short cnc_modal(ushort handle, short type, short block, IntPtr data);
-    [DllImport("Fwlib64.dll", CallingConvention=CallingConvention.Winapi, ExactSpelling=true)]
-    private static extern short cnc_toolnum(ushort handle,short group,short useNumber,out CounterParameter data);
     [DllImport("Fwlib64.dll", CallingConvention=CallingConvention.Winapi, ExactSpelling=true)]
     private static extern short cnc_rdaxisname(ushort handle,ref short count,[Out] byte[] names);
     [DllImport("Fwlib64.dll", CallingConvention=CallingConvention.Winapi, ExactSpelling=true)]
@@ -128,34 +126,43 @@ public static class FanucReader
     {
         return value.HasValue && value.Value>=0 && value.Value<=32767 && value.Value==Math.Floor(value.Value)?(int?)value.Value:null;
     }
+    // cnc_rdtofs single-value types differ from cnc_rdtofsr range-column types.
+    // SDK Ncdata/cnc_rdtofs.xml: radius wear=0, radius geometry=1, length wear=2, length geometry=3.
+    public static short SingleOffsetType(int memory,int column)
+    {
+        if(column<0||column>3)return -1;
+        if(memory==2)return new short[]{3,2,1,0}[column];
+        if(memory==1)return new short[]{1,0,1,0}[column];
+        if(memory==0)return column==0||column==2?(short)0:(short)-1;
+        return -1;
+    }
     private static double? ReadOffset(ushort handle,int? number,short type,int decimals,int limit)
     {
-        if(!number.HasValue || number.Value<1 || number.Value>limit) return null;
+        if(type<0 || !number.HasValue || number.Value<1 || number.Value>limit) return null;
         OffsetReading value;
-        return cnc_rdtofs(handle,(short)number.Value,type,8,out value)==0 && value.number==number.Value && value.type==type ? (double?)(value.value/Math.Pow(10,decimals)):null;
+        return cnc_rdtofs(handle,(short)number.Value,type,8,out value)==0 && value.number==number.Value && value.type==type && value.value!=Int32.MinValue ? (double?)(value.value/Math.Pow(10,decimals)):null;
     }
     public static bool SupportsContextProfile(Snapshot snapshot,bool verified)
     { return verified && snapshot!=null && snapshot.machineType=="M" && snapshot.axes=="03"; }
-    private static void ReadMachiningContext(ushort handle,Snapshot snapshot,bool verifiedProfile)
+    private static void ReadMachiningContext(ushort handle,Snapshot snapshot,bool verifiedProfile,int expectedTable)
     {
-        MachiningContext c=new MachiningContext { sampledAtUtc=DateTime.UtcNow.ToString("o"), toolSource="cnc_modal(108,0); T modal, spindle tool not confirmed", spindleToolConfirmed=false, profile=verifiedProfile?"verified-fanuc-m-3axis-memory-c":"unverified" };
+        MachiningContext c=new MachiningContext { sampledAtUtc=DateTime.UtcNow.ToString("o"), toolSource="cnc_modal(108,0); T modal, spindle tool not confirmed", spindleToolConfirmed=false, profile=verifiedProfile?"verified-fanuc-m-3axis-memory-"+(char)('a'+expectedTable):"unverified" };
         snapshot.machiningContext=c;
+        c.toolSource="cnc_rdhdnxt: HD.T / NX.T; T modal stored separately";
         try {
-            CounterParameter tool;
-            if(cnc_toolnum(handle,0,0,out tool)==0 && tool.value>0){c.toolNumber=tool.value;c.toolSource="cnc_toolnum(0,0): tool-life current tool, not physical spindle sensor";}
-        } catch(EntryPointNotFoundException) { }
+            int head,next;short code=cnc_rdhdnxt(handle,out head,out next);
+            if(code==0){if(head>=0){c.spindleToolNumber=head;c.toolNumber=head;c.spindleToolConfirmed=true;}if(next>=0)c.nextToolNumber=next;}
+            else snapshot.readErrors["tool"]="cnc_rdhdnxt: FOCAS "+code;
+        }catch(EntryPointNotFoundException){snapshot.readErrors["tool"]="cnc_rdhdnxt unavailable; HD.T / NX.T not inferred from T modal";}
         try {
-            // Allocate the complete largest ODBMDL union (MAX_AXIS up to 96), not a small aux-only buffer.
             IntPtr buffer=Marshal.AllocHGlobal(4+96*8);
             try {
                 Marshal.Copy(new byte[4+96*8],0,buffer,4+96*8);
-                if(cnc_modal(handle,108,0,buffer)==0) {
-                    ModalTool t=(ModalTool)Marshal.PtrToStructure(buffer,typeof(ModalTool));
-                    if(!c.toolNumber.HasValue && t.datano==108 && t.value>=0)c.toolNumber=t.value;
-                }
-            } finally {Marshal.FreeHGlobal(buffer);}
-        } catch(EntryPointNotFoundException) {if(!c.toolNumber.HasValue)snapshot.readErrors["tool"]="cnc_modal unavailable";}
-        if(!SupportsContextProfile(snapshot,verifiedProfile)){c.profile="unverified";snapshot.readErrors["contextProfile"]="XYZ and H/D values disabled: requires a verified M-series 3-axis machine/offset profile";return;}
+                if(cnc_modal(handle,108,0,buffer)==0){ModalTool t=(ModalTool)Marshal.PtrToStructure(buffer,typeof(ModalTool));if(t.datano==108&&t.value>=0)c.commandedToolNumber=t.value;}
+            }finally{Marshal.FreeHGlobal(buffer);}
+        }catch(EntryPointNotFoundException){}
+        if(snapshot.machineType=="M"&&snapshot.axes=="03")try{int? u=IntegerCode(ReadMacro(handle,4006));c.unit=u==20?"inch":u==21?"mm":null;double? w=ReadMacro(handle,4014);if(w.HasValue)c.workCoordinate="G"+w.Value.ToString("0.###",System.Globalization.CultureInfo.InvariantCulture);}catch(EntryPointNotFoundException){}
+        if(!SupportsContextProfile(snapshot,verifiedProfile)){c.profile="unverified";snapshot.readErrors["contextProfile"]="Active H/D offset context disabled: requires a confirmed M-series XYZ / Memory A/B/C profile";return;}
         try {
             short axisCount=3;byte[] names=new byte[192];
             if(cnc_rdaxisname(handle,ref axisCount,names)!=0 || axisCount!=3 || names[0]!='X' || names[2]!='Y' || names[4]!='Z') {
@@ -170,20 +177,139 @@ public static class FanucReader
                 int first=5221+20*((int)g.Value-54);
                 c.workX=ReadMacro(handle,(short)first);c.workY=ReadMacro(handle,(short)(first+1));c.workZ=ReadMacro(handle,(short)(first+2));
             } else if(g.HasValue) snapshot.readErrors["workOffset"]="Only standard G54-G59 XYZ supported; extended P offsets not inferred";
-            // Standard 3-axis machining-centre memory C only; no guessed offsets for lathes or other tables.
+            // Only a verified XYZ machining-centre memory A/B/C profile matching CNC readback.
             OffsetInfo info;short valid;short[] input=new short[96],output=new short[96];
-            if(snapshot.machineType=="M" && snapshot.axes=="03" && c.unit!=null && cnc_rdtofsinfo(handle,out info)==0 && info.memoryType==2 &&
-               cnc_getfigure(handle,0,out valid,input,output)==0 && input[0]>=0 && input[0]<=9 && input[0]==input[1] && input[1]==input[2]) {
+            if(snapshot.machineType=="M" && snapshot.axes=="03" && c.unit!=null && cnc_rdtofsinfo(handle,out info)==0 && info.memoryType==expectedTable && info.memoryType>=0 && info.memoryType<=2 &&
+               cnc_getfigure(handle,1,out valid,input,output)==0 && valid>0 && input[0]>=0 && input[0]<=9) {
                 int decimals=input[0];
-                c.lengthGeometry=ReadOffset(handle,c.lengthOffsetNumber,0,decimals,info.count);
-                c.lengthWear=ReadOffset(handle,c.lengthOffsetNumber,1,decimals,info.count);
-                c.radiusGeometry=ReadOffset(handle,c.radiusOffsetNumber,2,decimals,info.count);
-                c.radiusWear=ReadOffset(handle,c.radiusOffsetNumber,3,decimals,info.count);
-                c.offsetSource="FOCAS memory C; cnc_getfigure input precision; verify against CNC before production reports";
-            } else snapshot.readErrors["toolOffsets"]="Offset values unavailable: requires M 3-axis memory C, known units and consistent input precision";
+                c.lengthGeometry=ReadOffset(handle,c.lengthOffsetNumber,SingleOffsetType(info.memoryType,0),decimals,info.count);
+                c.lengthWear=info.memoryType==0?null:ReadOffset(handle,c.lengthOffsetNumber,SingleOffsetType(info.memoryType,1),decimals,info.count);
+                c.radiusGeometry=ReadOffset(handle,c.radiusOffsetNumber,SingleOffsetType(info.memoryType,2),decimals,info.count);
+                c.radiusWear=info.memoryType==0?null:ReadOffset(handle,c.radiusOffsetNumber,SingleOffsetType(info.memoryType,3),decimals,info.count);
+                c.offsetSource="FOCAS memory "+(char)('A'+info.memoryType)+"; cnc_getfigure input precision";
+                snapshot.toolOffsets=ReadOffsetTable(handle,info,decimals,c.unit);if(snapshot.toolOffsets==null)snapshot.readErrors["toolOffsetTable"]="Full table read unavailable or rejected by CNC";
+            } else snapshot.readErrors["toolOffsets"]="Offset values unavailable: requires confirmed M 3-axis memory A/B/C matching CNC, known units and consistent input precision";
         } catch(EntryPointNotFoundException) {snapshot.readErrors["machiningContext"]="Optional macro/offset API unavailable";}
         c.sampledAtUtc=DateTime.UtcNow.ToString("o");
     }
+    [DllImport("Fwlib64.dll",CallingConvention=CallingConvention.Winapi,ExactSpelling=true)]
+    private static extern short cnc_upstart3(ushort handle,short type,int start,int end);
+    [DllImport("Fwlib64.dll",CallingConvention=CallingConvention.Winapi,ExactSpelling=true)]
+    private static extern short cnc_upload3(ushort handle,ref int length,[Out] byte[] data);
+    [DllImport("Fwlib64.dll",CallingConvention=CallingConvention.Winapi,ExactSpelling=true)]
+    private static extern short cnc_upend3(ushort handle);
+    public sealed class FullProgram {public string program,text,sha256,sampledAtUtc;public bool complete;}
+    private static FullProgram programCache;private static string programCacheKey,lastProgramAttemptKey;private static DateTime lastProgramAttempt;
+    public static bool IsCompleteProgram(string text,int number)
+    {
+        if(String.IsNullOrWhiteSpace(text)||text.Length>2*1024*1024||!text.TrimEnd().EndsWith("%",StringComparison.Ordinal))return false;
+        System.Text.RegularExpressions.MatchCollection headers=System.Text.RegularExpressions.Regex.Matches(text,@"(?m)^[ \t\r]*O([0-9]+)(?=[^0-9]|$)");
+        int parsed;return headers.Count==1&&Int32.TryParse(headers[0].Groups[1].Value,out parsed)&&parsed==number;
+    }
+    private static void ReadFullProgram(ushort handle,Snapshot snapshot)
+    {
+        int number;if(String.IsNullOrEmpty(snapshot.activeProgram)||snapshot.activeProgram[0]!='O'||!Int32.TryParse(snapshot.activeProgram.Substring(1),out number)||number<1)return;
+        string key=currentReadKey+"/"+snapshot.activeProgram;
+        if(programCache!=null&&programCacheKey==key&&(DateTime.UtcNow-DateTime.Parse(programCache.sampledAtUtc,null,System.Globalization.DateTimeStyles.RoundtripKind)).TotalSeconds<60){snapshot.fullProgram=programCache;return;}
+        if(lastProgramAttemptKey==key&&(DateTime.UtcNow-lastProgramAttempt).TotalSeconds<30){snapshot.readErrors["fullProgram"]="Waiting to retry complete program read";return;}
+        lastProgramAttemptKey=key;lastProgramAttempt=DateTime.UtcNow;
+        bool started=false,ended=false;FullProgram result=null;
+        try{
+            short code=cnc_upstart3(handle,0,number,number);if(code!=0){snapshot.readErrors["fullProgram"]="cnc_upstart3 (CNC to PC read): FOCAS "+code;return;}started=true;
+            System.Diagnostics.Stopwatch timer=System.Diagnostics.Stopwatch.StartNew();StringBuilder text=new StringBuilder();byte[] buffer=new byte[8192];int bytesRead=0;
+            for(int calls=0;calls<512&&timer.ElapsedMilliseconds<2000&&text.Length<2*1024*1024;calls++){
+                int length=buffer.Length;code=cnc_upload3(handle,ref length,buffer);
+                if(code==10)continue;
+                if(code!=0||length<=0||length>buffer.Length){snapshot.readErrors["fullProgram"]="cnc_upload3: "+(code==0?"Invalid/empty chunk":"FOCAS "+code);break;}
+                bytesRead+=length;if(bytesRead>2*1024*1024){snapshot.readErrors["fullProgram"]="Full program exceeds 2 MiB read limit";break;}
+                text.Append(Encoding.Default.GetString(buffer,0,length).TrimEnd('\0'));
+                int last=text.Length-1;while(last>=0&&Char.IsWhiteSpace(text[last]))last--;
+                if(last>=0&&text[last]=='%'&&IsCompleteProgram(text.ToString(),number)){
+                    string content=text.ToString();byte[] hash;using(System.Security.Cryptography.SHA256 sha=System.Security.Cryptography.SHA256.Create()){hash=sha.ComputeHash(Encoding.UTF8.GetBytes(content));}
+                    result=new FullProgram{program=snapshot.activeProgram,text=content,sha256=BitConverter.ToString(hash).Replace("-","").ToLowerInvariant(),complete=true,sampledAtUtc=DateTime.UtcNow.ToString("o")};break;
+                }
+            }
+            if(result==null&&!snapshot.readErrors.ContainsKey("fullProgram"))snapshot.readErrors["fullProgram"]="Complete program not obtained within 2 seconds / 2 MiB; partial text not presented as full file";
+        }catch(EntryPointNotFoundException){snapshot.readErrors["fullProgram"]="Optional read-only upload API unavailable";}
+        finally{if(started){try{short endCode=cnc_upend3(handle);ended=endCode==0;if(!ended)snapshot.readErrors["fullProgram"]="cnc_upend3: FOCAS "+endCode;}catch(EntryPointNotFoundException){snapshot.readErrors["fullProgram"]="cnc_upend3 unavailable";}}}
+        if(result!=null&&ended){snapshot.fullProgram=result;programCache=result;programCacheKey=key;}
+    }
+    [DllImport("Fwlib64.dll",CallingConvention=CallingConvention.Winapi,ExactSpelling=true)]
+    private static extern short cnc_rdhdnxt(ushort handle,out int head,out int next);
+    [DllImport("Fwlib64.dll",CallingConvention=CallingConvention.Winapi,ExactSpelling=true)]
+    private static extern short cnc_rdgcode(ushort handle,short type,short block,ref short count,IntPtr data);
+    [DllImport("Fwlib64.dll",CallingConvention=CallingConvention.Winapi,ExactSpelling=true)]
+    private static extern short cnc_rdtofsr(ushort handle,short start,short type,short end,short length,IntPtr data);
+    [StructLayout(LayoutKind.Sequential,Pack=4)]
+    public struct GcodeReading {public short group,flag;[MarshalAs(UnmanagedType.ByValArray,SizeConst=8)] public byte[] code;}
+    public sealed class Gcode {public int group,flag;public string code;}
+    public sealed class WorkCoordinate {public string name,unit;public double? x,y,z;public int? decimalsX,decimalsY,decimalsZ;}
+    public sealed class OffsetRow {public int number;public double? value,geometry,wear,lengthGeometry,lengthWear,radiusGeometry,radiusWear;}
+    public sealed class OffsetTable {public string memory,unit,sampledAtUtc;public int count,decimals;public OffsetRow[] rows;}
+    private sealed class CachedOffsets {public OffsetTable table;public string key;public DateTime at;}
+    private static CachedOffsets offsetCache;
+    public static Gcode DecodeGcode(GcodeReading value)
+    {
+        if(value.code==null||value.code.Length!=8||value.group<0)return null;
+        string code=Encoding.ASCII.GetString(value.code).TrimEnd('\0',' ');
+        if(!System.Text.RegularExpressions.Regex.IsMatch(code,@"^G[0-9]{1,3}(\.[0-9]{1,3})?$"))return null;
+        return new Gcode{group=value.group,flag=value.flag,code=code};
+    }
+    private static void ReadGcodes(ushort handle,Snapshot snapshot)
+    {
+        IntPtr buffer=Marshal.AllocHGlobal(256*12);
+        try {
+            Marshal.Copy(new byte[256*12],0,buffer,256*12);short count=64;short code=cnc_rdgcode(handle,-1,1,ref count,buffer);
+            if(code!=0||count<1||count>64){snapshot.readErrors["gcodes"]="cnc_rdgcode: "+(code==0?"Invalid count":"FOCAS "+code);return;}
+            List<Gcode> items=new List<Gcode>();for(int i=0;i<count;i++){Gcode item=DecodeGcode((GcodeReading)Marshal.PtrToStructure(IntPtr.Add(buffer,i*12),typeof(GcodeReading)));if(item!=null)items.Add(item);}
+            snapshot.modalGcodes=items.ToArray();snapshot.modalGcodesComplete=count<64;
+        }catch(EntryPointNotFoundException){snapshot.readErrors["gcodes"]="cnc_rdgcode unavailable";}finally{Marshal.FreeHGlobal(buffer);}
+    }
+    private static void ReadWorkCoordinates(ushort handle,Snapshot snapshot)
+    {
+        // Read standard XYZ macro values with their own returned decimal scaling. No conversion or subtraction of live positions.
+        if(snapshot.machineType!="M"||snapshot.axes!="03") {snapshot.readErrors["workCoordinates"]="Standard XYZ work table not validated for this machine";return;}
+        try {
+            short count=3;byte[] names=new byte[192];if(cnc_rdaxisname(handle,ref count,names)!=0||count!=3||names[0]!='X'||names[2]!='Y'||names[4]!='Z'){snapshot.readErrors["workCoordinates"]="CNC axis names do not validate XYZ table";return;}
+            int? units=IntegerCode(ReadMacro(handle,4006));string unit=units==20?"inch":units==21?"mm":null;
+            if(unit==null){snapshot.readErrors["workCoordinates"]="Cannot validate coordinate unit";return;}
+            int?[] decimals=new int?[3];short figures;short[] input=new short[96],output=new short[96];if(cnc_getfigure(handle,0,out figures,input,output)==0&&figures>0)for(int a=0;a<3;a++)if(input[a]>=0&&input[a]<=9)decimals[a]=input[a];
+            List<WorkCoordinate> rows=new List<WorkCoordinate>();
+            for(int i=0;i<7;i++){int first=i==0?5201:5221+20*(i-1);rows.Add(new WorkCoordinate{name=i==0?"EXT":"G"+(53+i),unit=unit,x=ReadMacro(handle,(short)first),y=ReadMacro(handle,(short)(first+1)),z=ReadMacro(handle,(short)(first+2)),decimalsX=decimals[0],decimalsY=decimals[1],decimalsZ=decimals[2]});}
+            snapshot.workCoordinates=rows.ToArray();
+        }catch(EntryPointNotFoundException){snapshot.readErrors["workCoordinates"]="Optional work-coordinate read unavailable";}
+    }
+    public static OffsetRow[] DecodeOffsetColumns(int count,int memory,int decimals,int[][] columns)
+    {
+        int fields=memory==0?1:memory==1?2:memory==2?4:0;
+        if(count<1||count>2000||fields==0||decimals<0||decimals>9||columns==null||columns.Length!=fields)return null;
+        foreach(int[] column in columns)if(column==null||column.Length!=count)return null;
+        OffsetRow[] rows=new OffsetRow[count];double scale=Math.Pow(10,decimals);
+        for(int i=0;i<count;i++){
+            double?[] v=new double?[fields];for(int j=0;j<fields;j++)v[j]=columns[j][i]==Int32.MinValue?null:(double?)(columns[j][i]/scale);
+            OffsetRow row=new OffsetRow{number=i+1};if(memory==0)row.value=v[0];else if(memory==1){row.geometry=v[0];row.wear=v[1];}else{row.lengthGeometry=v[0];row.lengthWear=v[1];row.radiusGeometry=v[2];row.radiusWear=v[3];}rows[i]=row;
+        }return rows;
+    }
+    private static OffsetTable ReadOffsetTable(ushort handle,OffsetInfo info,int decimals,string unit)
+    {
+        if(info.count<1||info.count>2000)return null;
+        string key=currentReadKey+"/"+info.memoryType+"/"+info.count+"/"+decimals+"/"+unit;
+        if(offsetCache!=null&&offsetCache.key==key&&(DateTime.UtcNow-offsetCache.at).TotalSeconds<30)return offsetCache.table;
+        int fields=info.memoryType==0?1:info.memoryType==1?2:4;int[][] columns=new int[fields][];
+        int length=8+4*info.count;IntPtr buffer=Marshal.AllocHGlobal(length);
+        try{
+            for(short type=0;type<fields;type++){
+                Marshal.Copy(new byte[length],0,buffer,length);
+                short code=cnc_rdtofsr(handle,1,type,info.count,(short)length,buffer);
+                if(code!=0||Marshal.ReadInt16(buffer,0)!=1||Marshal.ReadInt16(buffer,2)!=type||Marshal.ReadInt16(buffer,4)!=info.count)return null;
+                columns[type]=new int[info.count];Marshal.Copy(IntPtr.Add(buffer,8),columns[type],0,info.count);
+            }
+        }catch(EntryPointNotFoundException){return null;}finally{Marshal.FreeHGlobal(buffer);}
+        OffsetRow[] rows=DecodeOffsetColumns(info.count,info.memoryType,decimals,columns);if(rows==null)return null;
+        OffsetTable table=new OffsetTable{memory=((char)('A'+info.memoryType)).ToString(),unit=unit,count=info.count,decimals=decimals,rows=rows,sampledAtUtc=DateTime.UtcNow.ToString("o")};
+        offsetCache=new CachedOffsets{key=key,table=table,at=DateTime.UtcNow};return table;
+    }
+    private static string currentReadKey;
     [StructLayout(LayoutKind.Sequential,Pack=4)]
     public struct PositionElement {public int data;public short dec,unit,disp;public byte name,suff;}
     [StructLayout(LayoutKind.Sequential,Pack=4)]
@@ -271,6 +397,8 @@ public static class FanucReader
         public string timerSource;
         public MachiningContext machiningContext;
         public AxisPosition[] positions;
+        public FullProgram fullProgram;
+        public Gcode[] modalGcodes;public bool modalGcodesComplete;public WorkCoordinate[] workCoordinates;public OffsetTable toolOffsets;
         public ServoMeter[] servoLoads;
         public int? sequenceNumber,programBufferBlock;
         public string programText;
@@ -425,7 +553,9 @@ public static class FanucReader
     { return ReadInternal(ip,port,libraryDirectory,true,false); }
     public static Snapshot ReadWithContext(string ip, ushort port, string libraryDirectory,bool verifiedProfile)
     { return ReadInternal(ip,port,libraryDirectory,true,verifiedProfile); }
-    private static Snapshot ReadInternal(string ip, ushort port, string libraryDirectory,bool context,bool verifiedProfile)
+    public static Snapshot ReadWithContext(string ip, ushort port, string libraryDirectory,bool verifiedProfile,string offsetTable)
+    { int table=offsetTable=="m-a"?0:offsetTable=="m-b"?1:offsetTable=="m-c"?2:-1;return ReadInternal(ip,port,libraryDirectory,true,verifiedProfile&&table>=0,table); }
+    private static Snapshot ReadInternal(string ip, ushort port, string libraryDirectory,bool context,bool verifiedProfile,int expectedTable=2)
     {
         if (IntPtr.Size != 8) throw new InvalidOperationException("Use 64-bit Windows PowerShell.");
         if (Marshal.SizeOf(typeof(SysInfo)) != 18 || Marshal.SizeOf(typeof(Status)) != 18 ||
@@ -464,9 +594,11 @@ public static class FanucReader
                 series = Text(info.series), version = Text(info.version), axes = Text(info.axes),
                 maximumAxes = info.max_axis, rawStatus = status
             };
+            currentReadKey=ip+":"+port;
             ReadOptionalTelemetry(handle, snapshot);
-            if(context){ReadMachiningContext(handle,snapshot,verifiedProfile);ReadOperatorTelemetry(handle,snapshot);}
+            if(context){ReadMachiningContext(handle,snapshot,verifiedProfile,expectedTable);ReadOperatorTelemetry(handle,snapshot);ReadGcodes(handle,snapshot);ReadWorkCoordinates(handle,snapshot);}
             ReadAlarms(handle, snapshot);
+            if(context)ReadFullProgram(handle,snapshot);
             snapshot.timestampUtc=DateTime.UtcNow.ToString("o");
             return snapshot;
         }

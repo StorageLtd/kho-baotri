@@ -492,3 +492,68 @@ body[data-page="cncMonitoringPage"] #exportCncBtn{border-color:#bfcede;color:#24
 #cncMonitoringPage .operator-softkeys{display:flex;gap:7px;background:#263b50;padding:10px;border-radius:8px;margin:8px 0}#cncMonitoringPage .operator-softkeys button{flex:1;background:#354f69;color:#dce9f5;border:1px solid #57718b;padding:14px 8px;font-size:12px;font-weight:800;cursor:pointer;border-radius:5px}#cncMonitoringPage .operator-softkeys button.selected{color:#092733;background:#59d4d4;border-color:#9ceaea}#cncMonitoringPage .operator-softkeys button:focus-visible{outline:3px solid #fff;outline-offset:2px}
 @media(max-width:800px){#cncMonitoringPage .operator-main{grid-template-columns:1fr}#cncMonitoringPage .operator-metrics,#cncMonitoringPage .operator-modal{grid-template-columns:repeat(3,minmax(0,1fr))}#cncMonitoringPage .operator-axis strong{font-size:25px}}
 @media(max-width:480px){#cncMonitoringPage .operator-positions{grid-template-columns:1fr}#cncMonitoringPage .operator-top{padding:14px;flex-direction:column}#cncMonitoringPage .operator-state{text-align:left}#cncMonitoringPage .operator-metrics,#cncMonitoringPage .operator-modal{grid-template-columns:repeat(2,minmax(0,1fr))}#cncMonitoringPage .operator-softkeys{gap:4px;padding:6px}#cncMonitoringPage .operator-softkeys button{font-size:10px;padding:12px 4px}}
+
+/* Compact operator workspace: fixed outer frame, independently scrollable program/tables. */
+#cncMonitoringPage dialog.cnc-machine-detail-dialog.has-operator-screen{width:min(1480px,98vw);height:96dvh;max-height:96dvh;display:flex;flex-direction:column;overflow:hidden}
+#cncMonitoringPage dialog.cnc-machine-detail-dialog.has-operator-screen:not([open]){display:none}
+#cncMonitoringPage .has-operator-screen .cnc-detail-toolbar{padding:8px 14px;flex:none}
+#cncMonitoringPage .has-operator-screen #cncDetailsContent{padding:8px;display:flex;flex-direction:column;flex:1;min-height:0;gap:6px}
+#cncMonitoringPage .has-operator-screen .operator-screen{display:flex;flex-direction:column;flex:1;min-height:0}
+#cncMonitoringPage .operator-top{padding:8px 14px;align-items:center;border-top-width:3px;flex:none}
+#cncMonitoringPage .operator-top h3{font-size:16px;margin:3px 0 0;letter-spacing:1px}
+#cncMonitoringPage .operator-top small{font-size:10px}
+#cncMonitoringPage .operator-state{font-size:11px}#cncMonitoringPage .operator-state b{font-size:21px;margin-top:4px}
+#cncMonitoringPage .operator-main{flex:1;min-height:0;grid-template-columns:minmax(0,1.1fr) minmax(0,1fr)}
+#cncMonitoringPage .operator-left{display:flex;flex-direction:column;min-width:0;min-height:0}
+#cncMonitoringPage .operator-positions{flex:1;min-height:0;overflow:auto;grid-template-rows:repeat(2,minmax(0,1fr))}
+#cncMonitoringPage .operator-position{padding:10px 12px;min-height:0;overflow:auto}
+#cncMonitoringPage .operator-screen h4{font-size:10px;letter-spacing:1px;margin-bottom:8px}
+#cncMonitoringPage .operator-axis{grid-template-columns:27px minmax(0,1fr) 25px;margin:6px 0;gap:3px}
+#cncMonitoringPage .operator-axis b{font-size:20px}#cncMonitoringPage .operator-axis strong{font-size:clamp(20px,2.2vw,32px);letter-spacing:-.5px}
+#cncMonitoringPage .operator-main>aside{display:flex;flex-direction:column;min-width:0;min-height:0;border-left:1px solid #304255}
+#cncMonitoringPage .operator-load{padding:10px 14px;flex:none}#cncMonitoringPage .operator-load>div{margin:5px 0;gap:8px}
+#cncMonitoringPage .operator-load p{font-size:12px;margin:6px 0}
+#cncMonitoringPage .operator-program{display:flex;flex-direction:column;flex:1;min-height:0;padding:12px 14px;min-width:0}
+#cncMonitoringPage .operator-program pre{flex:1;min-height:0;max-height:none;font-size:15px;line-height:1.7}
+#cncMonitoringPage .operator-metrics>div,#cncMonitoringPage .operator-modal>div{padding:8px 12px}
+#cncMonitoringPage .operator-metrics span,#cncMonitoringPage .operator-modal span{font-size:9px;letter-spacing:.5px;margin-bottom:4px}
+#cncMonitoringPage .operator-metrics strong{font-size:20px}#cncMonitoringPage .operator-modal strong{font-size:16px}
+#cncMonitoringPage .operator-softkeys{flex:none;padding:5px;margin:0;gap:5px}
+#cncMonitoringPage .operator-softkeys button{padding:9px 5px;font-size:11px}
+#cncMonitoringPage .operator-footer{padding:6px 12px;flex:none;gap:8px;font-size:10px}
+#cncMonitoringPage .operator-footer .btn{min-height:26px;padding:4px 9px;font-size:11px}
+#cncMonitoringPage .operator-delete{color:#b92135}
+#cncMonitoringPage .operator-gcodes{padding:10px 12px;flex:none;background:#13283b;border-bottom:1px solid #304255}
+#cncMonitoringPage .operator-gcodes>div{display:grid;grid-template-columns:repeat(8,minmax(0,1fr));gap:5px}
+#cncMonitoringPage .operator-gcodes b{font:700 13px Consolas,monospace;color:#65e0d7;white-space:nowrap}
+#cncMonitoringPage .operator-gcodes span{grid-column:1/-1;color:#9fb4c9;font-size:11px}
+#cncMonitoringPage .operator-gcodes small{display:block;font-size:10px;color:#f5ce78;margin-top:4px}
+#cncMonitoringPage .operator-program-work{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.1fr);flex:1;min-height:0}
+#cncMonitoringPage .operator-program-work>div{min-height:0;display:flex;flex-direction:column;border-left:1px solid #304255}
+#cncMonitoringPage .operator-work,#cncMonitoringPage .operator-offset{padding:12px 14px;min-height:0;display:flex;flex-direction:column;flex:1}
+#cncMonitoringPage .operator-work h4,#cncMonitoringPage .operator-offset h4{display:flex;justify-content:space-between;gap:8px}
+#cncMonitoringPage .operator-table-scroll{overflow:auto;min-height:0;flex:1}
+#cncMonitoringPage .operator-screen table{width:100%;border-collapse:collapse;font:700 13px Consolas,monospace;table-layout:auto;color:#e8f3ff}
+#cncMonitoringPage .operator-screen th,#cncMonitoringPage .operator-screen td{padding:6px 9px;border:1px solid #354b60;text-align:right;white-space:nowrap;background:transparent;color:inherit;max-width:none;overflow:visible;text-overflow:clip}
+#cncMonitoringPage .operator-screen thead{position:sticky;top:0;background:#233f57;color:#a6c4dc;z-index:1}
+#cncMonitoringPage .operator-screen thead th{font-size:10px;letter-spacing:.5px}
+#cncMonitoringPage .operator-screen tbody tr:nth-child(even){background:#182f43}#cncMonitoringPage .operator-screen tbody tr.is-selected{background:#164653;color:#7cf0dd}
+#cncMonitoringPage .operator-pagination{display:flex;justify-content:space-between;align-items:center;padding-top:7px;font-size:11px;gap:8px}
+#cncMonitoringPage .operator-pagination button{background:#2a4961;color:#fff;border:1px solid #597891;border-radius:4px;padding:5px 12px;cursor:pointer}#cncMonitoringPage .operator-pagination button:disabled{opacity:.4;cursor:default}
+#cncMonitoringPage .operator-view-alarm .operator-alarms{flex:1;overflow:auto}
+#cncMonitoringPage .operator-screen .cnc-read-errors{flex:none;margin:4px 12px;font-size:10px}
+#cncMonitoringPage .operator-screen .cnc-read-errors[open]{max-height:95px;overflow:auto}
+@media(max-height:760px) and (min-width:801px){#cncMonitoringPage .operator-axis strong{font-size:25px}#cncMonitoringPage .operator-position{padding:8px 10px}#cncMonitoringPage .operator-axis{margin:4px 0}#cncMonitoringPage .operator-gcodes{padding:6px 10px}#cncMonitoringPage .operator-metrics strong{font-size:17px}#cncMonitoringPage .operator-offset th,#cncMonitoringPage .operator-offset td{padding:4px 8px}}
+@media(max-width:800px){#cncMonitoringPage dialog.cnc-machine-detail-dialog.has-operator-screen{height:96dvh;overflow:auto;display:block}#cncMonitoringPage .has-operator-screen #cncDetailsContent{display:block}#cncMonitoringPage .has-operator-screen .operator-screen{display:block}#cncMonitoringPage .operator-main,#cncMonitoringPage .operator-program-work{display:block}#cncMonitoringPage .operator-positions{min-height:300px;grid-template-columns:repeat(2,minmax(0,1fr));grid-template-rows:auto}#cncMonitoringPage .operator-program pre{max-height:260px;min-height:100px}#cncMonitoringPage .operator-table-scroll{max-height:450px}#cncMonitoringPage .operator-gcodes>div{grid-template-columns:repeat(6,minmax(0,1fr))}#cncMonitoringPage .operator-metrics,#cncMonitoringPage .operator-modal{grid-template-columns:repeat(3,minmax(0,1fr))}#cncMonitoringPage .operator-offset{overflow-x:auto}#cncMonitoringPage .operator-softkeys{margin-top:6px}}
+@media(max-width:480px){#cncMonitoringPage .operator-positions{grid-template-columns:1fr}#cncMonitoringPage .operator-metrics,#cncMonitoringPage .operator-modal{grid-template-columns:repeat(2,minmax(0,1fr))}#cncMonitoringPage .operator-softkeys button{font-size:9px}#cncMonitoringPage .operator-top{flex-direction:row;align-items:center}#cncMonitoringPage .operator-top h3{font-size:13px}#cncMonitoringPage .operator-state b{font-size:17px}}
+#cncMonitoringPage .operator-axis{line-height:1.1}
+@media(max-height:800px) and (min-width:801px){#cncMonitoringPage .operator-axis strong{font-size:23px}#cncMonitoringPage .operator-axis{margin:3px 0}#cncMonitoringPage .operator-position{padding:6px 10px}#cncMonitoringPage .operator-position h4{margin-bottom:5px}#cncMonitoringPage .operator-gcodes>div{gap:3px}#cncMonitoringPage .operator-gcodes b{font-size:12px}}
+#cncMonitoringPage .operator-screen table{min-width:0}
+#cncMonitoringPage .operator-work table{font-size:12px;table-layout:fixed}
+#cncMonitoringPage .operator-work th,#cncMonitoringPage .operator-work td{padding:6px}
+#cncMonitoringPage .operator-work th:first-child{width:85px}
+#cncMonitoringPage .operator-work th:last-child{width:55px}
+#cncMonitoringPage .operator-offset table{min-width:530px}
+@media(max-height:760px) and (min-width:801px){#cncMonitoringPage .operator-offset th,#cncMonitoringPage .operator-offset td{padding:3px 8px;font-size:12px;line-height:1.2}}
+#cncMonitoringPage .operator-screen th{position:static}
+@media(max-height:850px) and (min-width:801px){#cncMonitoringPage .operator-offset th,#cncMonitoringPage .operator-offset td{padding:3px 8px;font-size:12px;line-height:1.2}}

@@ -77,7 +77,7 @@ window.seedDayFixture = () => {cncDayOwner=getUser().uid;cncDayStats.set('neway-
                 assert maintenance_download.suggested_filename.endswith('.xlsx')
                 await maintenance_download.save_as(path)
             await page.evaluate('''renderFixture([
-              {id:'neway-1260s',name:'Neway 1260S',source:'focas',connected:true,lastSeen:Date.now(),machiningContext:{toolNumber:7},rawStatus:{run:3,alarm:0,emergency:0,aut:1},ip:'169.254.85.99',port:8193,model:'FANUC 0i-MF Plus'},
+              {id:'neway-1260s',name:'Neway 1260S',source:'focas',connected:true,lastSeen:Date.now(),machiningContext:{toolNumber:7,spindleToolNumber:7,nextToolNumber:4,spindleToolConfirmed:true},rawStatus:{run:3,alarm:0,emergency:0,aut:1},ip:'169.254.85.99',port:8193,model:'FANUC 0i-MF Plus'},
               {id:'old',name:'Old demo data',status:'running',spindleSpeed:1200,ip:'192.168.1.101',port:8193}
             ])''')
             assert not await page.locator('.topbar .page-title').is_visible()
@@ -99,16 +99,47 @@ window.seedDayFixture = () => {cncDayOwner=getUser().uid;cncDayStats.set('neway-
             assert await page.locator('#cncMachineDetailsDialog').is_visible()
             assert await page.locator('.operator-position').count()==4
             assert 'Chưa đọc tọa độ' in await page.locator('.operator-screen').inner_text()
-            await page.evaluate('''renderFixture([{id:'neway-1260s',name:'Neway 1260S',source:'focas',connected:true,lastSeen:Date.now(),machiningContext:{toolNumber:7},rawStatus:{run:3,alarm:0,emergency:0,aut:1},ip:'192.168.1.1',port:8193,model:'FANUC 0i-MF Plus',positions:['X','Y','Z'].map((axis,i)=>({axis,absolute:{value:[-125.25,10,80][i],unit:'mm',decimals:3},relative:{value:0,unit:'mm',decimals:3},machine:{value:[-800,-50,-200][i],unit:'mm',decimals:3},distance:{value:0,unit:'mm',decimals:3}})),servoLoads:[{axis:'X',percent:23},{axis:'Y',percent:17},{axis:'Z',percent:35}],sequenceNumber:20,programText:'N10 G0 X0\\nN20 G1 X10 F100\\nM30'}])''')
+            await page.evaluate('''renderFixture([{id:'neway-1260s',name:'Neway 1260S',source:'focas',connected:true,lastSeen:Date.now(),machiningContext:{toolNumber:7,spindleToolNumber:7,nextToolNumber:4,spindleToolConfirmed:true},rawStatus:{run:3,alarm:0,emergency:0,aut:1},ip:'192.168.1.1',port:8193,model:'FANUC 0i-MF Plus',positions:['X','Y','Z'].map((axis,i)=>({axis,absolute:{value:[-125.25,10,80][i],unit:'mm',decimals:3},relative:{value:0,unit:'mm',decimals:3},machine:{value:[-800,-50,-200][i],unit:'mm',decimals:3},distance:{value:0,unit:'mm',decimals:3}})),servoLoads:[{axis:'X',percent:23},{axis:'Y',percent:17},{axis:'Z',percent:35}],sequenceNumber:20,programText:'N10 G0 X0\\nN20 G1 X10 F100\\nM30'}])''')
             assert '-125.250' in await page.locator('.operator-screen').inner_text()
             assert await page.locator('.operator-load meter').count()==3
             assert 'N20 G1' in await page.locator('.operator-program .active-line').inner_text()
             await page.set_viewport_size({'width':1440,'height':1000})
             await page.screenshot(path='/tmp/cnc-operator-screen.png',full_page=True)
+            await page.evaluate('''window.operatorFixture={id:'neway-1260s',name:'Neway 1260S',source:'focas',connected:true,lastSeen:Date.now(),sampledAt:new Date().toISOString(),activeProgram:'O7020',machiningContext:{toolNumber:1,spindleToolNumber:1,nextToolNumber:4,commandedToolNumber:99,spindleToolConfirmed:true,workCoordinate:'G54'},rawStatus:{run:3,alarm:0,emergency:0,aut:1},ip:'192.168.1.1',port:8193,positions:['X','Y','Z'].map(axis=>({axis,absolute:{value:-21.5024,unit:'inch',decimals:4},relative:{value:0,unit:'inch',decimals:4},machine:{value:-24.5393,unit:'inch',decimals:4},distance:{value:0,unit:'inch',decimals:4}})),modalGcodes:Array.from({length:40},(_,group)=>({group,code:['G00','G17','G90','G54','G40','G49','G80','G98'][group%8]})),modalGcodesComplete:true,fullProgram:{program:'O7020',text:'%\\nO7020\\n'+Array.from({length:200},(_,i)=>'N'+i+' G1 X'+i+' F100').join('\\n')+'\\nM30\\n%',complete:true},fullProgramVerifiedAt:new Date().toISOString(),workCoordinates:[{name:'G54',unit:'inch',x:-21.5024,y:-12.2112,z:-11.39}],toolOffsets:{memory:'C',unit:'inch',decimals:4,sampledAtUtc:new Date().toISOString(),rows:Array.from({length:32},(_,i)=>({number:i+1,lengthGeometry:i+0.125,lengthWear:0,radiusGeometry:-0.5,radiusWear:0}))}};renderFixture([operatorFixture])''')
+            await page.set_viewport_size({'width':1366,'height':768})
+            assert await page.locator('#cncMachineDetailsDialog').evaluate('e=>e.scrollHeight<=e.clientHeight+1')
+            assert await page.locator('.operator-position').evaluate_all('els=>els.every(e=>e.scrollHeight<=e.clientHeight+1)')
+            assert 'T1' in await page.locator('.operator-modal').inner_text()
+            assert 'T4' in await page.locator('.operator-modal').inner_text()
+            assert 'T99' not in await page.locator('.operator-modal').inner_text()
+            await page.screenshot(path='/tmp/cnc-compact-desktop.png',full_page=True)
+            await page.get_by_role('button',name='PROGRAM / WORK',exact=True).click()
+            assert 'N199 G1 X199' in await page.locator('.operator-full-program').inner_text()
+            assert '-21.5024' in await page.locator('.operator-work').inner_text()
+            assert await page.locator('.operator-work .operator-table-scroll').evaluate('e=>e.scrollWidth<=e.clientWidth+1')
+            program=page.locator('.operator-full-program pre')
+            await program.evaluate('e=>e.scrollTop=200')
+            await page.evaluate('renderFixture([operatorFixture])')
+            assert await program.evaluate('e=>e.scrollTop')==200
+            await page.screenshot(path='/tmp/cnc-program-work.png',full_page=True)
+            await page.get_by_role('button',name='OFFSET',exact=True).click()
+            assert '001' in await page.locator('.operator-offset').inner_text()
+            await page.screenshot(path='/tmp/cnc-offset-sizing.png',full_page=True)
+            assert await page.locator('.operator-offset .operator-table-scroll').evaluate('e=>e.scrollHeight<=e.clientHeight+1'), await page.locator('.operator-offset .operator-table-scroll').evaluate('e=>({height:e.clientHeight,scroll:e.scrollHeight,table:e.firstElementChild.getBoundingClientRect().height,cell:getComputedStyle(e.querySelector("td")).cssText})')
+            await page.get_by_role('button',name='Sau ›',exact=True).click()
+            assert '17–32 / 32' in await page.locator('.operator-pagination').inner_text()
+            assert '017' in await page.locator('.operator-offset tbody').inner_text()
+            assert '001' not in await page.locator('.operator-offset tbody').inner_text()
+            await page.screenshot(path='/tmp/cnc-offset.png',full_page=True)
+            await page.get_by_role('button',name='ALARM',exact=True).click()
+            assert await page.locator('.operator-metrics').count()==0
+            assert await page.locator('.operator-modal').count()==0
+            assert await page.get_by_role('button',name='Xóa máy Neway 1260S',exact=True).count()>=1
+            await page.get_by_role('button',name='POSITION',exact=True).click()
             await page.set_viewport_size({'width':390,'height':844})
             assert await page.locator('#cncMachineDetailsDialog').evaluate('e=>e.scrollWidth<=e.clientWidth+1')
             await page.set_viewport_size({'width':1280,'height':900})
-            await page.evaluate('''renderFixture([{id:'neway-1260s',name:'Neway 1260S',source:'focas',connected:true,lastSeen:Date.now(),machiningContext:{toolNumber:7},rawStatus:{run:3,alarm:0,emergency:0,aut:1},ip:'169.254.85.99',port:8193,model:'FANUC 0i-MF Plus'},{id:'old',name:'Old demo data',status:'running',spindleSpeed:1200,ip:'192.168.1.101',port:8193}])''')
+            await page.evaluate('''renderFixture([{id:'neway-1260s',name:'Neway 1260S',source:'focas',connected:true,lastSeen:Date.now(),machiningContext:{toolNumber:7,spindleToolNumber:7,nextToolNumber:4,spindleToolConfirmed:true},rawStatus:{run:3,alarm:0,emergency:0,aut:1},ip:'169.254.85.99',port:8193,model:'FANUC 0i-MF Plus'},{id:'old',name:'Old demo data',status:'running',spindleSpeed:1200,ip:'192.168.1.101',port:8193}])''')
             await page.get_by_role('button',name='THỐNG KÊ',exact=True).click()
             card = page.locator('#card-neway-1260s')
             assert 'Dữ liệu thật' in await card.inner_text()
@@ -129,7 +160,7 @@ window.seedDayFixture = () => {cncDayOwner=getUser().uid;cncDayStats.set('neway-
             assert await card.locator('.cnc-four-gauges > div').count()==4
             assert await card.locator('.cnc-four-gauges .cnc-instrument').count()==2
             assert await card.locator('.cnc-day-foot').count()==0
-            assert await card.locator('.cnc-operation-strip > div > span').all_text_contents()==['Chế độ','Chương trình','Dao T · CNC','CYCLE TIME:','RUN TIME:','PART COUNT:']
+            assert await card.locator('.cnc-operation-strip > div > span').all_text_contents()==['Chế độ','Chương trình','Dao trục chính','CYCLE TIME:','RUN TIME:','PART COUNT:']
             assert await card.locator('.cnc-production-grid').count()==0
             assert await card.locator('.cnc-machine-content').evaluate("el=>el.firstElementChild.classList.contains('cnc-program-line')")
             await page.evaluate('seedDayFixture()')

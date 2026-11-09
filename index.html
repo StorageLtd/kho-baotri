@@ -6,7 +6,7 @@
   <title>LTD VIET NAM - Cloud Maintenance System</title>
   <link rel="stylesheet" href="assets/css/app.css?v=20261105-compact-alarm">
   <link rel="stylesheet" href="assets/css/cnc-report.css?v=20261107-tool-context">
-  <link rel="stylesheet" href="assets/css/cnc-dashboard.css?v=20261109-operator-screen">
+  <link rel="stylesheet" href="assets/css/cnc-dashboard.css?v=20261109-work-offset-tray">
 </head>
 <body class="locked">
   <!-- Screen Đăng Nhập -->
@@ -508,7 +508,7 @@
         </div>
         <div class="field"><label for="cncKindInput">Loại máy</label><select id="cncKindInput" class="input"><option value="unknown">Chưa xác định</option><option value="mill-3axis">Máy phay 3 trục XYZ</option><option value="lathe">Máy tiện</option><option value="mill-multiaxis">Máy phay nhiều trục / TCP</option><option value="other">Loại khác</option></select></div>
         <div class="field"><label for="cncOrientationInput">Bố trí mô hình máy</label><select id="cncOrientationInput" class="input"><option value="unknown">Chưa xác định</option><option value="vertical">Vertical · Phay đứng</option><option value="horizontal">Horizontal · Phay ngang</option></select></div>
-        <div class="field"><label for="cncOffsetTableInput">Bảng offset</label><select id="cncOffsetTableInput" class="input"><option value="unverified">Chưa xác định</option><option value="m-c">Phay Memory C · H/D Geometry/Wear</option><option value="m-ab">Phay Memory A/B</option><option value="turning">Tiện · X/Z và mũi dao</option><option value="other">Bảng khác</option></select></div>
+        <div class="field"><label for="cncOffsetTableInput">Bảng offset</label><select id="cncOffsetTableInput" class="input"><option value="unverified">Chưa xác định</option><option value="m-c">Phay Memory C · H/D Geometry/Wear</option><option value="m-a">Phay Memory A</option><option value="m-b">Phay Memory B</option><option value="m-ab">Phay Memory A/B</option><option value="turning">Tiện · X/Z và mũi dao</option><option value="other">Bảng khác</option></select></div>
         <div class="field wide"><label><input type="checkbox" id="cncOffsetConfirmedInput"> Đã đối chiếu bảng offset và đơn vị trên máy</label><p class="meta" id="cncProfileHelp">Chưa biết loại máy: để Chưa xác định. Giá trị offset chưa xác minh sẽ để trống.</p></div>
       </div>
       <div class="modal-foot">
@@ -758,6 +758,6 @@
 
   <div class="toast" id="toast" role="status" aria-live="polite"></div>
 
-  <script type="module" src="assets/js/app.js?v=20261109-operator-screen"></script>
+  <script type="module" src="assets/js/app.js?v=20261109-work-offset-tray"></script>
 </body>
 </html>

@@ -13,3 +13,23 @@ $l=New-Object FanucReader+LoadElement;$l.name=88;$l.data=2300;$l.dec=1
 Assert ([FanucReader]::DecodeServo($l).percent -eq 230) 'Actual servo overload clipped'
 $l.data=-1;Assert ($null -eq [FanucReader]::DecodeServo($l)) 'Invalid servo value accepted'
 Write-Output 'PASS: SDK layouts, signed/zero/rotary positions and servo scaling; no CNC contacted.'
+$g=New-Object FanucReader+GcodeReading;$g.group=14;$g.code=[Text.Encoding]::ASCII.GetBytes("G54.1`0`0`0")
+Assert ([Runtime.InteropServices.Marshal]::SizeOf([type][FanucReader+GcodeReading]) -eq 12) 'G-code structure incorrect'
+Assert ([FanucReader]::DecodeGcode($g).code -eq 'G54.1') 'Decimal G-code lost'
+$g.code=[Text.Encoding]::ASCII.GetBytes("BAD`0`0`0`0`0");Assert ($null -eq [FanucReader]::DecodeGcode($g)) 'Invalid G-code accepted'
+foreach($memory in @(0,1,2)){
+ $fields=if($memory -eq 0){1}elseif($memory -eq 1){2}else{4};$columns=New-Object 'int[][]' $fields;$columns[0]=[int[]]@(-125,0);if($memory -ge 1){$columns[1]=[int[]]@(12,0)};if($memory -eq 2){$columns[2]=[int[]]@(230,0);$columns[3]=[int[]]@(-4,0)}
+ $rows=[FanucReader]::DecodeOffsetColumns(2,$memory,3,$columns)
+ Assert ($rows.Length -eq 2 -and $rows[0].number -eq 1 -and $rows[1].number -eq 2) 'Offset rows lost'
+ if($memory -eq 0){Assert ($rows[0].value -eq -0.125 -and $rows[1].value -eq 0) 'Memory A value/zero incorrect'}
+ if($memory -eq 1){Assert ($rows[0].geometry -eq -0.125 -and $rows[0].wear -eq 0.012 -and $null -eq $rows[0].lengthGeometry) 'Memory B mislabeled as C'}
+ if($memory -eq 2){Assert ($rows[0].lengthGeometry -eq -0.125 -and $rows[0].radiusGeometry -eq 0.230 -and $rows[0].radiusWear -eq -0.004) 'Memory C columns incorrect'}
+}
+Assert ([FanucReader]::IsCompleteProgram("%`nO07020`nG0X0`nM30`n%",7020)) 'Complete file rejected'
+Assert ([FanucReader]::IsCompleteProgram("O7020`nM30`n%",7020)) 'File without opening marker rejected'
+Assert (-not [FanucReader]::IsCompleteProgram("%`nO07020`nG0X0",7020)) 'Partial file accepted'
+Assert (-not [FanucReader]::IsCompleteProgram("%`nO07021`nM30`n%",7020)) 'Wrong O-number accepted'
+Assert (-not [FanucReader]::IsCompleteProgram("%`nO07020`nM30`nO7021`nM30`n%",7020)) 'Multiple file upload accepted'
+Write-Output 'PASS: decimal G-code, distinct A/B/C layouts, complete/partial/wrong-program validation.'
+
+Assert ([FanucReader]::IsCompleteProgram("%`n`r`rO07020`n`r`rM30`n`r`r%",7020)) 'Documented LF CR CR program format rejected'

@@ -1,128 +1,69 @@
-NEWAY 1260S - FOCAS STATUS ONLY (KHÔNG ĐỌC PMC)
-Bridge build: 20261109-operator-screen
+LTD FANUC BRIDGE — CHỈ ĐỌC, KHÔNG TRUY CẬP PMC
+Bridge build: 20261109-work-offset-tray
 
-BẢN NÀY LÀM GÌ?
-- Đọc trạng thái CNC, tốc độ, số chương trình, PART COUNT và timer qua FOCAS.
-- Đọc tối đa 32 Alarm đang hoạt động bằng cnc_rdalmmsg2 (chỉ đọc).
-  Hiện số lỗi, loại lỗi, trục và nội dung CNC trả về; không tự suy diễn tiền tố mã.
-  Tự lưu Alarm mới vào cncAlarms ngay trong lần đọc phát hiện lỗi; không cần mở web.
-  Alarm giữ nguyên không tạo dòng trùng; hết rồi tái xuất hiện tạo sự cố mới.
-  Lưu hàng chờ và trạng thái vào report-outbox/alarms-*.json, tự gửi lại khi có mạng.
-  Giữ nguyên report-outbox khi nâng cấp để tránh mất dữ liệu hoặc lặp sự cố.
-  Hết lỗi chỉ ghi khi đọc thành công không còn mã đó; mất kết nối không đóng sự cố.
-  Alarm ngắn giữa hai lần đọc có thể bị bỏ lỡ. Web tải lịch sử mỗi 5 giây.
-  Nội dung theo bảng mã Windows hiện tại; cần đối chiếu màn hình nếu chữ bị sai.
-  CNC không hỗ trợ sẽ báo readErrors.alarms, không làm dừng các thông số khác.
-- Không chứa hàm pmc_rdpmcrng, không đọc X/R, không có luồng đọc PMC nền.
-- Không có lệnh sửa ladder, ép tín hiệu, ghi tham số hoặc điều khiển CNC.
-- Vẫn là kết nối đọc bộ điều khiển CNC qua FOCAS, không phải hệ thống độc lập với CNC.
-- DLL do bạn cung cấp chưa được kiểm toán toàn bộ; giới hạn trên nói về mã cầu nối này.
+KHUYÊN DÙNG GIAO DIỆN
+Tải FANUC-Bridge-Manager.zip trên web, chép ba DLL vào lib rồi nhấp đúp
+START-MANAGER.cmd. Có thêm/sửa/gỡ cấu hình máy, chọn mẫu, đăng nhập bằng hộp
+thoại, chạy nền, khay hệ thống, trạng thái gửi dữ liệu và nhật ký theo máy.
+Cấu hình đã lưu ở LocalAppData vẫn còn khi giải nén bản Manager mới.
 
-CẬP NHẬT QUAN TRỌNG
-1. Ctrl+C rồi ĐÓNG HẲN PowerShell cũ để kết thúc mọi luồng của bản trước.
-   Chỉ thay file hoặc đổi config không dừng được chương trình cũ còn chạy.
-2. Giải nén bản mới vào thư mục riêng. Chép ba DLL của bạn vào lib:
-   Fwlib64.dll, fwlibe64.dll, fwlib30i64.dll. Không chép vào System32.
-3. Nếu có report-outbox từ bản cũ, giữ/copy nó sang thư mục mới để không mất số liệu chờ.
-4. Kiểm tra bridge-config.json: CNC 192.168.1.1:8193; laptop Ethernet 192.168.1.10,
-   cùng subnet 255.255.255.0. IP laptop không cần khai báo trong cầu nối.
-5. Mở PowerShell 64-bit MỚI tại thư mục có Start-FanucBridge.ps1, không mở trong lib.
-   Theo quyền chạy script đã được cho phép trên laptop:
+CHẠY THỦ CÔNG GÓI NÀY
+1. Dừng cầu nối cũ, đóng PowerShell cũ trước khi cập nhật mã nguồn.
+2. Giữ bridge-config.json và report-outbox của đúng máy/tài khoản.
+3. Chép Fwlib64.dll, fwlibe64.dll, fwlib30i64.dll của bạn vào lib.
+4. Mở Windows PowerShell 64-bit trong thư mục chứa Start-FanucBridge.ps1.
+5. Chạy:
    Set-ExecutionPolicy -Scope Process -ExecutionPolicy RemoteSigned
-   Unblock-File -LiteralPath .\Start-FanucBridge.ps1
-   Unblock-File -LiteralPath .\FanucReader.cs
-   Unblock-File -LiteralPath .\ReportCollector.ps1
+   Unblock-File .\Start-FanucBridge.ps1
+   Unblock-File .\FanucReader.cs
+   Unblock-File .\ReportCollector.ps1
    .\Start-FanucBridge.ps1
-6. Nhập email/mật khẩu CMMS tại lời nhắc, không ghi mật khẩu vào lệnh/config.
-   Token và mật khẩu không được lưu trong file. Cần tài khoản email đã xác minh,
-   vai trò technician, manager hoặc admin.
-7. Phải thấy Bridge build: 20261109-operator-screen. Bản mới từ chối sử dụng lớp C# cũ.
-   Cấu hình cũ có pmcCycleSignals=true cũng không bật được PMC trong mã mới.
-8. Giữ LAN nối CNC, Wi-Fi có Internet và cửa sổ cầu nối mở. Không chạy hai bản cùng máy.
+6. Phải thấy Bridge build: 20261109-work-offset-tray. Đăng nhập tài khoản CMMS
+   đã xác minh, có vai trò phù hợp. Mật khẩu/token không lưu vào file.
+   Chế độ thủ công cần giữ PowerShell mở; Ctrl+C dừng cầu nối, không dừng CNC.
+7. Chỉ kiểm tra cục bộ, không đăng nhập/gửi Firebase:
+   .\Start-FanucBridge.ps1 -Once -LocalOnly
 
-QUY TẮC CHU KỲ
-- MEM/REMOTE chuyển từ STOP/RESET sang START: bắt đầu hàng quan sát.
-- Chuyển về STOP hoặc RESET: kết thúc hàng, không khẳng định nguyên nhân hay lệnh M30.
-- HOLD rồi START: tiếp tục cùng một hàng, cộng thời gian HOLD.
-- START khi đã chạy không tự tạo thêm sản phẩm. Nếu bắt đầu đọc giữa chu kỳ,
-  mốc đầu để trống và hàng đánh dấu thiếu dữ liệu.
-- Thời điểm là lúc cầu nối phát hiện trạng thái, sai số theo chu kỳ đọc (mặc định 5 giây).
-  Chu kỳ quá ngắn có thể bị bỏ lỡ; không coi là ghi chính xác thời điểm nút bấm.
-- Mất dữ liệu hoặc đổi chương trình giữa chu kỳ: đánh dấu chưa đầy đủ, không đoán kết thúc.
-- Alarm sau khi đã STOP thuộc tổng hợp trạng thái ngày, không ép vào một chu kỳ đã đóng.
-- PART COUNT đầu/cuối là giá trị đọc trực tiếp từ bộ đếm 6711 trên CNC.
-  Đổi chương trình hoặc khởi động lại cầu nối không đặt lại số đếm.
-  Nếu CNC tự reset bộ đếm thì hiển thị đúng số CNC trả về, không cộng bù.
-  Báo cáo cũ chỉ có số tăng không thể khôi phục mốc tuyệt đối nếu chưa từng lưu.
-- RUN TIME/CYCLE TIME đọc từ CNC; nếu không hỗ trợ sẽ để trống/báo lỗi, cần đối chiếu màn hình.
+MÀN HÌNH CNC MỚI
+- POSITION: bốn vùng tọa độ, tải servo, đoạn đang thực thi, G modal và thông số.
+- PROGRAM / WORK: toàn bộ file O đang chạy, EXT và G54–G59 của máy phay XYZ.
+- OFFSET: bảng giá trị cài đặt, phân trang 16 dòng, phân biệt Memory A/B/C.
+- ALARM: chỉ thông tin lỗi. THỐNG KÊ: biểu đồ và báo cáo trong ngày.
+- Web có nút Xóa máy; dừng cầu nối trước để bản ghi không được tạo lại.
 
-WEB VÀ BÁO CÁO
-- Ctrl+Shift+R trên web sau cập nhật. Đèn web là quy ước từ FOCAS:
-  xanh RUN, vàng HOLD, đỏ alarm, xám STOP/RESET/mất tín hiệu; không đọc bóng đèn tháp thật.
-- Excel chỉ Tổng quan và Theo ngày. Theo ngày có hàng chu kỳ, giờ RUN/Alarm/HOLD,
-  giờ bắt đầu/dừng quan sát và PART COUNT. Dữ liệu cũ tổng hợp ngày không tách ngược thành chu kỳ.
-- FIREBASE UPDATED: tín hiệu hiện tại gửi thành công.
-- ALARM HISTORY SAVED: một bản ghi Alarm đã gửi Firebase thành công.
-  Nếu báo HTTP 401/403, kiểm tra quyền cncAlarms trong Rules hiện có, không mở quyền công khai.
-- REPORTS UPDATED: tổng hợp và chu kỳ đã được lưu. Dùng lại nhánh cncReports Rules đã thêm.
-- Nếu chưa có quyền báo cáo, thêm nhánh trong FIREBASE-REPORTS-RULES.json vào Rules
-  hiện có và Publish, không thay toàn bộ Rules hoặc mở quyền công khai.
-- report-outbox giữ dữ liệu vận hành chờ gửi, không chứa token/mật khẩu. Gửi lại cùng phiên
-  không cộng đôi. Giữ thư mục này khi cập nhật. Chưa đăng nhập thì chưa thu thập báo cáo mới.
-- last-result.json là mẫu CNC gần nhất, không chứa thông tin đăng nhập.
+DAO / GỐC / OFFSET
+HD.T/NX.T đọc riêng bằng cnc_rdhdnxt. T modal không thay thế dao trên trục chính.
+Nguồn là vị trí đầu/chờ thứ nhất do CNC quản lý, không phải cảm biến vật lý.
+Gốc EXT/G54–G59 dùng macro hệ thống và số lẻ CNC trả về, không lấy chênh lệch
+vị trí để đoán gốc. Không diễn giải G54.1/P, G52, xoay tọa độ hoặc TCP.
+Chọn đúng Phay XYZ 3 trục và Memory A/B/C, đánh dấu đã đối chiếu trên Manager
+hoặc web. Cầu nối đối chiếu với loại thật từ cnc_rdtofsinfo và cnc_getfigure.
+Loại/độ chia chưa xác minh hoặc máy tiện: không đoán giá trị offset.
+Bảng offset làm mới khoảng 30 giây, hiển thị thời điểm đọc; tối đa 2000 dòng.
+Path/trục chính mặc định; không tự thu thập mọi kênh khi chọn mẫu nhiều trục.
 
-THỬ KHÔNG GỬI FIREBASE
-   .\Start-FanucBridge.ps1 -LocalOnly -Once
-Chỉ đọc một lần, không đăng nhập hoặc gửi dữ liệu cloud.
+TOÀN BỘ FILE O
+Chỉ đọc CNC → PC bằng cnc_upstart3/cnc_upload3/cnc_upend3. Không gọi download,
+không ghi/xóa/chạy chương trình. Không bỏ bảo vệ hoặc đổi chế độ máy.
+Đúng số O và kết thúc % mới được coi là đủ; tối đa 2 MiB và ngân sách vòng đọc
+2 giây, mỗi lời gọi vẫn chịu timeout của DLL. Đổi O thì đọc lại; cùng O làm mới
+khoảng 60 giây. File bận/bị bảo vệ/thiếu tùy chọn hiện Chưa đọc + chẩn đoán.
+Nội dung file gửi lên bản ghi máy trong dự án Firebase hiện tại, dùng quyền
+đọc/ghi hiện có. Nội dung lớn không được gửi lặp mỗi lần nếu hash không đổi.
 
-KIỂM CHỨNG
-Đã kiểm tra danh sách API native, không có import PMC, luồng nền hoặc lệnh ghi CNC;
-đã biên dịch C#, thử các luồng với dữ liệu giả và giao diện Chromium/Excel hai sheet.
-Cần chạy thực tế để xác nhận dữ liệu timer và quy tắc quan sát phù hợp với máy của bạn.
+ALARM / BÁO CÁO
+Alarm mới lưu ngay trong lần đọc phát hiện vào cncAlarms, giữ hàng chờ để gửi
+lại. Lỗi đang giữ không tạo bản ghi trùng; mất liên lạc không coi là hết lỗi.
+Báo cáo thu thập khoảng START → STOP/RESET; không xác nhận M30, không đọc PMC.
+HOLD rồi chạy tiếp cùng lượt. Khoảng mất tín hiệu không tính là giờ RUN.
+PART COUNT lấy bộ đếm CNC 6711; số tăng không luôn đồng nghĩa sản phẩm đạt.
+Excel gồm Tổng quan và Theo ngày; số liệu cũ không được tự bù bằng suy đoán.
+Giữ report-outbox khi cập nhật. last-result.json là mẫu gần nhất, không có mật khẩu.
+Nếu báo cáo bị HTTP 401: ghép nhánh FIREBASE-REPORTS-RULES.json vào Rules đang dùng,
+không thay toàn bộ và không mở quyền công khai; tệp báo cáo vẫn chờ trên máy.
 
-BỔ SUNG 20261107-tool-context
-- Hiển thị T modal qua cnc_modal(108,0); số T này có thể là dao đã chọn trước.
-  Không khẳng định dao đang trên trục chính và không đọc PMC để suy diễn.
-- Lưu chương trình và ngữ cảnh dao trong sự cố, khi bắt đầu lượt chạy,
-  và khi T / chương trình / gốc / offset thay đổi trong lượt chạy.
-- Dữ liệu cũ không có ngữ cảnh được để trống, không lấy giá trị hiện tại bù vào lịch sử.
-- Mặc định machiningContextProfile là unverified: chưa đọc/diễn giải XYZ và H/D.
-  Chỉ sau khi xác minh máy phay FANUC 3 trục, Memory C, macro và độ chia offset
-  mới dùng verified-fanuc-m-3axis-memory-c trong bridge-config.json.
-  Không tự bật cấu hình này cho máy khác hoặc bảng offset khác.
-- Hồ sơ M-C dùng #4006 (đơn vị), #4014 (G54-G59), #4111 (H), #4107 (D),
-  macro #5221…#5323 cho bảng XYZ, cnc_rdtofsinfo / cnc_rdtofs / cnc_getfigure.
-  G54.1/P, G52, xoay hệ tọa độ, TCP và bảng offset khác chưa được diễn giải.
-  Giá trị là bảng gốc làm việc, không phải vị trí trục hoặc tổng biến đổi tọa độ.
-- Đối chiếu số T, gốc và offset trên màn hình CNC trước khi dùng số liệu cho báo cáo.
-- Bản này vẫn chỉ đọc. Không có hàm truyền, ghi đè hoặc chạy chương trình.
-  Bản thử truyền chương trình nằm trong gói FANUC-Program-Transfer-Trial riêng.
-- Trên web: Sửa IP → Loại máy → Bảng offset. Nếu chưa rõ, chọn Chưa xác định.
-  Chỉ đánh dấu đã đối chiếu khi đã xác nhận trực tiếp bảng và đơn vị trên CNC.
-  Cầu nối mới đọc lại lựa chọn mỗi 60 giây. Chỉ hồ sơ Phay 3 trục / Memory C
-  đã đối chiếu mới được diễn giải offset; các loại khác hiện chỉ lưu phân loại.
-- Ưu tiên cnc_toolnum(0,0) nếu CNC có tool-life management, sau đó mới dùng
-  T modal. Cả hai đều là dữ liệu CNC trả về, không phải đọc cảm biến dao vật lý.
-- Khi dùng web, lựa chọn trong Cài đặt máy là nguồn cấu hình đọc offset;
-  chỉnh tay machiningContextProfile trong JSON không thay thế xác nhận trên web.
-  Chỉ chế độ -LocalOnly mới dùng trực tiếp hồ sơ trong file JSON.
-
-BRIDGE MANAGER
-Gói FANUC-Bridge-Manager cung cấp cửa sổ chọn mẫu máy và quản lý cấu hình.
-Các tham số LibraryDirectory / DataDirectory chỉ thay vị trí DLL và dữ liệu
-trên laptop. StopRequestPath yêu cầu dừng cầu nối, không gửi lệnh dừng CNC.
-Mỗi máy dùng thư mục dữ liệu riêng để tránh xung đột report-outbox.
-
-MÀN HÌNH CHI TIẾT CNC — 20261109
-- Bấm mô hình máy trên web để xem POSITION, PROGRAM, ALARM hoặc THỐNG KÊ.
-- Bổ sung cnc_rdposition (RELATIVE/ABSOLUTE/MACHINE/DISTANCE TO GO),
-  cnc_rdsvmeter (tải servo), cnc_rdseqnum và cnc_rdexecprog (đoạn chương trình).
-- Tất cả là API chỉ đọc, không đọc PMC và không ghi hay điều khiển CNC.
-- Mục không được bộ điều khiển/DLL hỗ trợ hiện Chưa đọc. Không lấy số trong ảnh.
-- Cần cập nhật Bridge để có các mục mới; cấu hình và report-outbox cũ giữ nguyên.
-- Vùng PROGRAM chỉ là đoạn CNC trả về, không phải toàn bộ file. Dòng N được tô
-  khi khớp duy nhất với số N đọc được; các lần đọc không phải ảnh chụp đồng thời.
-- Tải servo có thang hiển thị 0–200%, số thực vẫn giữ khi vượt thang.
-- Các tab chỉ đổi cách xem trên web. Không có nút Cycle Start/Reset/ghi offset.
-- Đã kiểm tra mã và dữ liệu thử; cần đối chiếu tọa độ, đơn vị, tải và chương trình
-  trên CNC thật lần đầu. Tên kiểu máy không tự xác nhận bảng offset H/D.
+PHẠM VI / KIỂM TRA
+Không đọc/ghi PMC hoặc ghi CNC. Không đổi offset, tham số, chương trình hay
+điều khiển chuyển động. DLL do bạn cung cấp chưa được kiểm toán toàn bộ.
+Đã kiểm tra mã, ABI giả lập và giao diện; chưa kết nối CNC thật/GUI Windows.
+Đối chiếu lần đầu HD.T/NX.T, đơn vị, gốc và offset trên màn hình CNC.
