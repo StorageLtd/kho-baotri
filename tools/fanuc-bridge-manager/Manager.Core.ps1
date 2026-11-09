@@ -1,4 +1,5 @@
 ﻿# Configuration operations only. No native CNC calls and no cloud writes in this module.
+. (Join-Path $PSScriptRoot 'bridge/Bridge.State.ps1')
 $script:ManagerHome=$null;$script:ManagerPackage=$null;$script:ManagerBase=$null
 function Initialize-Manager([string]$DataHome,[string]$PackageRoot){
  $script:ManagerHome=[IO.Path]::GetFullPath($DataHome);$script:ManagerPackage=[IO.Path]::GetFullPath($PackageRoot)
@@ -85,18 +86,17 @@ function Start-ManagerBridge([string]$Id,[Management.Automation.PSCredential]$Cr
  if(Get-ManagerProcess $Id){throw 'Cầu nối máy này đã chạy.'};$path=Get-MachineConfigPath $Id;if(-not (Test-Path -LiteralPath $path)){throw 'Lưu cấu hình trước khi chạy.'}
  foreach($name in @('Fwlib64.dll','fwlibe64.dll','fwlib30i64.dll')){if(-not (Test-Path -LiteralPath (Join-Path $script:ManagerPackage ('lib/'+$name)))){throw "Thiếu lib\$name. Chép 3 DLL chung vào lib trước."}}
  $folder=Get-MachineFolder $Id;$stop=Join-Path $folder 'stop-request';Remove-Item -LiteralPath $stop -Force -ErrorAction SilentlyContinue
- Remove-Item -LiteralPath (Join-Path $folder 'bridge-startup-error.log') -Force -ErrorAction SilentlyContinue
- @{at=[DateTime]::UtcNow.ToString('o');phase='starting';uploaded=$false}|ConvertTo-Json|Set-Content -LiteralPath (Join-Path $folder 'bridge-state.json') -Encoding UTF8
+ $sessionId=[Guid]::NewGuid().ToString('N')
+ [void](Write-BridgeStateFile (Join-Path $folder 'bridge-state.json') @{at=[DateTime]::UtcNow.ToString('o');phase='starting';uploaded=$false;sessionId=$sessionId})
  $shell=Join-Path ([Environment]::SystemDirectory) 'WindowsPowerShell/v1.0/powershell.exe'
  $bridge=Join-Path $script:ManagerPackage 'bridge/Start-FanucBridge.ps1';$lib=Join-Path $script:ManagerPackage 'lib'
  foreach($value in @($bridge,$path,$lib,$folder,$stop)){if($value.Contains('"')){throw 'Đường dẫn không hợp lệ.'}}
  # Only local paths/flags are in process arguments. Credentials never go to argv, files or environment.
- $arguments='-NoLogo -NoProfile -NonInteractive -STA -ExecutionPolicy RemoteSigned -File "'+$bridge+'" -ConfigPath "'+$path+'" -LibraryDirectory "'+$lib+'" -DataDirectory "'+$folder+'" -StopRequestPath "'+$stop+'" -CredentialFromStdin'
+ $arguments='-NoLogo -NoProfile -NonInteractive -STA -ExecutionPolicy RemoteSigned -File "'+$bridge+'" -ConfigPath "'+$path+'" -LibraryDirectory "'+$lib+'" -DataDirectory "'+$folder+'" -StopRequestPath "'+$stop+'" -CredentialFromStdin -SessionId '+$sessionId
  $process=New-Object Diagnostics.Process;$process.StartInfo=New-ManagerLaunchInfo $shell $arguments
  if(-not $process.Start()){throw 'Không khởi động được tiến trình cầu nối.'}
  $ticks=$process.StartTime.ToUniversalTime().Ticks
- [pscustomobject]@{pid=$process.Id;startedTicks=$ticks}|ConvertTo-Json|Set-Content -LiteralPath (Join-Path $folder 'runtime.json') -Encoding UTF8
- try{Send-ManagerCredential $process.StandardInput $Credential $Id}finally{$process.StandardInput.Close()}
+ try{if(-not (Write-BridgeStateFile (Join-Path $folder 'runtime.json') @{pid=$process.Id;startedTicks=$ticks;sessionId=$sessionId})){throw 'Không lưu được thông tin tiến trình cầu nối.'};Send-ManagerCredential $process.StandardInput $Credential $Id}finally{$process.StandardInput.Close()}
  return $process
 }
 function Stop-ManagerBridge([string]$Id){
@@ -113,10 +113,16 @@ function Remove-ManagerMachine([string]$Id,[string]$ExpectedHash){
  Move-Item -LiteralPath (Get-MachineFolder $Id) -Destination $target
  return $target
 }
+function Get-ManagerLogPaths([string]$Id){
+ $folder=Get-MachineFolder $Id;$runtime=Read-BridgeStateFile (Join-Path $folder 'runtime.json')
+ $suffix=if($runtime.sessionId -cmatch '^[a-f0-9]{32}$'){'-'+$runtime.sessionId}else{''}
+ return @{session=Join-Path $folder ('bridge-session'+$suffix+'.log');startup=Join-Path $folder ('bridge-startup-error'+$suffix+'.log')}
+}
 function Get-ManagerHeartbeat([string]$Id){
- $file=Join-Path (Get-MachineFolder $Id) 'bridge-state.json'
- if(Test-Path -LiteralPath $file){try{return Get-Content -LiteralPath $file -Raw -Encoding UTF8|ConvertFrom-Json}catch{}}
- return $null
+ $folder=Get-MachineFolder $Id;$state=Read-BridgeStateFile (Join-Path $folder 'bridge-state.json')
+ $runtime=Read-BridgeStateFile (Join-Path $folder 'runtime.json')
+ if($runtime.sessionId -and $state.sessionId -cne $runtime.sessionId){return $null}
+ return $state
 }
 
 function Stop-StuckManagerBridge([string]$Id){

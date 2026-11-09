@@ -25,11 +25,16 @@ foreach($profileRecord in @([pscustomobject]@{machineKind='lathe';offsetTable='m
  Apply-BridgeMachiningProfile $profileConfig $profileRecord
  Assert-True ($profileConfig.machiningContextProfile -eq 'unverified') 'Unknown / incompatible / nonboolean profile enabled offset interpretation'
 }
+Add-Type -TypeDefinition @'
+public class FixtureHttpResponse { public int StatusCode=400; }
+public class FixtureHttpFailure:System.Exception { public FixtureHttpResponse Response=new FixtureHttpResponse(); public FixtureHttpFailure():base("sensitive request TOP_SECRET"){} }
+'@
 $global:BridgeTest_existingResponse = $null
 $global:BridgeTest_collision = $false
 $global:BridgeTest_calls = @(); $global:BridgeTest_verified = $true; $global:BridgeTest_role = 'technician'; $global:BridgeTest_failHttp = $false
 function Invoke-RestMethod {
     param($Uri,$Method,$Body,$ContentType,$TimeoutSec,$ErrorAction,$Verbose,$Debug)
+    if($global:BridgeTest_errorJson){$exception=New-Object FixtureHttpFailure;$record=New-Object Management.Automation.ErrorRecord($exception,'FixtureHttp',[Management.Automation.ErrorCategory]::InvalidOperation,$null);$record.ErrorDetails=New-Object Management.Automation.ErrorDetails($global:BridgeTest_errorJson);throw $record}
     if ($global:BridgeTest_failHttp) { throw ('sensitive URL ' + $Uri) }
     if($global:BridgeTest_loginOrder -and $Uri -like '*signInWithPassword*'){Assert-True ([FanucReader]::Calls -eq $global:BridgeTest_beforeLoginNative) 'CNC read occurred before GUI authentication'}
     $global:BridgeTest_calls += [pscustomobject]@{ Uri=$Uri; Method=$Method; Body=$Body; ContentType=$ContentType }
@@ -74,6 +79,14 @@ Assert-True $denied 'Viewer allowed to send telemetry'
 $global:BridgeTest_failHttp=$true;$safe=$false
 try { Invoke-BridgeHttp 'https://example.invalid/?auth=TOP_SECRET' 'GET' $null 'Read' } catch { $safe=$_.Exception.Message -notmatch 'TOP_SECRET|example.invalid' }
 Assert-True $safe 'HTTP errors disclosed credentials or URL'
+$global:BridgeTest_failHttp=$false
+foreach($code in @('INVALID_LOGIN_CREDENTIALS','TOP_SECRET')){
+ $global:BridgeTest_errorJson=@{error=@{message=$code}}|ConvertTo-Json
+ $message='';try{Invoke-BridgeHttp 'https://example.invalid/?auth=TOP_SECRET' 'POST' $null 'Sign in'}catch{$message=$_.Exception.Message}
+ Assert-True ($message -notmatch 'TOP_SECRET|example.invalid') 'Server error leaked unapproved response data'
+ if($code -eq 'INVALID_LOGIN_CREDENTIALS'){Assert-True ($message -match 'HTTP 400; INVALID_LOGIN_CREDENTIALS') 'Safe sign-in failure code not retained'}
+}
+$global:BridgeTest_errorJson=$null
 $password.Dispose()
 Write-Output 'PASS: PowerShell syntax, secure credential conversion, raw-state mapping, verified email/role checks, per-machine PATCH, server timestamps, token refresh, no secret leakage in payload/errors.'
 # Exercise the complete script with a fake native reader and fake HTTPS transport.
@@ -95,6 +108,7 @@ $fixtureDirectory=Join-Path ([IO.Path]::GetTempPath()) ('fanuc-bridge-test-'+[gu
 $null=New-Item -ItemType Directory -Path $fixtureDirectory
 try {
     Copy-Item $scriptPath (Join-Path $fixtureDirectory 'Start-FanucBridge.ps1')
+    Copy-Item (Join-Path $root 'tools/fanuc-bridge/Bridge.State.ps1') (Join-Path $fixtureDirectory 'Bridge.State.ps1')
     Copy-Item (Join-Path $root 'tools/fanuc-bridge/ReportCollector.ps1') (Join-Path $fixtureDirectory 'ReportCollector.ps1')
     Copy-Item (Join-Path $root 'tools/fanuc-bridge/bridge-config.json') (Join-Path $fixtureDirectory 'bridge-config.json')
     # Even an old config that enabled PMC cannot enable any access in this reader.
@@ -178,6 +192,19 @@ function Read-BridgeGuiCredential([string]$MachineName){
     Write-Output 'PASS: inline Manager credentials reach background auth through private stdin, with no GUI or initial CNC dependency.'
     $global:BridgeTest_loginOrder=$false
     Write-Output 'PASS: Manager login opens before any native CNC read, authentication precedes first read, and phases contain no credentials.'
+    # Make only the auxiliary state target unwritable while the report/results folder stays writable.
+    $statePath=Join-Path $fixtureDirectory 'bridge-state.json';Remove-Item -LiteralPath $statePath -Force
+    $null=New-Item -ItemType Directory -Path $statePath
+    $pipeCredential=New-Object Management.Automation.PSCredential('fixture@example.invalid',(ConvertTo-SecureString 'fixture-password' -AsPlainText -Force))
+    $writer=New-Object IO.StringWriter;Send-ManagerCredential $writer $pipeCredential $oldConfig.machineId
+    $reader=New-Object IO.StringReader($writer.ToString());$oldInput=[Console]::In
+    $global:BridgeTest_calls=@();$before=[FanucReader]::Calls;$global:LASTEXITCODE=0
+    try{[Console]::SetIn($reader);& (Join-Path $fixtureDirectory 'Start-FanucBridge.ps1') -Once -CredentialFromStdin}finally{[Console]::SetIn($oldInput);$reader.Dispose();$writer.Dispose();$pipeCredential.Password.Dispose()}
+    Assert-True ([FanucReader]::Calls -eq $before+1 -and $LASTEXITCODE -eq 0) 'Auxiliary state I/O failure stopped collection'
+    $livePatches=@($global:BridgeTest_calls|Where-Object {$_.Method -eq 'PATCH' -and $_.Body -like '*"spindleSpeed":1800*'})
+    Assert-True ($livePatches.Count -eq 1) 'Telemetry not sent when local state file could not be replaced'
+    Remove-Item -LiteralPath $statePath -Recurse -Force
+    Write-Output 'PASS: failed local state writes do not stop authentication, CNC reads or telemetry uploads.'
     $global:BridgeTest_calls=@();$global:BridgeTest_collision=$true
     & (Join-Path $fixtureDirectory 'Start-FanucBridge.ps1') -Once
     Assert-True (@($global:BridgeTest_calls | Where-Object Method -eq 'PATCH').Count -eq 0) 'Collision failure or cleanup unexpectedly modified a different machine'

@@ -4,6 +4,7 @@
     [switch]$LocalOnly,
     [switch]$BackgroundAfterLogin,
     [switch]$CredentialFromStdin,
+    [string]$SessionId='',
     [string]$LibraryDirectory = (Join-Path $PSScriptRoot 'lib'),
     [string]$DataDirectory = $PSScriptRoot,
     [string]$StopRequestPath = ''
@@ -16,6 +17,7 @@ $script:BridgeFailed = $false
 $machineRegistered = $false
 $reportingStarted = $false
 . (Join-Path $PSScriptRoot "ReportCollector.ps1")
+. (Join-Path $PSScriptRoot "Bridge.State.ps1")
 function Invoke-BridgeHttp {
     param([string]$Uri, [string]$Method, $Body, [string]$Operation, [string]$ContentType = 'application/json')
     $parameters = @{ Uri = $Uri; Method = $Method; TimeoutSec = 20; ErrorAction = 'Stop'; Verbose = $false; Debug = $false }
@@ -33,7 +35,13 @@ function Invoke-BridgeHttp {
     catch {
         $status = 0
         if ($_.Exception.Response) { $status = [int]$_.Exception.Response.StatusCode }
-        throw "$Operation failed (HTTP $status). Check Internet, account permissions or Firebase configuration."
+        $safeCode=''
+        try{
+            $details=$_.ErrorDetails.Message|ConvertFrom-Json -ErrorAction Stop
+            $code=([string]$details.error.message).Split(':')[0].Trim()
+            if($code -in @('INVALID_LOGIN_CREDENTIALS','INVALID_PASSWORD','EMAIL_NOT_FOUND','INVALID_EMAIL','USER_DISABLED','TOO_MANY_ATTEMPTS_TRY_LATER','OPERATION_NOT_ALLOWED','API_KEY_INVALID','INVALID_API_KEY','PROJECT_NOT_FOUND')){$safeCode='; '+$code}
+        }catch{}
+        throw "$Operation failed (HTTP $status$safeCode). Check Internet, account permissions or Firebase configuration."
     }
 }
 function Connect-BridgeAccount {
@@ -140,7 +148,7 @@ function Apply-BridgeMachiningProfile {
 }
 function Set-BridgePhase([string]$Phase){
     if(-not $BackgroundAfterLogin){return}
-    @{at=[DateTime]::UtcNow.ToString('o');phase=$Phase;uploaded=$false}|ConvertTo-Json|Set-Content -LiteralPath (Join-Path $DataDirectory 'bridge-state.json') -Encoding UTF8
+    [void](Write-BridgeStateFile (Join-Path $DataDirectory 'bridge-state.json') @{at=[DateTime]::UtcNow.ToString('o');phase=$Phase;uploaded=$false;sessionId=$SessionId})
 }
 function Read-BridgeStdinCredential([string]$ExpectedMachineId){
  $line=$null;$json=$null;$entry=$null
@@ -200,6 +208,10 @@ try {
     if($CredentialFromStdin){$BackgroundAfterLogin=$true}
     if (-not [Environment]::Is64BitProcess) { throw 'Use 64-bit Windows PowerShell, not PowerShell (x86).' }
     $null=New-Item -ItemType Directory -Path $DataDirectory -Force
+    if(-not $SessionId){$SessionId=[Guid]::NewGuid().ToString('N')}
+    if($SessionId -cnotmatch '^[a-f0-9]{32}$'){throw 'Invalid local bridge session ID.'}
+    $script:SessionLogPath=Join-Path $DataDirectory ('bridge-session-'+$SessionId+'.log')
+    $script:StartupLogPath=Join-Path $DataDirectory ('bridge-startup-error-'+$SessionId+'.log')
     $config = Get-Content -LiteralPath $ConfigPath -Raw -Encoding UTF8 | ConvertFrom-Json
     if(-not $config.PSObject.Properties['partsPerCount']){$config|Add-Member -NotePropertyName partsPerCount -NotePropertyValue 1}
     if(-not $config.PSObject.Properties['partCounterVerified']){$config|Add-Member -NotePropertyName partCounterVerified -NotePropertyValue $false}
@@ -219,7 +231,7 @@ try {
     }
     if (-not ('FanucReader' -as [type])) { Add-Type -Path (Join-Path $PSScriptRoot 'FanucReader.cs') }
     if (-not ([FanucReader].GetProperty('ReaderBuild')) -or [FanucReader]::ReaderBuild -ne '20261109-spindle-meters' -or -not ([FanucReader].GetProperty('AccessMode')) -or [FanucReader]::AccessMode -ne 'FOCAS_STATUS_ONLY_V1' -or -not ([FanucReader].GetMethods()|Where-Object {$_.Name -eq 'ReadWithContext' -and $_.GetParameters().Count -eq 5})) { throw 'Old reader loaded. CLOSE this PowerShell window and open a new one. The new bridge refuses to reuse the previous reader.' }
-    Write-Host "Bridge build: 20261109-spindle-meters"
+    Write-Host "Bridge build: 20261109-state-io"
     Write-Host "Machine: $($config.machineName) | CNC $($config.cncIp):$($config.port)"
     Write-Host 'Read-only CNC access. Reading status, actual spindle/feed and current/main O-number. Reading alarm messages with cnc_rdalmmsg2; no PMC access or CNC writes.'
     Write-Host 'HD.T / NX.T via cnc_rdhdnxt. Read-only G modal, work coordinates and confirmed offset tables; no PMC.'
@@ -257,10 +269,10 @@ try {
         $machineRegistered = $true
         $sample = $null # Authentication may take minutes; never upload that old initial sample.
     }
-    if($BackgroundAfterLogin){$logPath=Join-Path $DataDirectory 'bridge-session.log';if((Test-Path -LiteralPath $logPath) -and (Get-Item -LiteralPath $logPath).Length -gt 5MB){Move-Item -LiteralPath $logPath -Destination ($logPath+'.previous') -Force};$null=Start-Transcript -LiteralPath (Join-Path $DataDirectory 'bridge-session.log') -Append; $script:BridgeTranscript=$true}
+    if($BackgroundAfterLogin){$logPath=$script:SessionLogPath;if((Test-Path -LiteralPath $logPath) -and (Get-Item -LiteralPath $logPath).Length -gt 5MB){Move-Item -LiteralPath $logPath -Destination ($logPath+'.previous') -Force};$null=Start-Transcript -LiteralPath $script:SessionLogPath -Append; $script:BridgeTranscript=$true}
     Write-Host 'Bridge active. Use Manager to stop background bridge, or Ctrl+C in manual mode.'
     do {
-        if($BackgroundAfterLogin -and $script:BridgeTranscript -and (Get-Item -LiteralPath (Join-Path $DataDirectory 'bridge-session.log')).Length -gt 5MB){Stop-Transcript|Out-Null;$logPath=Join-Path $DataDirectory 'bridge-session.log';Move-Item -LiteralPath $logPath -Destination ($logPath+'.previous') -Force;$null=Start-Transcript -LiteralPath $logPath}
+        if($BackgroundAfterLogin -and $script:BridgeTranscript -and (Get-Item -LiteralPath $script:SessionLogPath).Length -gt 5MB){Stop-Transcript|Out-Null;$logPath=$script:SessionLogPath;Move-Item -LiteralPath $logPath -Destination ($logPath+'.previous') -Force;$null=Start-Transcript -LiteralPath $logPath}
         if($StopRequestPath -and (Test-Path -LiteralPath $StopRequestPath)){Write-Host 'Bridge stop requested by manager.';break}
         if ($null -eq $sample) {
             if(-not $LocalOnly -and ([DateTime]::UtcNow-$script:ProfileCheckedAt).TotalSeconds -ge 60){
@@ -298,7 +310,7 @@ try {
             if ($sample.readErrors -and $sample.readErrors.Count -gt 0) {
                 foreach ($item in $sample.readErrors.GetEnumerator()) { Write-Warning ("Telemetry {0}: {1}" -f $item.Key, $item.Value) }
             }
-            if($BackgroundAfterLogin){@{at=[DateTime]::UtcNow.ToString('o');phase='active';uploaded=$uploaded;run=$sample.rawStatus.run;alarm=$sample.rawStatus.alarm;program=$sample.activeProgram}|ConvertTo-Json|Set-Content -LiteralPath (Join-Path $DataDirectory 'bridge-state.json') -Encoding UTF8}
+            if($BackgroundAfterLogin){[void](Write-BridgeStateFile (Join-Path $DataDirectory 'bridge-state.json') @{at=[DateTime]::UtcNow.ToString('o');phase='active';uploaded=$uploaded;run=$sample.rawStatus.run;alarm=$sample.rawStatus.alarm;program=$sample.activeProgram;sessionId=$SessionId})}
             $destination = if ($LocalOnly) { 'LOCAL ONLY - not uploaded' } elseif ($uploaded) { 'FIREBASE UPDATED' } else { 'UPLOAD FAILED - will retry' }
             Write-Host ("{0} | {1} | RUN={2} ALARM={3} EMERGENCY={4}" -f (Get-Date -Format 'HH:mm:ss'), $destination, $sample.rawStatus.run, $sample.rawStatus.alarm, $sample.rawStatus.emergency)
             Write-Host ("Spindle={0} {1} | Feed={2} {3} | Program={4} | Main={5}" -f $sample.spindleSpeed, $sample.spindleUnit, $sample.feedrate, $sample.feedrateUnit, $sample.activeProgram, $sample.mainProgram)
@@ -313,7 +325,7 @@ try {
         $script:BridgeFailed=$false
         Write-Host 'Đã hủy đăng nhập. Cầu nối chưa kết nối CNC.'
     }else{
-        try{[IO.File]::WriteAllText((Join-Path $DataDirectory 'bridge-startup-error.log'),('BRIDGE STOPPED: '+$failure.Message),[Text.UTF8Encoding]::new($false))}catch{}
+        try{[IO.File]::WriteAllText($script:StartupLogPath,('BRIDGE STOPPED: '+$failure.Message),[Text.UTF8Encoding]::new($false))}catch{}
         try{[Console]::Error.WriteLine('BRIDGE STOPPED: ' + $failure.Message)}catch{}
         $script:BridgeFailed=$true
         try{Set-BridgePhase 'failed'}catch{}

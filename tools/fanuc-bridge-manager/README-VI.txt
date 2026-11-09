@@ -1,5 +1,5 @@
 LTD CNC BRIDGE MANAGER
-Build 20261109-spindle-meters · Windows 10/11 64-bit
+Build 20261109-state-io · Windows 10/11 64-bit
 
 CẬP NHẬT
 1. Trong bản Manager cũ: dừng từng cầu nối, chờ tiến trình dừng.
@@ -62,7 +62,7 @@ NGUỒN DỮ LIỆU / GIỚI HẠN
 - Đã kiểm tra bằng fixture và trình duyệt. Chưa thử GUI Windows/CNC thật;
   cần đối chiếu lần đầu HD.T/NX.T, đơn vị, gốc và bảng offset với màn hình máy.
 
-ĐĂNG NHẬP TRỰC TIẾP TRONG MANAGER — 20261109-spindle-meters
+ĐĂNG NHẬP TRỰC TIẾP TRONG MANAGER — 20261109-state-io
 - Có sẵn tab Đăng nhập CMMS, không chờ hộp thoại từ tiến trình nền.
 - Chọn máy → Chạy cầu nối → nhập email và mật khẩu → Đăng nhập và kết nối.
 - Manager chuyển tài khoản một lần qua stdin riêng cho tiến trình cầu nối.
@@ -75,7 +75,7 @@ NGUỒN DỮ LIỆU / GIỚI HẠN
 - Đã kiểm tra luồng tài khoản và tiến trình con thực trên môi trường thử Linux.
   Chưa chạy thử WinForms trên Windows hoặc kết nối CNC thật của người dùng.
 
-SỬA NHẬN DẠNG VÀ ĐỌC DỮ LIỆU — 20261109-spindle-meters
+SỬA NHẬN DẠNG VÀ ĐỌC DỮ LIỆU — 20261109-state-io
 - Mã ASCII cố định có đệm: " M", "03", " 3" được chuẩn hóa đúng.
   Vẫn kiểm tra máy phay 3 trục, tên trục XYZ, bảng thật và xác nhận của người dùng.
 - Đọc gốc bằng cnc_rdzofs; không cần đọc biến macro khi đã có đơn vị/vị trí CNC.
@@ -87,7 +87,7 @@ SỬA NHẬN DẠNG VÀ ĐỌC DỮ LIỆU — 20261109-spindle-meters
 - Dừng cầu nối, thoát Manager qua menu khay trước khi nâng cấp.
   Bản mới từ chối lớp C# cũ nếu chưa khởi động lại tiến trình.
 
-SỬA ĐỘ CHIA BẢNG — 20261109-spindle-meters
+SỬA ĐỘ CHIA BẢNG — 20261109-state-io
 - cnc_getfigure có thể trả dec_fig_in khác dec_fig_out; đây không phải lỗi.
 - Các giá trị thô của cnc_rdzofs / cnc_rdtofs / cnc_rdtofsr được chia theo
   dec_fig_in của đúng loại dữ liệu, không lấy dec_fig_out để chia bảng.
@@ -95,7 +95,7 @@ SỬA ĐỘ CHIA BẢNG — 20261109-spindle-meters
 - Có kiểm tra giả lập đầu vào 4 / đầu ra 6 với giá trị âm, khác 0; input
   ngoài phạm vi vẫn bị từ chối. Cần đối chiếu giá trị hiện tại trên CNC thật.
 
-ĐỒNG HỒ TRỤC CHÍNH — 20261109-spindle-meters
+ĐỒNG HỒ TRỤC CHÍNH — 20261109-state-io
 - POSITION có Spindle Load Meter và Spindle Speed Meter cạnh Servo Load.
 - Tải trục chính thứ nhất đọc bằng cnc_rdspmeter(type=0), xác minh đơn vị %.
   Thang hình 0–200%; số đo thực vẫn hiển thị nếu vượt 200%. Chưa đọc được là —.
@@ -103,3 +103,16 @@ SỬA ĐỘ CHIA BẢNG — 20261109-spindle-meters
   trong ODBSPLOAD thay thế tốc độ trục chính; không tự đặt giới hạn RPM máy.
 - Dữ liệu quá hạn được ẩn. Chỉ đọc FOCAS, không có truy cập PMC hay ghi CNC.
 - Cần cập nhật Bridge để có tải trục chính; web tải lại bằng Ctrl+F5.
+
+SỬA FILE TRẠNG THÁI — 20261109-state-io
+- bridge-state.json ghi qua file tạm riêng rồi thay thế nguyên vẹn. Manager mở
+  đọc với FileShare.ReadWrite/Delete, tránh va chạm với lần ghi tiếp theo.
+- Có thử lại ngắn; lỗi file trạng thái phụ không dừng thu thập/gửi CNC.
+- Nhật ký và lỗi khởi động tách theo từng phiên GUID; Manager chỉ hiển thị
+  file của phiên hiện tại, không ghép lỗi HTTP 400 của phiên trước vào phiên mới.
+- Mã lỗi xác thực Firebase chỉ hiện các mã an toàn đã biết (ví dụ
+  INVALID_LOGIN_CREDENTIALS), không in body phản hồi, mật khẩu hay URL/token.
+- Khi cập nhật phải thay đủ thư mục, gồm Bridge.State.ps1; không chỉ chép
+  Start-FanucBridge.ps1. Nút X chỉ ẩn Manager; chọn Thoát quản lý ở khay.
+- Đã kiểm tra I/O và giả lập lỗi ghi; nhánh khóa deny-delete được kiểm tra
+  khi bộ kiểm thử chạy trên Windows. Chưa chạy trực tiếp trên laptop/CNC thật.

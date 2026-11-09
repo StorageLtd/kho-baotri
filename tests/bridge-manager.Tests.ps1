@@ -79,6 +79,15 @@ try{@{emailMatches=$credential.UserName -eq 'fixture@example.invalid';passwordMa
  $child.Dispose()
  Write-Output 'PASS: real background child process receives Unicode credentials over private stdin, without a GUI or credential file.'
  $credential.Password.Dispose();$writer.Dispose();$decoded=$null;$encoded=$null
+ $sessionA='a'*32;$sessionB='b'*32
+ $machineFolder=Get-MachineFolder $newId
+ Assert (Write-BridgeStateFile (Join-Path $machineFolder 'runtime.json') @{sessionId=$sessionA}) 'Session runtime not saved'
+ Assert (Write-BridgeStateFile (Join-Path $machineFolder 'bridge-state.json') @{sessionId=$sessionB;phase='failed'}) 'Stale state fixture not saved'
+ Assert ($null -eq (Get-ManagerHeartbeat $newId)) 'Previous-session state was shown as current'
+ Assert (Write-BridgeStateFile (Join-Path $machineFolder 'bridge-state.json') @{sessionId=$sessionA;phase='active'}) 'Current state fixture not saved'
+ Assert ((Get-ManagerHeartbeat $newId).phase -eq 'active') 'Current session state ignored'
+ $paths=Get-ManagerLogPaths $newId
+ Assert ($paths.session.EndsWith('bridge-session-'+$sessionA+'.log') -and $paths.startup.EndsWith('bridge-startup-error-'+$sessionA+'.log')) 'Current-session log paths not isolated'
  $e=$null;$t=$null;[void][Management.Automation.Language.Parser]::ParseFile((Join-Path $root 'tools/fanuc-bridge-manager/Start-Manager.ps1'),[ref]$t,[ref]$e);Assert ($e.Count -eq 0) 'GUI PowerShell syntax error'
  Write-Output 'PASS: templates, Vietnamese IDs, secure config projection, multi-machine save, backup, stale-edit/duplicate endpoint/path guards, profile confirmation and GUI syntax. No CNC/cloud calls.'
 }finally{if(Test-Path $folder){Remove-Item -LiteralPath $folder -Recurse -Force}}
