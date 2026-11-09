@@ -61,18 +61,42 @@ function Save-MachineConfig($InputConfig,[string]$ExpectedHash=''){
  $temporary=$path+'.tmp';$config|ConvertTo-Json -Depth 6|Set-Content -LiteralPath $temporary -Encoding UTF8
  Move-Item -LiteralPath $temporary -Destination $path -Force;return $config
 }
-function Start-ManagerBridge([string]$Id){
+function New-ManagerLaunchInfo([string]$Shell,[string]$Arguments){
+ $info=New-Object Diagnostics.ProcessStartInfo
+ $info.FileName=$Shell;$info.Arguments=$Arguments;$info.UseShellExecute=$false;$info.CreateNoWindow=$true;$info.RedirectStandardInput=$true
+ return $info
+}
+function Send-ManagerCredential([IO.TextWriter]$Writer,[Management.Automation.PSCredential]$Credential,[string]$MachineId){
+ Assert-MachineId $MachineId
+ if(-not $Credential -or -not $Credential.UserName.Trim() -or $Credential.UserName.Length -gt 254){throw 'Nhập email CMMS hợp lệ.'}
+ $pointer=[IntPtr]::Zero;$plain=$null;$json=$null;$encoded=$null
+ try{
+  $pointer=[Runtime.InteropServices.Marshal]::SecureStringToBSTR($Credential.Password)
+  $plain=[Runtime.InteropServices.Marshal]::PtrToStringBSTR($pointer)
+  if(-not $plain -or $plain.Length -gt 2048){throw 'Mật khẩu phải từ 1 đến 2048 ký tự.'}
+  $json=@{version=1;machineId=$MachineId;email=$Credential.UserName.Trim();password=$plain}|ConvertTo-Json -Compress
+  # Base64 is transport framing for Unicode, NOT encryption. The channel is a private inherited stdin pipe.
+  $encoded=[Convert]::ToBase64String([Text.Encoding]::UTF8.GetBytes($json))
+  $Writer.WriteLine($encoded);$Writer.Flush()
+ }finally{if($pointer -ne [IntPtr]::Zero){[Runtime.InteropServices.Marshal]::ZeroFreeBSTR($pointer)};$plain=$null;$json=$null;$encoded=$null}
+}
+function Start-ManagerBridge([string]$Id,[Management.Automation.PSCredential]$Credential){
+ if(-not $Credential){throw 'Nhập tài khoản ở tab Đăng nhập CMMS trước.'}
  if(Get-ManagerProcess $Id){throw 'Cầu nối máy này đã chạy.'};$path=Get-MachineConfigPath $Id;if(-not (Test-Path -LiteralPath $path)){throw 'Lưu cấu hình trước khi chạy.'}
  foreach($name in @('Fwlib64.dll','fwlibe64.dll','fwlib30i64.dll')){if(-not (Test-Path -LiteralPath (Join-Path $script:ManagerPackage ('lib/'+$name)))){throw "Thiếu lib\$name. Chép 3 DLL chung vào lib trước."}}
  $folder=Get-MachineFolder $Id;$stop=Join-Path $folder 'stop-request';Remove-Item -LiteralPath $stop -Force -ErrorAction SilentlyContinue
- Remove-Item -LiteralPath (Join-Path $folder 'bridge-state.json') -Force -ErrorAction SilentlyContinue
+ Remove-Item -LiteralPath (Join-Path $folder 'bridge-startup-error.log') -Force -ErrorAction SilentlyContinue
+ @{at=[DateTime]::UtcNow.ToString('o');phase='starting';uploaded=$false}|ConvertTo-Json|Set-Content -LiteralPath (Join-Path $folder 'bridge-state.json') -Encoding UTF8
  $shell=Join-Path ([Environment]::SystemDirectory) 'WindowsPowerShell/v1.0/powershell.exe'
  $bridge=Join-Path $script:ManagerPackage 'bridge/Start-FanucBridge.ps1';$lib=Join-Path $script:ManagerPackage 'lib'
- # Arguments contain only validated/local file paths, never NC data or credentials.
  foreach($value in @($bridge,$path,$lib,$folder,$stop)){if($value.Contains('"')){throw 'Đường dẫn không hợp lệ.'}}
- $arguments='-NoLogo -NoProfile -STA -ExecutionPolicy RemoteSigned -File "'+$bridge+'" -ConfigPath "'+$path+'" -LibraryDirectory "'+$lib+'" -DataDirectory "'+$folder+'" -StopRequestPath "'+$stop+'" -BackgroundAfterLogin'
- $process=Start-Process -FilePath $shell -ArgumentList $arguments -WindowStyle Hidden -RedirectStandardError (Join-Path $folder 'bridge-startup-error.log') -PassThru
- [pscustomobject]@{pid=$process.Id;startedTicks=$process.StartTime.ToUniversalTime().Ticks}|ConvertTo-Json|Set-Content -LiteralPath (Join-Path $folder 'runtime.json') -Encoding UTF8
+ # Only local paths/flags are in process arguments. Credentials never go to argv, files or environment.
+ $arguments='-NoLogo -NoProfile -NonInteractive -STA -ExecutionPolicy RemoteSigned -File "'+$bridge+'" -ConfigPath "'+$path+'" -LibraryDirectory "'+$lib+'" -DataDirectory "'+$folder+'" -StopRequestPath "'+$stop+'" -CredentialFromStdin'
+ $process=New-Object Diagnostics.Process;$process.StartInfo=New-ManagerLaunchInfo $shell $arguments
+ if(-not $process.Start()){throw 'Không khởi động được tiến trình cầu nối.'}
+ $ticks=$process.StartTime.ToUniversalTime().Ticks
+ [pscustomobject]@{pid=$process.Id;startedTicks=$ticks}|ConvertTo-Json|Set-Content -LiteralPath (Join-Path $folder 'runtime.json') -Encoding UTF8
+ try{Send-ManagerCredential $process.StandardInput $Credential $Id}finally{$process.StandardInput.Close()}
  return $process
 }
 function Stop-ManagerBridge([string]$Id){

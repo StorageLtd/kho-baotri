@@ -48,6 +48,37 @@ try{
  Assert (-not (Test-Path -LiteralPath (Get-MachineConfigPath 'cnc-2'))) 'Removed machine still listed'
  Assert ((Get-Content -LiteralPath (Join-Path $archive 'keep-report.txt') -Raw) -eq 'report data') 'Archiving discarded reports'
  Remove-Item -LiteralPath $archive -Recurse -Force
+ $info=New-ManagerLaunchInfo 'powershell.exe' '-NoProfile -NonInteractive -File bridge.ps1 -CredentialFromStdin'
+ Assert ($info.CreateNoWindow -and -not $info.UseShellExecute -and $info.RedirectStandardInput) 'Private stdin process launch not configured'
+ $credential=New-Object Management.Automation.PSCredential('fixture@example.invalid',(ConvertTo-SecureString 'fixture-unicode-試験' -AsPlainText -Force))
+ $writer=New-Object IO.StringWriter
+ Send-ManagerCredential $writer $credential 'cnc-test'
+ $encoded=$writer.ToString().Trim();$decoded=[Text.Encoding]::UTF8.GetString([Convert]::FromBase64String($encoded))|ConvertFrom-Json
+ Assert ($decoded.version -eq 1 -and $decoded.machineId -eq 'cnc-test' -and $decoded.password -eq 'fixture-unicode-試験') 'Credential pipe Unicode/identity framing corrupted'
+ Assert ($info.Arguments -notlike '*fixture*' -and $info.EnvironmentVariables.Count -gt 0) 'Credential included in argv'
+ $consumer=Join-Path $folder 'stdin-consumer.ps1';$proof=Join-Path $folder 'stdin-proof.json'
+ @'
+param($BridgeSource,$Proof)
+$ErrorActionPreference='Stop'
+$tokens=$null;$errors=$null;$ast=[Management.Automation.Language.Parser]::ParseFile($BridgeSource,[ref]$tokens,[ref]$errors)
+$fn=$ast.FindAll({param($n)$n -is [Management.Automation.Language.FunctionDefinitionAst] -and $n.Name -eq 'Read-BridgeStdinCredential'},$false)[0]
+. ([scriptblock]::Create($fn.Extent.Text))
+$credential=Read-BridgeStdinCredential 'cnc-test'
+try{@{emailMatches=$credential.UserName -eq 'fixture@example.invalid';passwordMatches=$credential.GetNetworkCredential().Password -eq 'fixture-unicode-試験'}|ConvertTo-Json|Set-Content -LiteralPath $Proof -Encoding UTF8}finally{$credential.Password.Dispose()}
+'@ |Set-Content -LiteralPath $consumer -Encoding UTF8
+ $child=New-Object Diagnostics.Process
+ $hostShell=(Get-Process -Id $PID).Path
+ $args='-NoProfile -NonInteractive -File "'+$consumer+'" -BridgeSource "'+(Join-Path $root 'tools/fanuc-bridge/Start-FanucBridge.ps1')+'" -Proof "'+$proof+'"'
+ $child.StartInfo=New-ManagerLaunchInfo $hostShell $args
+ Assert ($child.Start()) 'Private stdin consumer did not start'
+ try{Send-ManagerCredential $child.StandardInput $credential 'cnc-test'}finally{$child.StandardInput.Close()}
+ if(-not $child.WaitForExit(15000)){$child.Kill();throw 'Private stdin consumer timed out'}
+ Assert ($child.ExitCode -eq 0) 'Private stdin child process failed'
+ $result=Get-Content -LiteralPath $proof -Raw -Encoding UTF8|ConvertFrom-Json
+ Assert ($result.emailMatches -and $result.passwordMatches) 'Credential did not survive real private stdin transfer'
+ $child.Dispose()
+ Write-Output 'PASS: real background child process receives Unicode credentials over private stdin, without a GUI or credential file.'
+ $credential.Password.Dispose();$writer.Dispose();$decoded=$null;$encoded=$null
  $e=$null;$t=$null;[void][Management.Automation.Language.Parser]::ParseFile((Join-Path $root 'tools/fanuc-bridge-manager/Start-Manager.ps1'),[ref]$t,[ref]$e);Assert ($e.Count -eq 0) 'GUI PowerShell syntax error'
  Write-Output 'PASS: templates, Vietnamese IDs, secure config projection, multi-machine save, backup, stale-edit/duplicate endpoint/path guards, profile confirmation and GUI syntax. No CNC/cloud calls.'
 }finally{if(Test-Path $folder){Remove-Item -LiteralPath $folder -Recurse -Force}}

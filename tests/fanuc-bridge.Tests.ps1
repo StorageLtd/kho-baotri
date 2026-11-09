@@ -163,6 +163,18 @@ function Read-BridgeGuiCredential([string]$MachineName){
     & (Join-Path $fixtureDirectory 'Start-FanucBridge.ps1') -Once -BackgroundAfterLogin
     Assert-True ([FanucReader]::Calls -eq $nativeBefore -and $global:BridgeTest_calls.Count -eq 0) 'Cancelled login contacted CNC or cloud'
     Copy-Item $scriptPath (Join-Path $fixtureDirectory 'Start-FanucBridge.ps1') -Force
+    # Exercise the exact Manager -> private stdin -> background Bridge handoff, with no child GUI dependency.
+    . (Join-Path $root 'tools/fanuc-bridge-manager/Manager.Core.ps1')
+    $pipeCredential=New-Object Management.Automation.PSCredential('fixture@example.invalid',(ConvertTo-SecureString 'fixture-password' -AsPlainText -Force))
+    $writer=New-Object IO.StringWriter
+    Send-ManagerCredential $writer $pipeCredential $oldConfig.machineId
+    $oldInput=[Console]::In
+    $reader=New-Object IO.StringReader($writer.ToString())
+    $global:BridgeTest_calls=@();$global:BridgeTest_beforeLoginNative=[FanucReader]::Calls;$global:BridgeTest_loginOrder=$true
+    try{[Console]::SetIn($reader);& (Join-Path $fixtureDirectory 'Start-FanucBridge.ps1') -Once -CredentialFromStdin}finally{[Console]::SetIn($oldInput);$reader.Dispose();$writer.Dispose();$pipeCredential.Password.Dispose()}
+    Assert-True ([FanucReader]::Calls -eq $global:BridgeTest_beforeLoginNative+1) 'Stdin mode read CNC before auth, or did not start'
+    Assert-True (@($global:BridgeTest_calls|Where-Object Uri -like '*signInWithPassword*').Count -eq 1) 'Stdin credentials not passed to authentication'
+    Write-Output 'PASS: inline Manager credentials reach background auth through private stdin, with no GUI or initial CNC dependency.'
     $global:BridgeTest_loginOrder=$false
     Write-Output 'PASS: Manager login opens before any native CNC read, authentication precedes first read, and phases contain no credentials.'
     $global:BridgeTest_calls=@();$global:BridgeTest_collision=$true

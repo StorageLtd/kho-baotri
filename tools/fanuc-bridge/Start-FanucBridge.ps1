@@ -3,6 +3,7 @@
     [switch]$Once,
     [switch]$LocalOnly,
     [switch]$BackgroundAfterLogin,
+    [switch]$CredentialFromStdin,
     [string]$LibraryDirectory = (Join-Path $PSScriptRoot 'lib'),
     [string]$DataDirectory = $PSScriptRoot,
     [string]$StopRequestPath = ''
@@ -141,6 +142,17 @@ function Set-BridgePhase([string]$Phase){
     if(-not $BackgroundAfterLogin){return}
     @{at=[DateTime]::UtcNow.ToString('o');phase=$Phase;uploaded=$false}|ConvertTo-Json|Set-Content -LiteralPath (Join-Path $DataDirectory 'bridge-state.json') -Encoding UTF8
 }
+function Read-BridgeStdinCredential([string]$ExpectedMachineId){
+ $line=$null;$json=$null;$entry=$null
+ try{
+  $line=[Console]::In.ReadLine()
+  if(-not $line -or $line.Length -gt 65536){throw 'Không nhận được tài khoản từ Manager. Mở tab Đăng nhập CMMS và chạy lại.'}
+  try{$json=[Text.Encoding]::UTF8.GetString([Convert]::FromBase64String($line));$entry=$json|ConvertFrom-Json -ErrorAction Stop}catch{throw 'Gói tài khoản từ Manager không hợp lệ.'}
+  if($entry.version -ne 1 -or $entry.machineId -cne $ExpectedMachineId -or -not ([string]$entry.email).Trim() -or ([string]$entry.email).Length -gt 254 -or -not $entry.password -or ([string]$entry.password).Length -gt 2048){throw 'Tài khoản từ Manager không đúng máy hoặc thiếu thông tin.'}
+  $secure=ConvertTo-SecureString ([string]$entry.password) -AsPlainText -Force
+  return New-Object Management.Automation.PSCredential(([string]$entry.email).Trim(),$secure)
+ }finally{if($entry){$entry.password=$null};$entry=$null;$json=$null;$line=$null}
+}
 function Read-BridgeGuiCredential([string]$MachineName){
     Add-Type -AssemblyName System.Windows.Forms
     Add-Type -AssemblyName System.Drawing
@@ -185,6 +197,7 @@ function New-BridgePayload {
     }
 }
 try {
+    if($CredentialFromStdin){$BackgroundAfterLogin=$true}
     if (-not [Environment]::Is64BitProcess) { throw 'Use 64-bit Windows PowerShell, not PowerShell (x86).' }
     $null=New-Item -ItemType Directory -Path $DataDirectory -Force
     $config = Get-Content -LiteralPath $ConfigPath -Raw -Encoding UTF8 | ConvertFrom-Json
@@ -200,14 +213,13 @@ try {
     if ($config.firebaseApiKey -notmatch '^[A-Za-z0-9_-]+$') { throw 'Invalid Firebase Web API key.' }
     # Show credentials before loading native DLLs or waiting on ANY CNC read.
     if($BackgroundAfterLogin -and -not $LocalOnly){
-        Set-BridgePhase 'login'
-        $credential=Read-BridgeGuiCredential $config.machineName
+        if($CredentialFromStdin){Set-BridgePhase 'receiving-account';$credential=Read-BridgeStdinCredential $config.machineId}else{Set-BridgePhase 'login';$credential=Read-BridgeGuiCredential $config.machineName}
         $email=$credential.UserName;$password=$credential.Password
         Set-BridgePhase 'loading-reader'
     }
     if (-not ('FanucReader' -as [type])) { Add-Type -Path (Join-Path $PSScriptRoot 'FanucReader.cs') }
     if (-not ([FanucReader].GetProperty('AccessMode')) -or [FanucReader]::AccessMode -ne 'FOCAS_STATUS_ONLY_V1' -or -not ([FanucReader].GetMethods()|Where-Object {$_.Name -eq 'ReadWithContext' -and $_.GetParameters().Count -eq 5})) { throw 'Old reader loaded. CLOSE this PowerShell window and open a new one. The new bridge refuses to reuse the previous reader.' }
-    Write-Host "Bridge build: 20261109-login-first"
+    Write-Host "Bridge build: 20261109-inline-login"
     Write-Host "Machine: $($config.machineName) | CNC $($config.cncIp):$($config.port)"
     Write-Host 'Read-only CNC access. Reading status, actual spindle/feed and current/main O-number. Reading alarm messages with cnc_rdalmmsg2; no PMC access or CNC writes.'
     Write-Host 'HD.T / NX.T via cnc_rdhdnxt. Read-only G modal, work coordinates and confirmed offset tables; no PMC.'
@@ -301,10 +313,11 @@ try {
         $script:BridgeFailed=$false
         Write-Host 'Đã hủy đăng nhập. Cầu nối chưa kết nối CNC.'
     }else{
-        [Console]::Error.WriteLine('BRIDGE STOPPED: ' + $failure.Message)
+        try{[IO.File]::WriteAllText((Join-Path $DataDirectory 'bridge-startup-error.log'),('BRIDGE STOPPED: '+$failure.Message),[Text.UTF8Encoding]::new($false))}catch{}
+        try{[Console]::Error.WriteLine('BRIDGE STOPPED: ' + $failure.Message)}catch{}
         $script:BridgeFailed=$true
         try{Set-BridgePhase 'failed'}catch{}
-        if($BackgroundAfterLogin){try{Add-Type -AssemblyName System.Windows.Forms;[void][Windows.Forms.MessageBox]::Show($failure.Message,'LTD · Cầu nối đã dừng','OK','Error')}catch{}}
+        if($BackgroundAfterLogin -and -not $CredentialFromStdin){try{Add-Type -AssemblyName System.Windows.Forms;[void][Windows.Forms.MessageBox]::Show($failure.Message,'LTD · Cầu nối đã dừng','OK','Error')}catch{}}
     }
 } finally {
     # On an orderly stop try to publish offline; forced closure is covered by the web's 30s expiry.

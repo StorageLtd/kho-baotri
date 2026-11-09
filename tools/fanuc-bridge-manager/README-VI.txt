@@ -1,5 +1,5 @@
 LTD CNC BRIDGE MANAGER
-Build 20261109-login-first · Windows 10/11 64-bit
+Build 20261109-inline-login · Windows 10/11 64-bit
 
 CẬP NHẬT
 1. Trong bản Manager cũ: dừng từng cầu nối, chờ tiến trình dừng.
@@ -7,7 +7,7 @@ CẬP NHẬT
 3. Giải nén bản mới ra thư mục mới. Chép Fwlib64.dll, fwlibe64.dll,
    fwlib30i64.dll của bạn vào lib. Không chạy đồng thời hai cầu nối cùng máy.
 4. Nhấp đúp START-MANAGER.cmd. Máy đã lưu trong LocalAppData vẫn còn.
-5. Chọn máy → Chạy cầu nối → đăng nhập trong hộp thoại CMMS.
+5. Chọn máy → Chạy cầu nối → mở tab Đăng nhập CMMS, nhập email/mật khẩu và bấm Đăng nhập và kết nối.
    Mật khẩu và token chỉ nằm trong bộ nhớ, không ghi vào cấu hình hay nhật ký.
 
 THÊM / SỬA / GỠ MÁY
@@ -61,11 +61,15 @@ NGUỒN DỮ LIỆU / GIỚI HẠN
 - Đã kiểm tra bằng fixture và trình duyệt. Chưa thử GUI Windows/CNC thật;
   cần đối chiếu lần đầu HD.T/NX.T, đơn vị, gốc và bảng offset với màn hình máy.
 
-SỬA HỘP ĐĂNG NHẬP — 20261109-login-first
-Manager mở hộp đăng nhập nổi trên cùng trước khi nạp DLL hoặc đọc CNC.
-Thanh trạng thái phân biệt chờ đăng nhập, xác thực và đọc dữ liệu.
-Hủy hộp thoại thì chưa kết nối CNC. Nhật ký hiển thị cả lỗi khởi động.
-Nếu cầu nối cũ kẹt: bấm Dừng cầu nối, chờ 15 giây; nút đổi thành Đóng tiến trình.
-Xác nhận chỉ đóng tiến trình phần mềm cầu nối của máy đang chọn trên laptop,
-không gửi lệnh tới CNC; dữ liệu chưa lưu trong bộ nhớ có thể mất.
-Khi cập nhật phải Thoát quản lý từ menu khay hệ thống, không chỉ bấm X.
+ĐĂNG NHẬP TRỰC TIẾP TRONG MANAGER — 20261109-inline-login
+- Có sẵn tab Đăng nhập CMMS, không chờ hộp thoại từ tiến trình nền.
+- Chọn máy → Chạy cầu nối → nhập email và mật khẩu → Đăng nhập và kết nối.
+- Manager chuyển tài khoản một lần qua stdin riêng cho tiến trình cầu nối.
+  Gói dùng base64 để giữ đúng Unicode, không coi base64 là mã hóa.
+  Không ghi mật khẩu/token vào file, cấu hình, argv hoặc biến môi trường.
+- Cầu nối xác thực tài khoản trước khi đọc CNC; lỗi nằm ở Nhật ký cầu nối.
+- Khi cập nhật: nút X chỉ ẩn Manager. Chọn Thoát quản lý từ menu khay hệ thống.
+- Nếu tiến trình cũ kẹt: Dừng cầu nối, chờ 15 giây, bấm Đóng tiến trình và xác nhận.
+  Chỉ đóng đúng phần mềm cầu nối trên laptop, không gửi lệnh tới CNC.
+- Đã kiểm tra luồng tài khoản và tiến trình con thực trên môi trường thử Linux.
+  Chưa chạy thử WinForms trên Windows hoặc kết nối CNC thật của người dùng.

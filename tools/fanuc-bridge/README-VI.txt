@@ -1,10 +1,9 @@
 LTD FANUC BRIDGE — CHỈ ĐỌC, KHÔNG TRUY CẬP PMC
-Bridge build: 20261109-login-first
+Bridge build: 20261109-inline-login
 
 KHUYÊN DÙNG GIAO DIỆN
 Tải FANUC-Bridge-Manager.zip trên web, chép ba DLL vào lib rồi nhấp đúp
-START-MANAGER.cmd. Có thêm/sửa/gỡ cấu hình máy, chọn mẫu, đăng nhập bằng hộp
-thoại, chạy nền, khay hệ thống, trạng thái gửi dữ liệu và nhật ký theo máy.
+START-MANAGER.cmd. Có thêm/sửa/gỡ cấu hình máy, chọn mẫu, nhập tài khoản ngay trong Manager, chạy nền, khay hệ thống, trạng thái gửi dữ liệu và nhật ký theo máy.
 Cấu hình đã lưu ở LocalAppData vẫn còn khi giải nén bản Manager mới.
 
 CHẠY THỦ CÔNG GÓI NÀY
@@ -18,7 +17,7 @@ CHẠY THỦ CÔNG GÓI NÀY
    Unblock-File .\FanucReader.cs
    Unblock-File .\ReportCollector.ps1
    .\Start-FanucBridge.ps1
-6. Phải thấy Bridge build: 20261109-login-first. Đăng nhập tài khoản CMMS
+6. Phải thấy Bridge build: 20261109-inline-login. Đăng nhập tài khoản CMMS
    đã xác minh, có vai trò phù hợp. Mật khẩu/token không lưu vào file.
    Chế độ thủ công cần giữ PowerShell mở; Ctrl+C dừng cầu nối, không dừng CNC.
 7. Chỉ kiểm tra cục bộ, không đăng nhập/gửi Firebase:
@@ -68,11 +67,15 @@ Không đọc/ghi PMC hoặc ghi CNC. Không đổi offset, tham số, chương 
 Đã kiểm tra mã, ABI giả lập và giao diện; chưa kết nối CNC thật/GUI Windows.
 Đối chiếu lần đầu HD.T/NX.T, đơn vị, gốc và offset trên màn hình CNC.
 
-SỬA HỘP ĐĂNG NHẬP — 20261109-login-first
-Manager mở hộp đăng nhập nổi trên cùng trước khi nạp DLL hoặc đọc CNC.
-Thanh trạng thái phân biệt chờ đăng nhập, xác thực và đọc dữ liệu.
-Hủy hộp thoại thì chưa kết nối CNC. Nhật ký hiển thị cả lỗi khởi động.
-Nếu cầu nối cũ kẹt: bấm Dừng cầu nối, chờ 15 giây; nút đổi thành Đóng tiến trình.
-Xác nhận chỉ đóng tiến trình phần mềm cầu nối của máy đang chọn trên laptop,
-không gửi lệnh tới CNC; dữ liệu chưa lưu trong bộ nhớ có thể mất.
-Khi cập nhật phải Thoát quản lý từ menu khay hệ thống, không chỉ bấm X.
+ĐĂNG NHẬP TRỰC TIẾP TRONG MANAGER — 20261109-inline-login
+- Có sẵn tab Đăng nhập CMMS, không chờ hộp thoại từ tiến trình nền.
+- Chọn máy → Chạy cầu nối → nhập email và mật khẩu → Đăng nhập và kết nối.
+- Manager chuyển tài khoản một lần qua stdin riêng cho tiến trình cầu nối.
+  Gói dùng base64 để giữ đúng Unicode, không coi base64 là mã hóa.
+  Không ghi mật khẩu/token vào file, cấu hình, argv hoặc biến môi trường.
+- Cầu nối xác thực tài khoản trước khi đọc CNC; lỗi nằm ở Nhật ký cầu nối.
+- Khi cập nhật: nút X chỉ ẩn Manager. Chọn Thoát quản lý từ menu khay hệ thống.
+- Nếu tiến trình cũ kẹt: Dừng cầu nối, chờ 15 giây, bấm Đóng tiến trình và xác nhận.
+  Chỉ đóng đúng phần mềm cầu nối trên laptop, không gửi lệnh tới CNC.
+- Đã kiểm tra luồng tài khoản và tiến trình con thực trên môi trường thử Linux.
+  Chưa chạy thử WinForms trên Windows hoặc kết nối CNC thật của người dùng.
