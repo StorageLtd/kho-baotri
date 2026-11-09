@@ -51,6 +51,7 @@ window.renderFixture = (records) => {
 };
 window.startFixturePolling = startCncRealtimeSync;
 window.restoreFixtureClock = () => setCncClockOffset(0);
+window.fixtureCncNow = cncServerNow;
 window.seedDayFixture = () => {cncDayOwner=getUser().uid;cncDayStats.set('neway-1260s',{date:vnDate(cncServerNow()),row:{sessions:1,counterStart:20,counterEnd:21,counterResets:0,observedMs:7200000,runningMs:3600000,holdMs:1800000,alarmMs:900000,firstMs:cncServerNow()-7200000,lastMs:cncServerNow(),conflicts:0}});renderCncGridOnly()};
 '''
             await page.route('**/assets/js/app.js*', lambda route: route.fulfill(status=200, content_type='text/javascript', body=source+hook))
@@ -179,7 +180,8 @@ window.seedDayFixture = () => {cncDayOwner=getUser().uid;cncDayStats.set('neway-
 
             assert await card.get_by_text('Xử lý xong (Clear)').count() == 0
             assert await page.locator('#statCncRunning').inner_text() == '1'
-            assert await page.locator('#cncConnectionReady').inner_text() == '1 / 2'
+            assert await page.locator('.cnc-plant-header').count()==0
+            assert await page.locator('#cncConnectionReady').count()==0
             await card.get_by_role('button',name='Cài đặt máy Neway 1260S',exact=True).click()
             assert await page.locator('#cncDialog').is_visible()
             await page.locator('#cncDialog').evaluate('e=>e.close()')
@@ -218,7 +220,6 @@ window.seedDayFixture = () => {cncDayOwner=getUser().uid;cncDayStats.set('neway-
             await page.clock.fast_forward(35000)
             await page.wait_for_function("document.querySelector('#card-neway-1260s').textContent.includes('MẤT KẾT NỐI')")
             assert await page.locator('#statCncRunning').inner_text() == '0'
-            assert await page.locator('#cncConnectionReady').inner_text() == '0 / 1'
             # Live CNC reads must succeed even when alarm-history/presence endpoints fail.
             import json
             at=await page.evaluate('Date.now()')
@@ -227,7 +228,7 @@ window.seedDayFixture = () => {cncDayOwner=getUser().uid;cncDayStats.set('neway-
             await page.clock.fast_forward(5000)
             await page.wait_for_function("document.querySelector('#card-neway-1260s').textContent.includes('250 RPM')")
             assert await page.locator('#statCncRunning').inner_text()=='1'
-            assert 'Web đã nhận Firebase' in await page.locator('#cncSyncStatus').inner_text()
+            assert await page.locator('#cncSyncStatus').count()==0
             # Reproduce a Windows clock 11 minutes ahead of Firebase's server clock.
             live['neway-1260s']['lastSeen']=await page.evaluate('Date.now()')-660000
             async def presence_reply(route):
@@ -235,7 +236,7 @@ window.seedDayFixture = () => {cncDayOwner=getUser().uid;cncDayStats.set('neway-
                 await route.fulfill(status=200,content_type='application/json',body=json.dumps({'uid':'fixture','timestamp':clock-660000}))
             await page.route('**/online_users/**',presence_reply)
             await page.clock.fast_forward(15000)
-            await page.wait_for_function("document.querySelector('#cncSyncStatus').textContent.includes('11 phút')")
+            await page.wait_for_function("Math.abs(Date.now()-window.fixtureCncNow()-660000)<5000")
             assert await page.locator('#statCncRunning').inner_text()=='1'
             assert '250 RPM' in await card.inner_text()
             await page.route('**/online_users/**',lambda route:route.fulfill(status=403,content_type='application/json',body='{}'))
