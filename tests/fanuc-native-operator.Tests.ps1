@@ -9,6 +9,7 @@ public static class FixtureNative {
  [DllImport("Fwlib64.dll")] public static extern int fixture_ends();
  [DllImport("Fwlib64.dll")] public static extern int fixture_upload_calls();
  [DllImport("Fwlib64.dll")] public static extern void fixture_disable_macros(int value);
+ [DllImport("Fwlib64.dll")] public static extern void fixture_precision(int input,int output);
 }
 '@
 function Assert($ok,$message){if(-not $ok){throw $message}}
@@ -70,3 +71,21 @@ Assert ($snapshot.toolOffsets.rows.Length -eq 32 -and $snapshot.machiningContext
 Assert ($snapshot.workCoordinates[1].x -eq -21.5024 -and $snapshot.machiningContext.workX -eq -21.5024) 'Dedicated work-zero API did not populate XYZ and active G54'
 [FixtureNative]::fixture_disable_macros(0)
 Write-Output 'PASS: direct work zero and offset tables read with macro access unavailable; active H/D use CNC modal data.'
+
+# Reproduce the real controller's unequal input/output figures. Never use output figures to scale stored offsets.
+[FixtureNative]::fixture_precision(4,6)
+$snapshot=New-Object FanucReader+Snapshot;$snapshot.machineType=' M';$snapshot.axes='03'
+$snapshot.positions=[FanucReader+AxisPosition[]]$positions;$snapshot.modalGcodes=[FanucReader+Gcode[]]@($g)
+Read-Private 'ReadMachiningContext' @([uint16]42,$snapshot,$true,[int]2)
+Read-Private 'ReadWorkCoordinates' @([uint16]42,$snapshot)
+Assert ($snapshot.toolOffsets.rows.Length -eq 32) 'Unequal output precision still blocks tool offsets'
+Assert ($snapshot.toolOffsets.decimals -eq 4 -and $snapshot.toolOffsets.rows[0].radiusWear -eq -1.0003) 'Tool offsets scaled with output instead of input figures'
+Assert ($snapshot.workCoordinates[1].x -eq -21.5024 -and $snapshot.workCoordinates[1].decimalsX -eq 4) 'Work offsets scaled with output instead of input figures'
+Assert ($snapshot.machiningContext.radiusGeometry -eq 4.0001) 'Active D geometry scaled incorrectly'
+[FixtureNative]::fixture_precision(15,6)
+$invalid=New-Object FanucReader+Snapshot;$invalid.machineType='M';$invalid.axes='03';$invalid.positions=[FanucReader+AxisPosition[]]$positions;$invalid.modalGcodes=[FanucReader+Gcode[]]@($g)
+Read-Private 'ReadMachiningContext' @([uint16]42,$invalid,$true,[int]2)
+Read-Private 'ReadWorkCoordinates' @([uint16]42,$invalid)
+Assert ($null -eq $invalid.toolOffsets -and $null -eq $invalid.workCoordinates) 'Out-of-range input figures accepted'
+[FixtureNative]::fixture_precision(4,4)
+Write-Output 'PASS: unequal input/output precision reproducer; signed nonzero work/tool values use input figures, and invalid input figures remain rejected.'

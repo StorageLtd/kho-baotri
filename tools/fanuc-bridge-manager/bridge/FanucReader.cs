@@ -8,7 +8,7 @@ using System.Text;
 // Read-only FOCAS probe. Structures follow the uploaded FS30D Fwlib64.h.
 public static class FanucReader
 {
-    public static string ReaderBuild {get{return "20261109-profile-fix";}}
+    public static string ReaderBuild {get{return "20261109-input-precision";}}
     [StructLayout(LayoutKind.Sequential, Pack = 4)]
     public struct SysInfo
     {
@@ -208,14 +208,14 @@ public static class FanucReader
             if(info.memoryType!=expectedTable||info.memoryType<0||info.memoryType>2){snapshot.readErrors["toolOffsets"]="Offset table mismatch: declared="+expectedTable+", CNC="+info.memoryType;return;}
             short figureCode=cnc_getfigure(handle,1,out valid,input,output);
             if(figureCode!=0){snapshot.readErrors["toolOffsets"]="cnc_getfigure(tool precision): FOCAS "+figureCode;return;}
-            if(valid<=0||input[0]<0||input[0]>9||input[0]!=output[0]){snapshot.readErrors["toolOffsets"]="Cannot validate matching input/output tool-offset precision";return;}
+            if(valid<=0||input[0]<0||input[0]>9){snapshot.readErrors["toolOffsets"]="Invalid tool-offset input precision: input="+input[0]+", output="+output[0];return;}
             {
                 int decimals=input[0];
                 c.lengthGeometry=ReadOffset(handle,c.lengthOffsetNumber,SingleOffsetType(info.memoryType,0),decimals,info.count);
                 c.lengthWear=info.memoryType==0?null:ReadOffset(handle,c.lengthOffsetNumber,SingleOffsetType(info.memoryType,1),decimals,info.count);
                 c.radiusGeometry=ReadOffset(handle,c.radiusOffsetNumber,SingleOffsetType(info.memoryType,2),decimals,info.count);
                 c.radiusWear=info.memoryType==0?null:ReadOffset(handle,c.radiusOffsetNumber,SingleOffsetType(info.memoryType,3),decimals,info.count);
-                c.offsetSource="FOCAS memory "+(char)('A'+info.memoryType)+"; cnc_getfigure input precision";
+                c.offsetSource="FOCAS memory "+(char)('A'+info.memoryType)+"; raw table values use cnc_getfigure dec_fig_in, independent of dec_fig_out";
                 snapshot.toolOffsets=ReadOffsetTable(handle,info,decimals,c.unit);if(snapshot.toolOffsets==null)snapshot.readErrors["toolOffsetTable"]="Full table read unavailable or rejected by CNC";
             }
         } catch(EntryPointNotFoundException) {snapshot.readErrors["machiningContext"]="Optional macro/offset API unavailable";}
@@ -315,9 +315,10 @@ public static class FanucReader
             string unit=PositionUnit(snapshot)??(snapshot.machiningContext==null?null:snapshot.machiningContext.unit);
             if(unit==null){int? units=IntegerCode(ReadMacro(handle,4006));unit=units==20?"inch":units==21?"mm":null;}
             if(unit==null){snapshot.readErrors["workCoordinates"]="Cannot validate coordinate unit";return;}
+            // Stored work-zero values use input-unit figures. Output figures may legitimately differ.
             short figures;short[] input=new short[96],output=new short[96];short code=cnc_getfigure(handle,0,out figures,input,output);
             if(code!=0||figures<=0){snapshot.readErrors["workCoordinates"]="cnc_getfigure(axis precision): FOCAS "+code;return;}
-            for(int i=0;i<3;i++)if(input[i]<0||input[i]>9||input[i]!=output[i]){snapshot.readErrors["workCoordinates"]="Input/output XYZ precision differs; unit conversion not inferred";return;}
+            for(int i=0;i<3;i++)if(input[i]<0||input[i]>9){snapshot.readErrors["workCoordinates"]="Invalid XYZ input precision: axis="+(i+1)+", input="+input[i]+", output="+output[i];return;}
             List<WorkCoordinate> rows=new List<WorkCoordinate>();
             for(short number=0;number<7;number++)rows.Add(new WorkCoordinate{name=number==0?"EXT":"G"+(53+number),unit=unit,x=ReadWorkValue(handle,number,1,input[0],snapshot),y=ReadWorkValue(handle,number,2,input[1],snapshot),z=ReadWorkValue(handle,number,3,input[2],snapshot),decimalsX=input[0],decimalsY=input[1],decimalsZ=input[2]});
             snapshot.workCoordinates=rows.ToArray();

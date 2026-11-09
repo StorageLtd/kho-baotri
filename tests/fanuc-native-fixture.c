@@ -6,7 +6,8 @@
 #include <time.h>
 static struct timespec ready_start;
 
-static int macros_disabled=0;
+static int macros_disabled=0,input_precision=4,output_precision=4;
+void fixture_precision(int input,int output){input_precision=input;output_precision=output;}
 void fixture_disable_macros(int value){macros_disabled=value;}
 static int memory_type=2,ends=0,upload_calls=0,requested=0,invalid_column=0;
 int fixture_upload_calls(void){return upload_calls;}
@@ -23,7 +24,7 @@ int16_t cnc_rdmacro(uint16_t h,int16_t number,int16_t length,void*p){
 }
 int16_t cnc_rdaxisname(uint16_t h,int16_t*n,void*p){*n=3;memcpy(p,"X\0Y\0Z\0",6);return 0;}
 int16_t cnc_rdtofsinfo(uint16_t h,int16_t*p){p[0]=memory_type;p[1]=32;return 0;}
-int16_t cnc_getfigure(uint16_t h,int16_t t,int16_t*valid,int16_t*input,int16_t*output){if(t!=0&&t!=1)return 3;*valid=8;for(int i=0;i<(t==0?3:1);i++){input[i]=4;output[i]=4;}return 0;}
+int16_t cnc_getfigure(uint16_t h,int16_t t,int16_t*valid,int16_t*input,int16_t*output){if(t!=0&&t!=1)return 3;*valid=8;for(int i=0;i<(t==0?3:1);i++){input[i]=input_precision;output[i]=output_precision;}return 0;}
 int16_t cnc_rdtofs(uint16_t h,int16_t n,int16_t t,int16_t len,void*p){((int16_t*)p)[0]=n;((int16_t*)p)[1]=t;((int32_t*)p)[1]=n*10000+t;return 0;}
 int16_t cnc_rdtofsr(uint16_t h,int16_t start,int16_t t,int16_t end,int16_t len,void*p){
  if(start!=1||end!=32||len!=8+4*32){return 2;}
