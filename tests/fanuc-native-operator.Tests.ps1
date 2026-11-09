@@ -10,6 +10,7 @@ public static class FixtureNative {
  [DllImport("Fwlib64.dll")] public static extern int fixture_upload_calls();
  [DllImport("Fwlib64.dll")] public static extern void fixture_disable_macros(int value);
  [DllImport("Fwlib64.dll")] public static extern void fixture_precision(int input,int output);
+ [DllImport("Fwlib64.dll")] public static extern void fixture_spindle_mode(int value);
 }
 '@
 function Assert($ok,$message){if(-not $ok){throw $message}}
@@ -89,3 +90,16 @@ Read-Private 'ReadWorkCoordinates' @([uint16]42,$invalid)
 Assert ($null -eq $invalid.toolOffsets -and $null -eq $invalid.workCoordinates) 'Out-of-range input figures accepted'
 [FixtureNative]::fixture_precision(4,4)
 Write-Output 'PASS: unequal input/output precision reproducer; signed nonzero work/tool values use input figures, and invalid input figures remain rejected.'
+
+Assert ([Runtime.InteropServices.Marshal]::SizeOf([type][FanucReader+SpindleMeterReading]) -eq 24) 'Spindle meter ABI layout incorrect'
+foreach($mode in @(0,1,2,3,4,5)){
+ [FixtureNative]::fixture_spindle_mode($mode)
+ $snapshot=New-Object FanucReader+Snapshot;$snapshot.spindleSpeed=777
+ Read-Private 'ReadSpindleLoad' @([uint16]42,$snapshot)
+ if($mode -eq 0){Assert ($snapshot.spindleLoad -eq 37.5 -and $snapshot.spindleLoadName -eq 'S1') 'Spindle percent scaling/name incorrect'}
+ elseif($mode -eq 1){Assert ($snapshot.spindleLoad -eq 0) 'Actual zero spindle load lost'}
+ else{Assert ($null -eq $snapshot.spindleLoad -and $snapshot.readErrors.ContainsKey('spindleLoad')) 'Unavailable/invalid spindle load fabricated'}
+ Assert ($snapshot.spindleSpeed -eq 777) 'Spindle motor RPM overwrote actual spindle RPM'
+}
+[FixtureNative]::fixture_spindle_mode(0)
+Write-Output 'PASS: spindle load layout, percentage/zero, invalid units/count/error handling; motor speed does not replace actual spindle RPM.'

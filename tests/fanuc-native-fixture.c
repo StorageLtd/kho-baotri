@@ -53,3 +53,15 @@ int16_t cnc_rdzofs(uint16_t h,int16_t number,int16_t axis,int16_t length,void*p)
  ((int32_t*)p)[1]=number==1?(axis==1?-215024:axis==2?-122112:-113900):0;
  return 0;
 }
+static int spindle_mode=0;
+void fixture_spindle_mode(int value){spindle_mode=value;}
+int16_t cnc_rdspmeter(uint16_t handle,int16_t type,int16_t*count,void*p){
+ if(type!=0||*count!=1)return 3;
+ if(spindle_mode==3)return 6;
+ memset(p,0,24);*count=spindle_mode==4?0:1;
+ ((int32_t*)p)[0]=spindle_mode==1?0:spindle_mode==5?-1:375;
+ ((int16_t*)p)[2]=1;((int16_t*)p)[3]=spindle_mode==2?1:0;
+ ((char*)p)[8]='S';((char*)p)[9]='1';
+ ((int32_t*)p)[3]=12000;((int16_t*)p)[9]=1;((char*)p)[20]='S';((char*)p)[21]='1';
+ return 0;
+}

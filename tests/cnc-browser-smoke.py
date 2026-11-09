@@ -99,9 +99,12 @@ window.seedDayFixture = () => {cncDayOwner=getUser().uid;cncDayStats.set('neway-
             assert await page.locator('#cncMachineDetailsDialog').is_visible()
             assert await page.locator('.operator-position').count()==4
             assert 'Chưa đọc tọa độ' in await page.locator('.operator-screen').inner_text()
-            await page.evaluate('''renderFixture([{id:'neway-1260s',name:'Neway 1260S',source:'focas',connected:true,lastSeen:Date.now(),machiningContext:{toolNumber:7,spindleToolNumber:7,nextToolNumber:4,spindleToolConfirmed:true},rawStatus:{run:3,alarm:0,emergency:0,aut:1},ip:'192.168.1.1',port:8193,model:'FANUC 0i-MF Plus',positions:['X','Y','Z'].map((axis,i)=>({axis,absolute:{value:[-125.25,10,80][i],unit:'mm',decimals:3},relative:{value:0,unit:'mm',decimals:3},machine:{value:[-800,-50,-200][i],unit:'mm',decimals:3},distance:{value:0,unit:'mm',decimals:3}})),servoLoads:[{axis:'X',percent:23},{axis:'Y',percent:17},{axis:'Z',percent:35}],sequenceNumber:20,programText:'N10 G0 X0\\nN20 G1 X10 F100\\nM30'}])''')
+            await page.evaluate('''renderFixture([{id:'neway-1260s',name:'Neway 1260S',source:'focas',connected:true,lastSeen:Date.now(),machiningContext:{toolNumber:7,spindleToolNumber:7,nextToolNumber:4,spindleToolConfirmed:true},rawStatus:{run:3,alarm:0,emergency:0,aut:1},ip:'192.168.1.1',port:8193,model:'FANUC 0i-MF Plus',positions:['X','Y','Z'].map((axis,i)=>({axis,absolute:{value:[-125.25,10,80][i],unit:'mm',decimals:3},relative:{value:0,unit:'mm',decimals:3},machine:{value:[-800,-50,-200][i],unit:'mm',decimals:3},distance:{value:0,unit:'mm',decimals:3}})),servoLoads:[{axis:'X',percent:23},{axis:'Y',percent:17},{axis:'Z',percent:35}],spindleLoad:37.5,spindleLoadName:'S1',spindleSpeed:1250,sequenceNumber:20,programText:'N10 G0 X0\\nN20 G1 X10 F100\\nM30'}])''')
             assert '-125.250' in await page.locator('.operator-screen').inner_text()
             assert await page.locator('.operator-load meter').count()==3
+            assert await page.locator('.operator-load-group .operator-spindle-meters').count()==1
+            assert '37.5' in await page.locator('.operator-spindle-load').inner_text()
+            assert '1250' in await page.locator('.operator-spindle-speed').inner_text()
             assert 'N20 G1' in await page.locator('.operator-program .active-line').inner_text()
             await page.set_viewport_size({'width':1440,'height':1000})
             await page.screenshot(path='/tmp/cnc-operator-screen.png',full_page=True)

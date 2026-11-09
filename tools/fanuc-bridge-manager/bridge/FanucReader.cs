@@ -8,7 +8,7 @@ using System.Text;
 // Read-only FOCAS probe. Structures follow the uploaded FS30D Fwlib64.h.
 public static class FanucReader
 {
-    public static string ReaderBuild {get{return "20261109-input-precision";}}
+    public static string ReaderBuild {get{return "20261109-spindle-meters";}}
     [StructLayout(LayoutKind.Sequential, Pack = 4)]
     public struct SysInfo
     {
@@ -394,6 +394,28 @@ public static class FanucReader
         if(axis==null||e.unit!=0||e.dec<0||e.dec>9||e.data<0)return null;
         return new ServoMeter{axis=axis,percent=e.data/Math.Pow(10,e.dec),decimals=e.dec};
     }
+    [StructLayout(LayoutKind.Sequential,Pack=4)]
+    public struct SpindleMeterReading {public LoadElement load,motorSpeed;}
+    [DllImport("Fwlib64.dll",CallingConvention=CallingConvention.Winapi,ExactSpelling=true)]
+    private static extern short cnc_rdspmeter(ushort handle,short type,ref short count,IntPtr data);
+    public static double? DecodeSpindleLoad(LoadElement value)
+    {
+        if(value.name!=(byte)'S'||value.unit!=0||value.dec<0||value.dec>9||value.data<0||AxisLabel(value.name,value.suff1)==null)return null;
+        return value.data/Math.Pow(10,value.dec);
+    }
+    private static void ReadSpindleLoad(ushort handle,Snapshot snapshot)
+    {
+        if(Marshal.SizeOf(typeof(SpindleMeterReading))!=24)throw new InvalidOperationException("Spindle meter layout mismatch");
+        IntPtr buffer=Marshal.AllocHGlobal(24);
+        try{
+            Marshal.Copy(new byte[24],0,buffer,24);short count=1;short code=cnc_rdspmeter(handle,0,ref count,buffer);
+            if(code!=0||count!=1){snapshot.readErrors["spindleLoad"]="cnc_rdspmeter: "+(code==0?"Invalid spindle count":"FOCAS "+code);return;}
+            SpindleMeterReading value=(SpindleMeterReading)Marshal.PtrToStructure(buffer,typeof(SpindleMeterReading));
+            snapshot.spindleLoad=DecodeSpindleLoad(value.load);
+            if(snapshot.spindleLoad.HasValue)snapshot.spindleLoadName=AxisLabel(value.load.name,value.load.suff1);
+            else snapshot.readErrors["spindleLoad"]="cnc_rdspmeter returned invalid spindle load/unit";
+        }catch(EntryPointNotFoundException){snapshot.readErrors["spindleLoad"]="cnc_rdspmeter unavailable";}finally{Marshal.FreeHGlobal(buffer);}
+    }
     private static void ReadOperatorTelemetry(ushort handle,Snapshot snapshot)
     {
         int axes;
@@ -437,7 +459,8 @@ public static class FanucReader
         public Status rawStatus;
         public AlarmDetail[] alarmDetails;
         public bool alarmDetailsRead, alarmsMayBeTruncated;
-        public double? spindleSpeed, feedrate;
+        public double? spindleSpeed, feedrate, spindleLoad;
+        public string spindleLoadName;
         public int? partCounter;
         public long? runTimeMs, cycleTimeMs;
         public string timerSource;
@@ -642,7 +665,7 @@ public static class FanucReader
             };
             currentReadKey=ip+":"+port;
             ReadOptionalTelemetry(handle, snapshot);
-            if(context){ReadOperatorTelemetry(handle,snapshot);ReadGcodes(handle,snapshot);ReadMachiningContext(handle,snapshot,verifiedProfile,expectedTable);ReadWorkCoordinates(handle,snapshot);}
+            if(context){ReadSpindleLoad(handle,snapshot);ReadOperatorTelemetry(handle,snapshot);ReadGcodes(handle,snapshot);ReadMachiningContext(handle,snapshot,verifiedProfile,expectedTable);ReadWorkCoordinates(handle,snapshot);}
             ReadAlarms(handle, snapshot);
             if(context)ReadFullProgram(handle,snapshot);
             snapshot.timestampUtc=DateTime.UtcNow.ToString("o");

@@ -1,5 +1,5 @@
 LTD FANUC BRIDGE — CHỈ ĐỌC, KHÔNG TRUY CẬP PMC
-Bridge build: 20261109-input-precision
+Bridge build: 20261109-spindle-meters
 
 KHUYÊN DÙNG GIAO DIỆN
 Tải FANUC-Bridge-Manager.zip trên web, chép ba DLL vào lib rồi nhấp đúp
@@ -17,7 +17,7 @@ CHẠY THỦ CÔNG GÓI NÀY
    Unblock-File .\FanucReader.cs
    Unblock-File .\ReportCollector.ps1
    .\Start-FanucBridge.ps1
-6. Phải thấy Bridge build: 20261109-input-precision. Đăng nhập tài khoản CMMS
+6. Phải thấy Bridge build: 20261109-spindle-meters. Đăng nhập tài khoản CMMS
    đã xác minh, có vai trò phù hợp. Mật khẩu/token không lưu vào file.
    Chế độ thủ công cần giữ PowerShell mở; Ctrl+C dừng cầu nối, không dừng CNC.
 7. Chỉ kiểm tra cục bộ, không đăng nhập/gửi Firebase:
@@ -67,7 +67,7 @@ Không đọc/ghi PMC hoặc ghi CNC. Không đổi offset, tham số, chương 
 Đã kiểm tra mã, ABI giả lập và giao diện; chưa kết nối CNC thật/GUI Windows.
 Đối chiếu lần đầu HD.T/NX.T, đơn vị, gốc và offset trên màn hình CNC.
 
-ĐĂNG NHẬP TRỰC TIẾP TRONG MANAGER — 20261109-input-precision
+ĐĂNG NHẬP TRỰC TIẾP TRONG MANAGER — 20261109-spindle-meters
 - Có sẵn tab Đăng nhập CMMS, không chờ hộp thoại từ tiến trình nền.
 - Chọn máy → Chạy cầu nối → nhập email và mật khẩu → Đăng nhập và kết nối.
 - Manager chuyển tài khoản một lần qua stdin riêng cho tiến trình cầu nối.
@@ -80,7 +80,7 @@ Không đọc/ghi PMC hoặc ghi CNC. Không đổi offset, tham số, chương 
 - Đã kiểm tra luồng tài khoản và tiến trình con thực trên môi trường thử Linux.
   Chưa chạy thử WinForms trên Windows hoặc kết nối CNC thật của người dùng.
 
-SỬA NHẬN DẠNG VÀ ĐỌC DỮ LIỆU — 20261109-input-precision
+SỬA NHẬN DẠNG VÀ ĐỌC DỮ LIỆU — 20261109-spindle-meters
 - Mã ASCII cố định có đệm: " M", "03", " 3" được chuẩn hóa đúng.
   Vẫn kiểm tra máy phay 3 trục, tên trục XYZ, bảng thật và xác nhận của người dùng.
 - Đọc gốc bằng cnc_rdzofs; không cần đọc biến macro khi đã có đơn vị/vị trí CNC.
@@ -92,10 +92,19 @@ SỬA NHẬN DẠNG VÀ ĐỌC DỮ LIỆU — 20261109-input-precision
 - Dừng cầu nối, thoát Manager qua menu khay trước khi nâng cấp.
   Bản mới từ chối lớp C# cũ nếu chưa khởi động lại tiến trình.
 
-SỬA ĐỘ CHIA BẢNG — 20261109-input-precision
+SỬA ĐỘ CHIA BẢNG — 20261109-spindle-meters
 - cnc_getfigure có thể trả dec_fig_in khác dec_fig_out; đây không phải lỗi.
 - Các giá trị thô của cnc_rdzofs / cnc_rdtofs / cnc_rdtofsr được chia theo
   dec_fig_in của đúng loại dữ liệu, không lấy dec_fig_out để chia bảng.
 - Vẫn kiểm tra phạm vi độ chia, tên trục, đơn vị và loại bảng đã xác nhận.
 - Có kiểm tra giả lập đầu vào 4 / đầu ra 6 với giá trị âm, khác 0; input
   ngoài phạm vi vẫn bị từ chối. Cần đối chiếu giá trị hiện tại trên CNC thật.
+
+ĐỒNG HỒ TRỤC CHÍNH — 20261109-spindle-meters
+- POSITION có Spindle Load Meter và Spindle Speed Meter cạnh Servo Load.
+- Tải trục chính thứ nhất đọc bằng cnc_rdspmeter(type=0), xác minh đơn vị %.
+  Thang hình 0–200%; số đo thực vẫn hiển thị nếu vượt 200%. Chưa đọc được là —.
+- Tốc độ hiển thị RPM thực đã đọc bằng cnc_rdspeed. Không dùng tốc độ motor
+  trong ODBSPLOAD thay thế tốc độ trục chính; không tự đặt giới hạn RPM máy.
+- Dữ liệu quá hạn được ẩn. Chỉ đọc FOCAS, không có truy cập PMC hay ghi CNC.
+- Cần cập nhật Bridge để có tải trục chính; web tải lại bằng Ctrl+F5.

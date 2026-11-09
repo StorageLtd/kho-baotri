@@ -83,13 +83,13 @@ using System;
 public class FixtureRaw { public int run=3, alarm=0, emergency=0, aut=1; }
 public class FixtureSnapshot {
  public string timestampUtc=DateTime.UtcNow.ToString("o"),cncType="0",series="D4G5",version="05.0",axes="03";
- public long? runTimeMs=123000,cycleTimeMs=5000; public string timerSource="fixture"; public int? partCounter=100; public double? spindleSpeed=1800, feedrate=12.5;
+ public long? runTimeMs=123000,cycleTimeMs=5000; public string timerSource="fixture"; public int? partCounter=100; public double? spindleSpeed=1800, feedrate=12.5,spindleLoad=37.5;public string spindleLoadName="S1";
  public string spindleUnit="rpm", feedrateUnit="inch/min", activeProgram="O12345678", mainProgram="O0001";
  public System.Collections.Generic.Dictionary<string,string> readErrors=new System.Collections.Generic.Dictionary<string,string>();
  public object[] positions=new object[]{new {axis="X",absolute=new {value=-125.25,unit="mm",decimals=3}}}; public object[] servoLoads=new object[]{new {axis="X",percent=23}}; public int? sequenceNumber=20,programBufferBlock=1; public string programText="N20 G1 X10"; public bool programTextLimited=false;
  public FixtureRaw rawStatus=new FixtureRaw();
 }
-public static class FanucReader { public static string ReaderBuild {get{return "20261109-input-precision";}} public static string AccessMode { get { return "FOCAS_STATUS_ONLY_V1"; } } public static string ProgramNumber(uint n) { return "O"+n.ToString(); } public static int Calls; public static string LastLibrary; public static FixtureSnapshot ReadWithContext(string ip,ushort port,string folder,bool verifiedProfile,string offsetTable) { LastLibrary=folder;Calls++;return new FixtureSnapshot(); } }
+public static class FanucReader { public static string ReaderBuild {get{return "20261109-spindle-meters";}} public static string AccessMode { get { return "FOCAS_STATUS_ONLY_V1"; } } public static string ProgramNumber(uint n) { return "O"+n.ToString(); } public static int Calls; public static string LastLibrary; public static FixtureSnapshot ReadWithContext(string ip,ushort port,string folder,bool verifiedProfile,string offsetTable) { LastLibrary=folder;Calls++;return new FixtureSnapshot(); } }
 '@
 $fixtureDirectory=Join-Path ([IO.Path]::GetTempPath()) ('fanuc-bridge-test-'+[guid]::NewGuid().ToString('N'))
 $null=New-Item -ItemType Directory -Path $fixtureDirectory
@@ -130,6 +130,7 @@ try {
     Assert-True ($telemetry.status -eq 'running' -and $telemetry.connected -eq $true) 'Full bridge did not send measured telemetry'
     Assert-True ($telemetry.spindleSpeed -eq 1800 -and $telemetry.feedrate -eq 12.5 -and $telemetry.feedrateUnit -eq 'inch/min' -and $telemetry.activeProgram -eq 'O12345678') 'Optional telemetry or its units were lost in the cloud payload'
     Assert-True ($telemetry.positions[0].absolute.value -eq -125.25 -and $telemetry.servoLoads[0].percent -eq 23 -and $telemetry.sequenceNumber -eq 20 -and $telemetry.programText -eq 'N20 G1 X10') 'Operator telemetry lost in cloud payload'
+    Assert-True ($telemetry.spindleLoad -eq 37.5 -and $telemetry.spindleLoadName -eq 'S1') 'Spindle load lost in cloud payload'
     $metadata=$patches[0].Body|ConvertFrom-Json
     Assert-True ($metadata.name -eq 'Neway 1260S' -and $metadata.id -eq 'neway-1260s') 'Wrong machine registered'
     $offline=$patches[-1].Body|ConvertFrom-Json
