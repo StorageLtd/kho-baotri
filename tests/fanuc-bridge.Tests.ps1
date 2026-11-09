@@ -31,6 +31,7 @@ $global:BridgeTest_calls = @(); $global:BridgeTest_verified = $true; $global:Bri
 function Invoke-RestMethod {
     param($Uri,$Method,$Body,$ContentType,$TimeoutSec,$ErrorAction,$Verbose,$Debug)
     if ($global:BridgeTest_failHttp) { throw ('sensitive URL ' + $Uri) }
+    if($global:BridgeTest_loginOrder -and $Uri -like '*signInWithPassword*'){Assert-True ([FanucReader]::Calls -eq $global:BridgeTest_beforeLoginNative) 'CNC read occurred before GUI authentication'}
     $global:BridgeTest_calls += [pscustomobject]@{ Uri=$Uri; Method=$Method; Body=$Body; ContentType=$ContentType }
     if ($Uri -like '*signInWithPassword*') {
         $decoded=$Body|ConvertFrom-Json
@@ -135,6 +136,35 @@ try {
     Assert-True ($offline.connected -eq $false) 'Orderly stop did not mark disconnected'
     # Auth lives in the child script scope and is explicitly cleared in its finally block.
     Write-Output 'PASS: complete local/cloud bridge execution with mocked native API and HTTPS, first-sample refresh, Neway registration, live upload, and orderly offline cleanup.'
+    # Replace only WinForms presentation for this isolated Linux test; execute the real startup/auth/read ordering.
+    $guiFunction=$ast.FindAll({param($n)$n -is [Management.Automation.Language.FunctionDefinitionAst] -and $n.Name -eq 'Read-BridgeGuiCredential'},$false)[0]
+    $fixtureSource=Get-Content -LiteralPath $scriptPath -Raw
+    $mockGui=@'
+function Read-BridgeGuiCredential([string]$MachineName){
+ Assert-True ([FanucReader]::Calls -eq $global:BridgeTest_beforeLoginNative) 'GUI login must open before any CNC call'
+ $state=Get-Content -LiteralPath (Join-Path $DataDirectory 'bridge-state.json') -Raw|ConvertFrom-Json
+ Assert-True ($state.phase -eq 'login') 'Manager not told login is waiting'
+ $global:BridgeTest_guiShown=$true
+ return New-Object Management.Automation.PSCredential('fixture@example.invalid',(ConvertTo-SecureString 'fixture-password' -AsPlainText -Force))
+}
+'@
+    $fixtureSource=$fixtureSource.Replace($guiFunction.Extent.Text,$mockGui)
+    [IO.File]::WriteAllText((Join-Path $fixtureDirectory 'Start-FanucBridge.ps1'),$fixtureSource,[Text.UTF8Encoding]::new($true))
+    $global:BridgeTest_calls=@();$global:BridgeTest_loginOrder=$true;$global:BridgeTest_beforeLoginNative=[FanucReader]::Calls;$global:BridgeTest_guiShown=$false
+    & (Join-Path $fixtureDirectory 'Start-FanucBridge.ps1') -Once -BackgroundAfterLogin
+    Assert-True $global:BridgeTest_guiShown 'Background flow did not prompt for credentials'
+    Assert-True ([FanucReader]::Calls -eq $global:BridgeTest_beforeLoginNative+1) 'Background mode must perform its first native read only after authentication'
+    $state=Get-Content -LiteralPath (Join-Path $fixtureDirectory 'bridge-state.json') -Raw|ConvertFrom-Json
+    Assert-True ($state.phase -eq 'stopped') 'Orderly stop phase missing'
+    Assert-True ((Get-Content -LiteralPath (Join-Path $fixtureDirectory 'bridge-state.json') -Raw) -notmatch 'fixture-password|idToken') 'Startup status leaked a secret'
+    $cancelSource=$fixtureSource.Replace($mockGui,"function Read-BridgeGuiCredential { throw [OperationCanceledException]::new('Login cancelled fixture') }")
+    [IO.File]::WriteAllText((Join-Path $fixtureDirectory 'Start-FanucBridge.ps1'),$cancelSource,[Text.UTF8Encoding]::new($true))
+    $nativeBefore=[FanucReader]::Calls;$global:BridgeTest_calls=@()
+    & (Join-Path $fixtureDirectory 'Start-FanucBridge.ps1') -Once -BackgroundAfterLogin
+    Assert-True ([FanucReader]::Calls -eq $nativeBefore -and $global:BridgeTest_calls.Count -eq 0) 'Cancelled login contacted CNC or cloud'
+    Copy-Item $scriptPath (Join-Path $fixtureDirectory 'Start-FanucBridge.ps1') -Force
+    $global:BridgeTest_loginOrder=$false
+    Write-Output 'PASS: Manager login opens before any native CNC read, authentication precedes first read, and phases contain no credentials.'
     $global:BridgeTest_calls=@();$global:BridgeTest_collision=$true
     & (Join-Path $fixtureDirectory 'Start-FanucBridge.ps1') -Once
     Assert-True (@($global:BridgeTest_calls | Where-Object Method -eq 'PATCH').Count -eq 0) 'Collision failure or cleanup unexpectedly modified a different machine'

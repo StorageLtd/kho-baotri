@@ -1,5 +1,5 @@
 LTD CNC BRIDGE MANAGER
-Build 20261109-work-offset-tray · Windows 10/11 64-bit
+Build 20261109-login-first · Windows 10/11 64-bit
 
 CẬP NHẬT
 1. Trong bản Manager cũ: dừng từng cầu nối, chờ tiến trình dừng.
@@ -60,3 +60,12 @@ NGUỒN DỮ LIỆU / GIỚI HẠN
 - Giữ report-outbox khi cập nhật. last-result.json là mẫu gần nhất.
 - Đã kiểm tra bằng fixture và trình duyệt. Chưa thử GUI Windows/CNC thật;
   cần đối chiếu lần đầu HD.T/NX.T, đơn vị, gốc và bảng offset với màn hình máy.
+
+SỬA HỘP ĐĂNG NHẬP — 20261109-login-first
+Manager mở hộp đăng nhập nổi trên cùng trước khi nạp DLL hoặc đọc CNC.
+Thanh trạng thái phân biệt chờ đăng nhập, xác thực và đọc dữ liệu.
+Hủy hộp thoại thì chưa kết nối CNC. Nhật ký hiển thị cả lỗi khởi động.
+Nếu cầu nối cũ kẹt: bấm Dừng cầu nối, chờ 15 giây; nút đổi thành Đóng tiến trình.
+Xác nhận chỉ đóng tiến trình phần mềm cầu nối của máy đang chọn trên laptop,
+không gửi lệnh tới CNC; dữ liệu chưa lưu trong bộ nhớ có thể mất.
+Khi cập nhật phải Thoát quản lý từ menu khay hệ thống, không chỉ bấm X.

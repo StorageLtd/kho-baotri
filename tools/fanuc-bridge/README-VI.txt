@@ -1,5 +1,5 @@
 LTD FANUC BRIDGE — CHỈ ĐỌC, KHÔNG TRUY CẬP PMC
-Bridge build: 20261109-work-offset-tray
+Bridge build: 20261109-login-first
 
 KHUYÊN DÙNG GIAO DIỆN
 Tải FANUC-Bridge-Manager.zip trên web, chép ba DLL vào lib rồi nhấp đúp
@@ -18,7 +18,7 @@ CHẠY THỦ CÔNG GÓI NÀY
    Unblock-File .\FanucReader.cs
    Unblock-File .\ReportCollector.ps1
    .\Start-FanucBridge.ps1
-6. Phải thấy Bridge build: 20261109-work-offset-tray. Đăng nhập tài khoản CMMS
+6. Phải thấy Bridge build: 20261109-login-first. Đăng nhập tài khoản CMMS
    đã xác minh, có vai trò phù hợp. Mật khẩu/token không lưu vào file.
    Chế độ thủ công cần giữ PowerShell mở; Ctrl+C dừng cầu nối, không dừng CNC.
 7. Chỉ kiểm tra cục bộ, không đăng nhập/gửi Firebase:
@@ -67,3 +67,12 @@ Không đọc/ghi PMC hoặc ghi CNC. Không đổi offset, tham số, chương 
 điều khiển chuyển động. DLL do bạn cung cấp chưa được kiểm toán toàn bộ.
 Đã kiểm tra mã, ABI giả lập và giao diện; chưa kết nối CNC thật/GUI Windows.
 Đối chiếu lần đầu HD.T/NX.T, đơn vị, gốc và offset trên màn hình CNC.
+
+SỬA HỘP ĐĂNG NHẬP — 20261109-login-first
+Manager mở hộp đăng nhập nổi trên cùng trước khi nạp DLL hoặc đọc CNC.
+Thanh trạng thái phân biệt chờ đăng nhập, xác thực và đọc dữ liệu.
+Hủy hộp thoại thì chưa kết nối CNC. Nhật ký hiển thị cả lỗi khởi động.
+Nếu cầu nối cũ kẹt: bấm Dừng cầu nối, chờ 15 giây; nút đổi thành Đóng tiến trình.
+Xác nhận chỉ đóng tiến trình phần mềm cầu nối của máy đang chọn trên laptop,
+không gửi lệnh tới CNC; dữ liệu chưa lưu trong bộ nhớ có thể mất.
+Khi cập nhật phải Thoát quản lý từ menu khay hệ thống, không chỉ bấm X.

@@ -32,6 +32,12 @@ try{
  Stop-ManagerBridge 'cnc-2'
  Assert (Test-Path (Join-Path (Get-MachineFolder 'cnc-2') 'stop-request')) 'Graceful stop signal missing'
  Assert (-not (Get-Process -Id $PID).HasExited) 'Stop signal terminated process instead of asking bridge to stop'
+ $blocked=$false;try{Stop-StuckManagerBridge 'cnc-2'}catch{$blocked=$true};Assert $blocked 'Premature forced stop allowed'
+ function Stop-Process {param($Id,$ErrorAction);$global:ManagerTestClosedPid=$Id}
+ [IO.File]::SetLastWriteTimeUtc((Join-Path (Get-MachineFolder 'cnc-2') 'stop-request'),[DateTime]::UtcNow.AddSeconds(-20))
+ Stop-StuckManagerBridge 'cnc-2'
+ Assert ($global:ManagerTestClosedPid -eq $PID) 'Stuck bridge fallback targeted wrong process'
+ Remove-Item Function:Stop-Process
  Remove-Item -LiteralPath (Join-Path (Get-MachineFolder 'cnc-2') 'runtime.json')
  $machineInput.axisNames='X,X,Z';$rejected=$false;try{$null=ConvertTo-MachineConfig $machineInput}catch{$rejected=$true};Assert $rejected 'Duplicate axes allowed'
  $machineInput.axisNames='X,Y,Z';$machineInput.port=70000;$rejected=$false;try{$null=ConvertTo-MachineConfig $machineInput}catch{$rejected=$true};Assert $rejected 'Invalid port allowed'

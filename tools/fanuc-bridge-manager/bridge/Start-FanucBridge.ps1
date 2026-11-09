@@ -137,19 +137,26 @@ function Apply-BridgeMachiningProfile {
     $table=if($profile -ne 'unverified'){$Record.offsetTable}else{'unverified'}
     if(-not $Config.PSObject.Properties['offsetTable']){$Config|Add-Member -NotePropertyName offsetTable -NotePropertyValue $table}else{$Config.offsetTable=$table}
 }
+function Set-BridgePhase([string]$Phase){
+    if(-not $BackgroundAfterLogin){return}
+    @{at=[DateTime]::UtcNow.ToString('o');phase=$Phase;uploaded=$false}|ConvertTo-Json|Set-Content -LiteralPath (Join-Path $DataDirectory 'bridge-state.json') -Encoding UTF8
+}
 function Read-BridgeGuiCredential([string]$MachineName){
     Add-Type -AssemblyName System.Windows.Forms
     Add-Type -AssemblyName System.Drawing
-    $dialog=New-Object Windows.Forms.Form;$dialog.Text='LTD · Đăng nhập cầu nối';$dialog.Size=New-Object Drawing.Size(460,335);$dialog.StartPosition='CenterScreen';$dialog.FormBorderStyle='FixedDialog';$dialog.MaximizeBox=$false;$dialog.MinimizeBox=$false;$dialog.Font=New-Object Drawing.Font('Segoe UI',10)
+    $dialog=New-Object Windows.Forms.Form;$dialog.Text='LTD · Đăng nhập cầu nối';$dialog.Size=New-Object Drawing.Size(460,335);$dialog.StartPosition='CenterScreen';$dialog.FormBorderStyle='FixedDialog';$dialog.MaximizeBox=$false;$dialog.MinimizeBox=$false;$dialog.ShowInTaskbar=$true;$dialog.TopMost=$true;$dialog.Font=New-Object Drawing.Font('Segoe UI',10)
     $title=New-Object Windows.Forms.Label;$title.Text=$MachineName;$title.AutoEllipsis=$true;$title.SetBounds(20,18,410,30);$title.Font=New-Object Drawing.Font('Segoe UI',14,[Drawing.FontStyle]::Bold);$dialog.Controls.Add($title)
     $label=New-Object Windows.Forms.Label;$label.Text='Tài khoản CMMS trên website · Mật khẩu không lưu';$label.SetBounds(20,53,410,25);$dialog.Controls.Add($label)
     $emailLabel=New-Object Windows.Forms.Label;$emailLabel.Text='Email CMMS';$emailLabel.SetBounds(20,81,405,23);$dialog.Controls.Add($emailLabel)
     $passwordLabel=New-Object Windows.Forms.Label;$passwordLabel.Text='Mật khẩu';$passwordLabel.SetBounds(20,150,405,23);$dialog.Controls.Add($passwordLabel)
-    $email=New-Object Windows.Forms.TextBox;$email.SetBounds(20,105,405,30);$dialog.Controls.Add($email)
+    $email=New-Object Windows.Forms.TextBox;$email.Name='BridgeEmail';$email.SetBounds(20,105,405,30);$dialog.Controls.Add($email)
     $password=New-Object Windows.Forms.TextBox;$password.UseSystemPasswordChar=$true;$password.SetBounds(20,174,405,30);$dialog.Controls.Add($password)
     $submit=New-Object Windows.Forms.Button;$submit.Text='Đăng nhập và kết nối';$submit.SetBounds(200,238,225,37);$submit.DialogResult='OK';$dialog.Controls.Add($submit);$dialog.AcceptButton=$submit
     $dialog.AccessibleDescription='Ô đầu là email CMMS. Ô thứ hai là mật khẩu.';$email.AccessibleName='Email CMMS';$password.AccessibleName='Mật khẩu'
-    try{if($dialog.ShowDialog() -ne 'OK'){throw 'Đã hủy đăng nhập.'};if(-not $email.Text.Trim() -or -not $password.Text){throw 'Nhập email và mật khẩu CMMS.'};$secure=ConvertTo-SecureString $password.Text -AsPlainText -Force;$user=$email.Text.Trim();$password.Clear();return New-Object Management.Automation.PSCredential($user,$secure)}finally{$password.Clear();$dialog.Dispose()}
+    $dialog.Tag=$StopRequestPath
+    $dialog.Add_Shown({param($sender,$eventArgs);$sender.Activate();$sender.Controls['BridgeEmail'].Focus()})
+    $cancelTimer=New-Object Windows.Forms.Timer;$cancelTimer.Interval=500;$cancelTimer.Add_Tick({if($dialog.Tag -and (Test-Path -LiteralPath $dialog.Tag)){$dialog.Close()}}.GetNewClosure());$cancelTimer.Start()
+    try{if($dialog.ShowDialog() -ne 'OK'){throw [OperationCanceledException]::new('Đã hủy đăng nhập.')};if(-not $email.Text.Trim() -or -not $password.Text){throw 'Nhập email và mật khẩu CMMS.'};$secure=ConvertTo-SecureString $password.Text -AsPlainText -Force;$user=$email.Text.Trim();$password.Clear();return New-Object Management.Automation.PSCredential($user,$secure)}finally{$cancelTimer.Stop();$cancelTimer.Dispose();$password.Clear();$dialog.Dispose()}
 }
 function New-BridgePayload {
     param($Snapshot)
@@ -191,20 +198,30 @@ try {
     # Pin credential and telemetry destinations to this CMMS Firebase project.
     if ($config.databaseUrl -cne 'https://ltdst-80b3e-default-rtdb.asia-southeast1.firebasedatabase.app') { throw 'Unexpected database URL. No credentials will be sent.' }
     if ($config.firebaseApiKey -notmatch '^[A-Za-z0-9_-]+$') { throw 'Invalid Firebase Web API key.' }
+    # Show credentials before loading native DLLs or waiting on ANY CNC read.
+    if($BackgroundAfterLogin -and -not $LocalOnly){
+        Set-BridgePhase 'login'
+        $credential=Read-BridgeGuiCredential $config.machineName
+        $email=$credential.UserName;$password=$credential.Password
+        Set-BridgePhase 'loading-reader'
+    }
     if (-not ('FanucReader' -as [type])) { Add-Type -Path (Join-Path $PSScriptRoot 'FanucReader.cs') }
     if (-not ([FanucReader].GetProperty('AccessMode')) -or [FanucReader]::AccessMode -ne 'FOCAS_STATUS_ONLY_V1' -or -not ([FanucReader].GetMethods()|Where-Object {$_.Name -eq 'ReadWithContext' -and $_.GetParameters().Count -eq 5})) { throw 'Old reader loaded. CLOSE this PowerShell window and open a new one. The new bridge refuses to reuse the previous reader.' }
-    Write-Host "Bridge build: 20261109-work-offset-tray"
+    Write-Host "Bridge build: 20261109-login-first"
     Write-Host "Machine: $($config.machineName) | CNC $($config.cncIp):$($config.port)"
     Write-Host 'Read-only CNC access. Reading status, actual spindle/feed and current/main O-number. Reading alarm messages with cnc_rdalmmsg2; no PMC access or CNC writes.'
     Write-Host 'HD.T / NX.T via cnc_rdhdnxt. Read-only G modal, work coordinates and confirmed offset tables; no PMC.'
-    # Test a real FOCAS read before requesting any credentials or creating the cloud record.
-    $sample = [FanucReader]::ReadWithContext([string]$config.cncIp, [uint16]$config.port, $LibraryDirectory,($config.machiningContextProfile -match '^verified-fanuc-m-3axis-memory-[abc]$'),([string]$config.offsetTable))
+    # Manual mode retains its initial CNC check. Manager mode prompts first and reads in the loop after auth.
+    $sample=$null
+    if(-not $BackgroundAfterLogin){$sample = [FanucReader]::ReadWithContext([string]$config.cncIp, [uint16]$config.port, $LibraryDirectory,($config.machiningContextProfile -match '^verified-fanuc-m-3axis-memory-[abc]$'),([string]$config.offsetTable))}
     if (-not $LocalOnly) {
-        if($BackgroundAfterLogin){$credential=Read-BridgeGuiCredential $config.machineName;$email=$credential.UserName;$password=$credential.Password}else{
+        if(-not $BackgroundAfterLogin){
         $email = Read-Host 'CMMS email (the same verified account used on the website)'
         $password = Read-Host 'CMMS password (hidden; never saved)' -AsSecureString
         }
+        Set-BridgePhase 'authenticating'
         try { Connect-BridgeAccount $config $email $password } finally { if ($password) { $password.Dispose(); $password = $null } }
+        Set-BridgePhase 'checking-account'
         Update-BridgeToken $config
         $existing = Invoke-BridgeHttp "$($config.databaseUrl)/cncs/$($config.machineId).json?auth=$($script:Auth.idToken)" 'GET' $null 'Check machine identity'
         if ($null -ne $existing) {
@@ -239,9 +256,11 @@ try {
                 catch{Apply-BridgeMachiningProfile $config $null}
                 $script:ProfileCheckedAt=[DateTime]::UtcNow
             }
+            Set-BridgePhase 'reading-cnc'
             try { $sample = [FanucReader]::ReadWithContext([string]$config.cncIp, [uint16]$config.port, $LibraryDirectory,($config.machiningContextProfile -match '^verified-fanuc-m-3axis-memory-[abc]$'),([string]$config.offsetTable)) }
             catch {
                 if($reportingStarted){Break-CncReportObservation}
+                Set-BridgePhase 'retrying-cnc'
                 Write-Warning ('CNC read failed: ' + $_.Exception.GetBaseException().Message)
                 if (-not $LocalOnly) { try { Send-BridgePatch $config @{ source = 'focas'; connected = $false; status = 'offline' } } catch { Write-Warning $_.Exception.Message } }
                 if ($Once) { throw 'CNC sample was not obtained.' }
@@ -267,7 +286,7 @@ try {
             if ($sample.readErrors -and $sample.readErrors.Count -gt 0) {
                 foreach ($item in $sample.readErrors.GetEnumerator()) { Write-Warning ("Telemetry {0}: {1}" -f $item.Key, $item.Value) }
             }
-            if($BackgroundAfterLogin){@{at=[DateTime]::UtcNow.ToString('o');uploaded=$uploaded;run=$sample.rawStatus.run;alarm=$sample.rawStatus.alarm;program=$sample.activeProgram}|ConvertTo-Json|Set-Content -LiteralPath (Join-Path $DataDirectory 'bridge-state.json') -Encoding UTF8}
+            if($BackgroundAfterLogin){@{at=[DateTime]::UtcNow.ToString('o');phase='active';uploaded=$uploaded;run=$sample.rawStatus.run;alarm=$sample.rawStatus.alarm;program=$sample.activeProgram}|ConvertTo-Json|Set-Content -LiteralPath (Join-Path $DataDirectory 'bridge-state.json') -Encoding UTF8}
             $destination = if ($LocalOnly) { 'LOCAL ONLY - not uploaded' } elseif ($uploaded) { 'FIREBASE UPDATED' } else { 'UPLOAD FAILED - will retry' }
             Write-Host ("{0} | {1} | RUN={2} ALARM={3} EMERGENCY={4}" -f (Get-Date -Format 'HH:mm:ss'), $destination, $sample.rawStatus.run, $sample.rawStatus.alarm, $sample.rawStatus.emergency)
             Write-Host ("Spindle={0} {1} | Feed={2} {3} | Program={4} | Main={5}" -f $sample.spindleSpeed, $sample.spindleUnit, $sample.feedrate, $sample.feedrateUnit, $sample.activeProgram, $sample.mainProgram)
@@ -276,16 +295,25 @@ try {
         $sample = $null
         if (-not $Once) { Start-Sleep -Seconds ([int]$config.intervalSeconds) }
     } while (-not $Once)
-} catch {
-    [Console]::Error.WriteLine('BRIDGE STOPPED: ' + $_.Exception.GetBaseException().Message)
-    $script:BridgeFailed = $true
-    if($BackgroundAfterLogin){try{Add-Type -AssemblyName System.Windows.Forms;[void][Windows.Forms.MessageBox]::Show($_.Exception.GetBaseException().Message,'LTD · Cầu nối đã dừng','OK','Error')}catch{}}
+ } catch {
+    $failure=$_.Exception.GetBaseException()
+    if($failure -is [OperationCanceledException]){
+        $script:BridgeFailed=$false
+        Write-Host 'Đã hủy đăng nhập. Cầu nối chưa kết nối CNC.'
+    }else{
+        [Console]::Error.WriteLine('BRIDGE STOPPED: ' + $failure.Message)
+        $script:BridgeFailed=$true
+        try{Set-BridgePhase 'failed'}catch{}
+        if($BackgroundAfterLogin){try{Add-Type -AssemblyName System.Windows.Forms;[void][Windows.Forms.MessageBox]::Show($failure.Message,'LTD · Cầu nối đã dừng','OK','Error')}catch{}}
+    }
 } finally {
     # On an orderly stop try to publish offline; forced closure is covered by the web's 30s expiry.
     if ($script:Auth -and $machineRegistered -and -not $LocalOnly) {
         try { Send-BridgePatch $config @{ connected = $false; status = 'offline' } } catch { }
     }
     if($reportingStarted){Finish-CncCycle 'Dừng cầu nối; chưa biết kết thúc' $null;try{Send-PendingCncReports $config -Force}catch{ };Close-CncReports}
+    if($password){$password.Dispose();$password=$null}
+    if(-not $script:BridgeFailed){try{Set-BridgePhase 'stopped'}catch{}}
     $script:Auth = $null
     if($script:BridgeTranscript){try{Stop-Transcript|Out-Null}catch{}}
 }

@@ -71,7 +71,7 @@ function Start-ManagerBridge([string]$Id){
  # Arguments contain only validated/local file paths, never NC data or credentials.
  foreach($value in @($bridge,$path,$lib,$folder,$stop)){if($value.Contains('"')){throw 'Đường dẫn không hợp lệ.'}}
  $arguments='-NoLogo -NoProfile -STA -ExecutionPolicy RemoteSigned -File "'+$bridge+'" -ConfigPath "'+$path+'" -LibraryDirectory "'+$lib+'" -DataDirectory "'+$folder+'" -StopRequestPath "'+$stop+'" -BackgroundAfterLogin'
- $process=Start-Process -FilePath $shell -ArgumentList $arguments -WindowStyle Hidden -PassThru
+ $process=Start-Process -FilePath $shell -ArgumentList $arguments -WindowStyle Hidden -RedirectStandardError (Join-Path $folder 'bridge-startup-error.log') -PassThru
  [pscustomobject]@{pid=$process.Id;startedTicks=$process.StartTime.ToUniversalTime().Ticks}|ConvertTo-Json|Set-Content -LiteralPath (Join-Path $folder 'runtime.json') -Encoding UTF8
  return $process
 }
@@ -93,4 +93,13 @@ function Get-ManagerHeartbeat([string]$Id){
  $file=Join-Path (Get-MachineFolder $Id) 'bridge-state.json'
  if(Test-Path -LiteralPath $file){try{return Get-Content -LiteralPath $file -Raw -Encoding UTF8|ConvertFrom-Json}catch{}}
  return $null
+}
+
+function Stop-StuckManagerBridge([string]$Id){
+ # Explicit UI-confirmed fallback. Close only the exact recorded local bridge process; never send a CNC command.
+ $process=Get-ManagerProcess $Id;if(-not $process){return}
+ $marker=Join-Path (Get-MachineFolder $Id) 'stop-request'
+ if(-not (Test-Path -LiteralPath $marker) -or ([DateTime]::UtcNow-(Get-Item -LiteralPath $marker).LastWriteTimeUtc).TotalSeconds -lt 15){throw 'Yêu cầu Dừng cầu nối trước, chờ ít nhất 15 giây.'}
+ $identity=Get-ManagerProcess $Id;if(-not $identity -or $identity.Id -ne $process.Id -or $identity.StartTime.ToUniversalTime().Ticks -ne $process.StartTime.ToUniversalTime().Ticks){throw 'Tiến trình đã thay đổi. Chọn lại máy.'}
+ Stop-Process -Id $identity.Id -ErrorAction Stop
 }
