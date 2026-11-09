@@ -52,7 +52,8 @@ window.renderFixture = (records) => {
 window.startFixturePolling = startCncRealtimeSync;
 window.restoreFixtureClock = () => setCncClockOffset(0);
 window.fixtureCncNow = cncServerNow;
-window.seedDayFixture = () => {cncDayOwner=getUser().uid;cncDayStats.set('neway-1260s',{date:vnDate(cncServerNow()),row:{sessions:1,counterStart:20,counterEnd:21,counterResets:0,observedMs:7200000,runningMs:3600000,holdMs:1800000,alarmMs:900000,firstMs:cncServerNow()-7200000,lastMs:cncServerNow(),conflicts:0}});renderCncGridOnly()};
+window.refreshDayFixture = async () => {cncDayLoadedAt=0;await refreshCncDayStats();return [...cncDayStats.values()]};
+window.seedDayFixture = () => {cncDayOwner=getUser().uid;cncDayStats.set('neway-1260s',{date:vnDate(cncServerNow()),row:{sessions:1,counterStart:20,counterEnd:21,counterResets:0,observedMs:7200000,runningMs:3600000,holdMs:1800000,idleMs:900000,alarmMs:900000,firstMs:cncServerNow()-7200000,lastMs:cncServerNow(),conflicts:0}});const entry=cncDayStats.get('neway-1260s');entry.week=[{...entry.row,day:entry.date}];entry.weekStart=entry.date;renderCncGridOnly()};
 '''
             await page.route('**/assets/js/app.js*', lambda route: route.fulfill(status=200, content_type='text/javascript', body=source+hook))
             await page.goto(f'http://127.0.0.1:{server.server_port}/', wait_until='networkidle')
@@ -152,7 +153,7 @@ window.seedDayFixture = () => {cncDayOwner=getUser().uid;cncDayStats.set('neway-
             card = page.locator('#card-neway-1260s')
             assert 'Dữ liệu thật' in await card.inner_text()
             assert 'ĐANG CHẠY (START)' in await card.inner_text()
-            assert '— RPM' in await card.inner_text()
+            assert await card.locator('.cnc-state-chart').count()==2
             assert 'Chưa đọc' in await card.inner_text()
             assert 'T7' in await card.locator('.cnc-tool-number').inner_text()
             assert 'PART COUNT:' in await card.inner_text()
@@ -164,19 +165,24 @@ window.seedDayFixture = () => {cncDayOwner=getUser().uid;cncDayStats.set('neway-
             assert 'Các nhóm mã lỗi liên kết kho' not in await page.locator('#cncMonitoringPage').inner_text()
             assert await page.locator('#cncLiveCharts').count()==0
             assert await card.locator('.cnc-machine-art').count()==0
-            assert await card.locator('.cnc-day-charts').count()==1
-            assert await card.locator('.cnc-four-gauges > div').count()==4
-            assert await card.locator('.cnc-four-gauges .cnc-instrument').count()==2
+            assert await card.locator('[data-state-period=day]').count()==1
+            assert await card.locator('[data-state-period=week]').count()==1
+            assert await card.locator('.cnc-instrument').count()==0
             assert await card.locator('.cnc-day-foot').count()==0
             assert await card.locator('.cnc-operation-strip > div > span').all_text_contents()==['Chế độ','Chương trình','Dao trục chính','CYCLE TIME:','RUN TIME:','PART COUNT:']
             assert await card.locator('.cnc-production-grid').count()==0
             assert await card.locator('.cnc-machine-content').evaluate("el=>el.firstElementChild.classList.contains('cnc-program-line')")
             await page.evaluate('seedDayFixture()')
-            assert await card.locator('.cnc-part-ring strong').inner_text()=='21'
-            assert '+1 trong ngày' in await card.locator('.cnc-day-parts').inner_text()
-            assert await card.locator('.cnc-count-comparison label b').all_text_contents()==['20','21']
-            assert '1:00:00' in await card.locator('.cnc-day-runtime').inner_text()
-            assert await card.locator('.cnc-day-runtime .cnc-day-ring').evaluate("el=>el.style.getPropertyValue('--run')")=='50%'
+            assert '1:00:00' in await card.locator('[data-state-period=day]').inner_text()
+            assert await card.locator('.cnc-state-donut strong').inner_text()=='50%'
+            assert await card.locator('.cnc-week-day').count()==7
+            assert await card.locator('.cnc-week-column .state-run').count()==7
+            for width in [1280,390]:
+                await page.set_viewport_size({'width':width,'height':900})
+                assert await page.locator('#cncMachineDetailsDialog').evaluate('e=>e.scrollWidth<=e.clientWidth+1')
+            await page.screenshot(path='/tmp/cnc-productivity-mobile.png',full_page=True)
+            await page.set_viewport_size({'width':1280,'height':900})
+            await page.screenshot(path='/tmp/cnc-productivity.png',full_page=True)
 
             assert await card.get_by_text('Xử lý xong (Clear)').count() == 0
             assert await page.locator('#statCncRunning').inner_text() == '1'
@@ -204,8 +210,8 @@ window.seedDayFixture = () => {cncDayOwner=getUser().uid;cncDayStats.set('neway-
             await page.evaluate('''renderFixture([{id:'neway-1260s',name:'Neway 1260S',source:'focas',connected:true,lastSeen:Date.now(),rawStatus:{run:3,alarm:0,emergency:0,aut:1},ip:'192.168.1.1',port:8193,model:'FANUC 0i-MF Plus',spindleSpeed:1800,feedrate:12.5,feedrateUnit:'inch/min',activeProgram:'O12345678',mainProgram:'O0001'}])''')
             await page.get_by_role('button',name='Xem máy Neway 1260S',exact=True).click()
             await page.get_by_role('button',name='THỐNG KÊ',exact=True).click()
-            assert '1800 RPM' in await card.inner_text()
-            assert '12.5 inch/min' in await card.inner_text()
+            assert '1800 RPM' not in await card.inner_text()
+            assert '12.5 inch/min' not in await card.inner_text()
             assert 'O12345678' in await card.inner_text()
             assert 'O0001' not in await card.inner_text()
             assert 'Chương trình chính:' not in await card.inner_text()
@@ -226,7 +232,7 @@ window.seedDayFixture = () => {cncDayOwner=getUser().uid;cncDayStats.set('neway-
             live={'neway-1260s':{'id':'neway-1260s','name':'Neway 1260S','source':'focas','connected':True,'lastSeen':at,'rawStatus':{'run':3,'alarm':0,'emergency':0,'aut':1},'ip':'192.168.1.1','port':8193,'spindleSpeed':250,'feedrate':100,'feedrateUnit':'inch/min'}}
             await page.route('**/cncs.json?*',lambda route: route.fulfill(status=200,content_type='application/json',body=json.dumps(live)))
             await page.clock.fast_forward(5000)
-            await page.wait_for_function("document.querySelector('#card-neway-1260s').textContent.includes('250 RPM')")
+            await page.wait_for_function("document.querySelector('#card-neway-1260s .cnc-status').textContent.includes('ĐANG CHẠY')")
             assert await page.locator('#statCncRunning').inner_text()=='1'
             assert await page.locator('#cncSyncStatus').count()==0
             # Reproduce a Windows clock 11 minutes ahead of Firebase's server clock.
@@ -238,7 +244,7 @@ window.seedDayFixture = () => {cncDayOwner=getUser().uid;cncDayStats.set('neway-
             await page.clock.fast_forward(15000)
             await page.wait_for_function("Math.abs(Date.now()-window.fixtureCncNow()-660000)<5000")
             assert await page.locator('#statCncRunning').inner_text()=='1'
-            assert '250 RPM' in await card.inner_text()
+            assert 'ĐANG CHẠY' in await card.inner_text()
             await page.route('**/online_users/**',lambda route:route.fulfill(status=403,content_type='application/json',body='{}'))
             await page.route('**/cncs.json?*',lambda route:route.fulfill(status=503,content_type='application/json',body='{}'))
             await page.evaluate('restoreFixtureClock()')
@@ -337,7 +343,7 @@ window.seedDayFixture = () => {cncDayOwner=getUser().uid;cncDayStats.set('neway-
                 assert await page.evaluate('document.documentElement.scrollWidth<=innerWidth')
             await page.get_by_role('button',name='Xem máy CNC 03',exact=True).click()
             await page.get_by_role('button',name='THỐNG KÊ',exact=True).click()
-            assert await page.locator('#card-missing-day .cnc-day-runtime .cnc-day-ring strong').inner_text()=='—'
+            assert await page.locator('#card-missing-day .cnc-state-donut strong').inner_text()=='—'
             assert not errors, errors
             await browser.close()
             print('PASS: live telemetry, unit-aware display, freshness, mobile; report summary/verified production, real XLSX download, empty period, and Firebase permission errors; no page errors.')

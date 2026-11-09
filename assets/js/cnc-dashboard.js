@@ -13,13 +13,33 @@ function dailyCharts(day,instruments){
  <div class="cnc-day-runtime"><span class="cnc-day-label">CHẠY TRONG NGÀY</span><div class="cnc-day-ring" title="${esc(`Chạy: ${cncDuration(r.runningMs)} · Hold: ${cncDuration(r.holdMs)} · Alarm: ${cncDuration(r.alarmMs)}`)}" style="--run:${run}%;--hold:${run+hold}%;--alarm:${run+hold+alarm}%"><div><strong>${known?esc(cncDuration(r.runningMs)):'—'}</strong><small>giờ : phút : giây</small></div></div><div class="cnc-day-legend"><span>● Chạy</span><span>● Tạm dừng</span><span>● Lỗi</span><span>● Dừng / khác</span></div></div>${instruments}</div>
 </section>`;
 }
+const stateSeries=[['runningMs','Chạy','run'],['stoppedMs','Dừng / Hold','stop'],['alarmMs','Lỗi','alarm'],['unknownStateMs','Chưa xác định','unknown']];
+function stateValues(row){return {runningMs:row?.runningMs||0,stoppedMs:(row?.idleMs||0)+(row?.holdMs||0),alarmMs:row?.alarmMs||0,unknownStateMs:row?.unknownStateMs||0};}
+function stateChart(title,rows,{weekly=false,error='',date=''}={}){
+ const totals=rows.reduce((sum,row)=>{const values=stateValues(row);for(const [key] of stateSeries)sum[key]=(sum[key]||0)+values[key];return sum;},{});
+ const total=Object.values(totals).reduce((a,b)=>a+b,0),percent=total?Math.round((totals.runningMs||0)/total*100):null;
+ const legend=stateSeries.map(([key,label,css])=>`<li><i class="state-${css}"></i><span>${label}</span><b>${total?cncDuration(totals[key]||0):'—'}</b></li>`).join('');
+ let chart;
+ if(weekly){
+  chart=`<div class="cnc-week-bars" role="img" aria-label="Thời gian chạy, dừng và lỗi theo ngày trong tuần">${rows.map(row=>{const values=stateValues(row),observed=Object.values(values).reduce((a,b)=>a+b,0),scale=86400000;return `<div class="cnc-week-day"><div class="cnc-week-column" title="${esc(row.day)} · ${stateSeries.map(([key,label])=>`${label}: ${cncDuration(values[key])}`).join(' · ')}">${stateSeries.map(([key,,css])=>`<span class="state-${css}" style="height:${values[key]/scale*100}%"></span>`).join('')}</div><b>${esc(row.day?.slice(8)||'—')}</b><small>${observed?Math.round(values.runningMs/observed*100)+'%':'—'}</small></div>`}).join('')}</div>`;
+ }else{
+  let end=0;const stops=stateSeries.map(([key,,css])=>{const start=end;end+=total?(totals[key]||0)/total*100:0;return `var(--state-${css}) ${start}% ${end}%`;}).join(',');
+  chart=`<div class="cnc-state-donut" style="--state-fill:${total?`conic-gradient(${stops})`:'#405369'}" role="img" aria-label="Tỷ lệ chạy ${percent??'chưa có dữ liệu'}${percent===null?'':' phần trăm'}"><div><strong>${percent===null?'—':percent+'%'}</strong><small>Thời gian chạy</small></div></div>`;
+ }
+ return `<section class="cnc-state-chart" data-state-period="${weekly?'week':'day'}"><h4>${title}</h4><span class="cnc-state-period">${esc(date)}</span>${chart}${weekly?'<small class="cnc-state-scale">24 giờ / ngày</small>':''}<ul>${legend}</ul>${error?`<p class="cnc-state-note">${esc(error)}</p>`:!total?'<p class="cnc-state-note">Chưa có dữ liệu</p>':'<p class="cnc-state-note">Tỷ lệ trên thời gian có dữ liệu</p>'}</section>`;
+}
+function productivityCharts(daily){
+ const date=daily?.date||new Date(cncServerNow()+7*3600000).toISOString().slice(0,10),today=+new Date(date+'T00:00:00+07:00'),start=today-((new Date(today+7*3600000).getUTCDay()+6)%7)*86400000;
+ const week=Array.from({length:7},(_,i)=>{const day=new Date(start+i*86400000+7*3600000).toISOString().slice(0,10);return daily?.week?.find(row=>row.day===day)||{day};});
+ return stateChart('TRONG NGÀY',daily?.row?[daily.row]:[],{date:date.split('-').reverse().join('/'),error:daily?.error})+stateChart('TRONG TUẦN',week,{weekly:true,date:daily?.weekStart?daily.weekStart.split('-').reverse().join('/')+' – '+date.split('-').reverse().join('/'):'Thứ Hai – Chủ Nhật',error:daily?.error});
+}
 function instrument(label,value,unit,kind,active){
  const content=String(value);
  return `<div class="cnc-instrument ${kind}${active?' is-active':''}${content.length>6?' has-long-value':''}"><div class="cnc-instrument-face"><svg viewBox="0 0 140 140" fill="none" aria-hidden="true"><circle cx="70" cy="70" r="60" class="cnc-dial-track"/><circle cx="70" cy="70" r="60" class="cnc-dial-ticks"/><circle cx="70" cy="70" r="49" class="cnc-dial-inner"/><path d="M23 107a60 60 0 0 1 0-74" class="cnc-dial-accent"/></svg><div class="cnc-instrument-reading"><span class="cnc-instrument-symbol" aria-hidden="true">${kind==='spindle'?'S':'F'}</span><strong>${esc(value)}${unit?` <small>${esc(unit)}</small>`:''}</strong></div></div><span class="cnc-instrument-label">${label}</span></div>`;
 }
 const settingsIcon='<svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="m14.5 5 1.8-1 2.2 2.2-1 1.8.6 1.5 2 .6v3.1l-2 .6-.6 1.5 1 1.8-2.2 2.2-1.8-1-1.5.6-.6 2H9.3l-.6-2-1.5-.6-1.8 1-2.2-2.2 1-1.8-.6-1.5-2-.6v-3.1l2-.6.6-1.5-1-1.8 2.2-2.2 1.8 1 1.5-.6.6-2h3.1l.6 2 1.5.6Z" stroke="currentColor" stroke-width="1.3"/><circle cx="11" cy="11.6" r="3" stroke="currentColor" stroke-width="1.3"/></svg>';
 const deleteIcon='<svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M4 6h16M9 6V3h6v3M6 6l1 15h10l1-15M10 10v7M14 10v7" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>';
-export function renderCncMachineCard(c,{errorsOpen=false,daily=null}={}){
+export function renderCncMachineCard(c,{errorsOpen=false,daily=null,statistics=false}={}){
  const signal=cncDisplayState(c),fresh=cncIsFresh(c),visible=fresh||c.source==='demo',real=c.source==='focas';
  const source=real?'Dữ liệu thật · FOCAS':c.source==='demo'?'Dữ liệu mô phỏng':'Chưa xác minh nguồn';
  const measurement=value=>visible?cncMeasurement(value):'—';
@@ -36,7 +56,7 @@ export function renderCncMachineCard(c,{errorsOpen=false,daily=null}={}){
   </header>
   <div class="cnc-machine-content">
    <div class="cnc-program-line cnc-operation-strip"><div class="cnc-operating-mode"><span>Chế độ</span><strong>${real&&visible?esc(cncMode(c.rawStatus?.aut)):'—'}</strong></div><div><span>Chương trình</span><strong>${esc(visible?c.activeProgram||'Chưa đọc':'—')}</strong></div><div class="cnc-tool-number" title="${esc(context?.toolSource||'Mã T do CNC trả về; chưa xác nhận dao vật lý trên trục chính')}"><span>Dao trục chính</span><strong>${esc(tool)}</strong></div><div><span>CYCLE TIME:</span><strong>${real&&visible?cncDuration(c.cycleTimeMs):'—'}</strong></div><div><span>RUN TIME:</span><strong>${real&&visible?cncDuration(c.runTimeMs):'—'}</strong></div><div><span>PART COUNT:</span><strong>${real?measurement(c.partCounter):'—'}</strong></div></div>
-   ${dailyCharts(daily,instrument('TỐC ĐỘ TRỤC CHÍNH',measurement(c.spindleSpeed),'RPM','spindle',visible&&Number(c.spindleSpeed)>0)+instrument('TỐC ĐỘ ĂN DAO',measurement(c.feedrate),real?c.feedrateUnit||'':'mm/min','feed',visible&&Number(c.feedrate)>0))}
+   ${statistics?`<div class="cnc-productivity-grid">${productivityCharts(daily)}</div>`:dailyCharts(daily,instrument('TỐC ĐỘ TRỤC CHÍNH',measurement(c.spindleSpeed),'RPM','spindle',visible&&Number(c.spindleSpeed)>0)+instrument('TỐC ĐỘ ĂN DAO',measurement(c.feedrate),real?c.feedrateUnit||'':'mm/min','feed',visible&&Number(c.feedrate)>0))}
    ${alarmPanel}
    ${readErrors.length?`<details class="cnc-read-errors"${errorsOpen?' open':''}><summary>Một số mục chưa đọc được</summary><p>${esc(readErrors.join('; '))}</p></details>`:''}
   </div>

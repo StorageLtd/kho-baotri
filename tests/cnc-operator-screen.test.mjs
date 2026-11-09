@@ -4,7 +4,7 @@ import {readFile} from 'node:fs/promises';
 const uri=s=>'data:text/javascript;base64,'+Buffer.from(s).toString('base64');
 const status=uri(await readFile(new URL('../assets/js/cnc-status.js',import.meta.url),'utf8'));
 const dashboard=uri((await readFile(new URL('../assets/js/cnc-dashboard.js',import.meta.url),'utf8')).replace('./cnc-status.js?v=20261029-web-sync',status));
-const module=(await readFile(new URL('../assets/js/cnc-operator-screen.js',import.meta.url),'utf8')).replace('./cnc-status.js?v=20261029-web-sync',status).replace('./cnc-dashboard.js?v=20261109-work-offset-tray',dashboard);
+const module=(await readFile(new URL('../assets/js/cnc-operator-screen.js',import.meta.url),'utf8')).replace('./cnc-status.js?v=20261029-web-sync',status).replace('./cnc-dashboard.js?v=20261109-productivity',dashboard);
 const {renderCncOperatorScreen:render}=await import(uri(module));
 const sample=()=>({id:'test',name:'Test',source:'focas',connected:true,lastSeen:Date.now(),rawStatus:{run:3,alarm:0,emergency:0,aut:1},positions:[{axis:'X',absolute:{value:-123.456,unit:'mm',decimals:3},relative:{value:0,unit:'mm',decimals:3}}],servoLoads:[{axis:'X',percent:230}],sequenceNumber:20,programText:'N10 G0 X0\nN20 G1 X10\nM30',partCounter:21});
 test('real signed positions, actual zero, units, load and N block remain accurate',()=>{const html=render(sample());assert.match(html,/-123\.456/);assert.match(html,/0\.000/);assert.match(html,/230%/);assert.match(html,/max="200" value="200"/);assert.match(html,/<span class="active-line">N20 G1 X10/);assert.equal((html.match(/class="operator-position"/g)||[]).length,4)});
@@ -18,3 +18,11 @@ test('offset view preserves A/B/C columns, page boundaries and stale table prote
 test('Program/Work reuses the real CNC excerpt when full file is unavailable, with an explicit incomplete label',()=>{const c={...sample(),activeProgram:'O1010',programText:'O1010\nN100G20\nN110G0G19',fullProgram:null};const html=render(c,{view:'program'});assert.match(html,/N100G20/);assert.match(html,/PROGRAM · ĐOẠN CNC TRẢ VỀ/);assert.match(html,/Chưa đọc đủ file O/);assert.match(html,/data-program-complete="false"/);assert.doesNotMatch(html,/<h4>FULL PROGRAM/);assert.doesNotMatch(render({...c,lastSeen:Date.now()-40000},{view:'program'}),/N100G20/);});
 
 test('spindle meters sit with servo readings and distinguish unknown, zero, actual RPM, stale data and overload',()=>{const c={...sample(),spindleLoad:37.5,spindleLoadName:'S1',spindleSpeed:1250};const html=render(c);assert.match(html,/SPINDLE LOAD METER/);assert.match(html,/37.5<small> %/);assert.match(html,/aria-label="Tốc độ trục chính">1250/);assert.match(html,/operator-load-group/);assert.match(render({...c,spindleLoad:0,spindleSpeed:0}),/>0<small> %/);assert.match(render({...c,spindleLoad:230}),/230<small> %/);assert.match(render({...c,spindleLoad:null}),/Chưa đọc tải trục chính/);assert.doesNotMatch(render({...c,lastSeen:Date.now()-40000}),/37.5<small>|>1250<small>/);assert.doesNotMatch(render(c,{view:'alarm'}),/SPINDLE LOAD METER|SPINDLE SPEED METER/)});
+
+test('statistics replaces live RPM/feed gauges with real day/week state durations, never inventing downtime',()=>{
+ const row={day:'2026-11-09',sessions:1,runningMs:3600000,idleMs:1800000,holdMs:1800000,alarmMs:3600000,unknownStateMs:0,observedMs:10800000};
+ const html=render({...sample(),spindleSpeed:1234,feedrate:567},{view:'statistics',daily:{date:row.day,weekStart:row.day,row,week:[row]}});
+ assert.match(html,/data-state-period="day"/);assert.match(html,/data-state-period="week"/);assert.match(html,/>33%</);assert.match(html,/Dừng \/ Hold/);assert.match(html,/1:00:00/);assert.match(html,/height:4\.166/);assert.doesNotMatch(html,/TỐC ĐỘ TRỤC CHÍNH|TỐC ĐỘ ĂN DAO|cnc-instrument-face|1234|567/);
+ const empty=render(sample(),{view:'statistics'});assert.match(empty,/Chưa có dữ liệu/);assert.doesNotMatch(empty,/>0%|24:00:00/);
+ const failed=render(sample(),{view:'statistics',daily:{error:'Không đọc được <b>lịch sử</b>'}});assert.match(failed,/&lt;b&gt;lịch sử/);
+});

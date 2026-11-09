@@ -578,3 +578,26 @@ body[data-page="cncMonitoringPage"] #exportCncBtn{border-color:#bfcede;color:#24
 @keyframes cnc-spindle-rotation{to{transform:rotate(360deg)}}
 @media(prefers-reduced-motion:reduce){#cncMonitoringPage .operator-spindle-speed.is-rotating svg{animation:none}}
 @media(max-width:480px){#cncMonitoringPage .operator-load-group{grid-template-columns:minmax(0,1fr)}#cncMonitoringPage .operator-spindle-meters{border-left:0;border-top:1px solid #304255}}
+
+/* Historical productivity: separate from instantaneous spindle/feed readings. */
+#cncMonitoringPage .cnc-productivity-grid{--state-run:#19d99a;--state-stop:#ffc34a;--state-alarm:#ff647d;--state-unknown:#a2b2c7;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px;margin:16px 0}
+#cncMonitoringPage .cnc-state-chart{min-width:0;background:linear-gradient(145deg,#16374e,#102436);border:1px solid #42647b;border-radius:16px;padding:20px;color:#f3f8ff;box-shadow:0 8px 24px #06152224}
+#cncMonitoringPage .cnc-state-chart h4{font-size:16px;font-weight:850;margin:0 0 5px;color:#fff;letter-spacing:.6px}
+#cncMonitoringPage .cnc-state-period{display:block;font-size:12px;font-weight:700;color:#bdcee0;margin-bottom:18px}
+#cncMonitoringPage .cnc-state-donut{width:174px;height:174px;padding:17px;border-radius:50%;background:var(--state-fill);margin:0 auto 20px;box-sizing:border-box}
+#cncMonitoringPage .cnc-state-donut>div{border-radius:50%;height:100%;display:flex;align-items:center;justify-content:center;flex-direction:column;background:#142e42}
+#cncMonitoringPage .cnc-state-donut strong{font-size:34px;font-weight:900;color:#fff}
+#cncMonitoringPage .cnc-state-donut small{font-size:11px;font-weight:700;color:#c3d5e7}
+#cncMonitoringPage .cnc-state-chart ul{list-style:none;padding:0;margin:0;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
+#cncMonitoringPage .cnc-state-chart li{display:grid;grid-template-columns:8px 1fr;align-items:center;gap:4px 7px;font-size:12px;font-weight:700}
+#cncMonitoringPage .cnc-state-chart li i{width:8px;height:8px;border-radius:50%}
+#cncMonitoringPage .cnc-state-chart li b{grid-column:2;font-size:17px;font-variant-numeric:tabular-nums;color:#fff}
+#cncMonitoringPage .state-run{background:var(--state-run)}#cncMonitoringPage .state-stop{background:var(--state-stop)}#cncMonitoringPage .state-alarm{background:var(--state-alarm)}#cncMonitoringPage .state-unknown{background:var(--state-unknown)}
+#cncMonitoringPage .cnc-week-bars{height:194px;display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:8px;align-items:end;margin-bottom:20px}
+#cncMonitoringPage .cnc-week-day{text-align:center;min-width:0;font-size:12px}
+#cncMonitoringPage .cnc-week-column{height:150px;background:repeating-linear-gradient(to top,#ffffff0b 0,#ffffff0b 1px,transparent 1px,transparent 25%);border-bottom:1px solid #758b9d;display:flex;flex-direction:column-reverse;justify-content:flex-start;border-radius:5px 5px 0 0;overflow:hidden}
+#cncMonitoringPage .cnc-week-column span{display:block;flex-shrink:0;min-width:0}
+#cncMonitoringPage .cnc-week-day b{display:block;margin:6px 0 3px;color:#fff}#cncMonitoringPage .cnc-week-day small{color:#a9c5dc;font-size:10px}
+#cncMonitoringPage .cnc-state-note{font-size:11px;color:#b7cadc;margin:16px 0 0}
+@media(max-width:640px){#cncMonitoringPage .cnc-productivity-grid{grid-template-columns:1fr}#cncMonitoringPage .cnc-state-chart{padding:16px}}
+#cncMonitoringPage .cnc-state-scale{display:block;color:#b7cadc;text-align:right;font-size:10px;margin:-12px 0 16px}

@@ -1,5 +1,5 @@
 import {cncDisplayState,cncIsFresh,cncMode,cncDuration,cncServerNow} from './cnc-status.js?v=20261029-web-sync';
-import {renderCncMachineCard} from './cnc-dashboard.js?v=20261109-work-offset-tray';
+import {renderCncMachineCard} from './cnc-dashboard.js?v=20261109-productivity';
 const esc=v=>String(v??'').replaceAll('&','&amp;').replaceAll('<','&lt;').replaceAll('>','&gt;').replaceAll('"','&quot;').replaceAll("'",'&#39;');
 const numeric=v=>typeof v==='number'&&Number.isFinite(v);
 const value=(v,d)=>numeric(v)?Number.isInteger(d)&&d>=0&&d<=9?v.toFixed(d):String(v):'—';
@@ -7,7 +7,7 @@ export function renderCncOperatorScreen(c,{view='position',daily=null,errorsOpen
  const fresh=cncIsFresh(c),state=cncDisplayState(c),ctx=fresh?c.machiningContext:null;
  const tabs=[['position','POSITION'],['program','PROGRAM / WORK'],['offset','OFFSET'],['alarm','ALARM'],['statistics','THỐNG KÊ']];
  const nav=`<nav class="operator-softkeys" aria-label="Màn hình máy">${tabs.map(([key,label])=>`<button type="button" data-cnc-action="operator-view" data-view="${key}" aria-pressed="${view===key}" class="${view===key?'selected':''}">${label}</button>`).join('')}</nav>`;
- if(view==='statistics')return nav+renderCncMachineCard(c,{daily,errorsOpen});
+ if(view==='statistics')return nav+renderCncMachineCard(c,{daily,errorsOpen,statistics:true});
  const positions=fresh&&Array.isArray(c.positions)?c.positions:[],loads=fresh&&Array.isArray(c.servoLoads)?c.servoLoads:[];
  const axes=positions.length?positions:Array.from(new Set((typeof c.axisNames==='string'?c.axisNames:'X,Y,Z').split(/[,\s]+/).filter(a=>/^[A-Z][A-Z0-9]?$/.test(a)))).slice(0,12).map(axis=>({axis}));
  const quadrant=(key,title)=>`<section class="operator-position"><h4>${title}</h4>${axes.map(a=>{const v=a[key],valid=numeric(v?.value)&&Number.isInteger(v.decimals)&&v.decimals>=0&&v.decimals<=9;return `<div class="operator-axis"><b>${esc(a.axis)}</b><strong>${valid?esc(v.value.toFixed(v.decimals)):'—'}</strong><small>${valid?esc(v.unit):''}</small></div>`}).join('')}${!positions.length?'<small class="operator-pending">Chưa đọc tọa độ</small>':''}</section>`;

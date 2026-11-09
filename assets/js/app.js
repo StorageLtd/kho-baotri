@@ -2,7 +2,7 @@ import {buildCncReport,vnDate} from "./cnc-reports.js?v=20261107-tool-context";
 ﻿import { downloadInventoryWorkbook } from "./inventory-xlsx.js?v=20261105-no-prices";
 import { maintenancePlan, repairHistoryForm, alarmHistoryForm, movementVoucherForm, downloadMaintenanceWorkbook } from "./maintenance-xlsx.js?v=20261107-tool-context";
 import {renderMachineModel} from "./cnc-machine-shop.js?v=20261109-work-offset-tray";
-import {renderCncOperatorScreen} from "./cnc-operator-screen.js?v=20261109-state-io";
+import {renderCncOperatorScreen} from "./cnc-operator-screen.js?v=20261109-productivity";
 import { openCncReports } from "./cnc-report-ui.js?v=20261107-tool-context";
 import { cncDisplayState, cncIsFresh, cncMeasurement, cncMode, cncDuration, cncServerNow, setCncClockOffset } from "./cnc-status.js?v=20261029-web-sync";
 
@@ -197,7 +197,7 @@ import { cncDisplayState, cncIsFresh, cncMeasurement, cncMode, cncDuration, cncS
       weekday: "long", day: "2-digit", month: "2-digit", year: "numeric"
     }).format(new Date());
 
-    async function fbFetch(path, method = "GET", body = null, strict = false) {
+    async function fbFetch(path, method = "GET", body = null, strict = false, query = null) {
       const token = await getToken();
       if (!token) throw new Error("Phiên đăng nhập đã hết hạn.");
       const isPresence = path.startsWith("online_users/");
@@ -211,7 +211,7 @@ import { cncDisplayState, cncIsFresh, cncMeasurement, cncMode, cncDuration, cncS
         options.body = JSON.stringify(body);
       }
       try {
-        const res = await fetch(`${DB_URL}/${path}.json?auth=${encodeURIComponent(token)}`, options);
+        const res = await fetch(`${DB_URL}/${path}.json?auth=${encodeURIComponent(token)}${query?"&"+new URLSearchParams(query):""}`, options);
         if (!res.ok) throw new Error(`Firebase trả về ${res.status}`);
         return await res.json();
       } catch (err) {
@@ -782,13 +782,13 @@ import { cncDisplayState, cncIsFresh, cncMeasurement, cncMode, cncDuration, cncS
       if(Date.now()-cncDayLoadedAt<30000&&[...cncDayStats.values()].every(x=>x.date===date))return;
       cncDayLoading=true;cncDayLoadedAt=Date.now();
       try{
-        const from=+new Date(date+'T00:00:00+07:00'),through=cncServerNow();
+        const today=+new Date(date+'T00:00:00+07:00'),from=today-((new Date(today+7*3600000).getUTCDay()+6)%7)*86400000,weekStart=vnDate(from),through=cncServerNow();
         for(let i=0;i<cncs.length;i+=3)await Promise.all(cncs.slice(i,i+3).map(async machine=>{
           try{
-            const data=await fbFetch(`cncReports/${encodeURIComponent(machine.id)}/${date}`,'GET',null,true);
+            const data=await fbFetch(`cncReports/${encodeURIComponent(machine.id)}`,'GET',null,true,{orderBy:'"$key"',startAt:JSON.stringify(weekStart),endAt:JSON.stringify(date)});
             if(getUser()?.uid!==uid)return;
-            const report=buildCncReport([machine],{[machine.id]:{[date]:data||{}}},{from,through,until:from+86400000,startDate:date,endDate:date});
-            cncDayStats.set(machine.id,{date,row:report.daily[0]});
+            const report=buildCncReport([machine],{[machine.id]:data||{}},{from,through,until:today+86400000,startDate:weekStart,endDate:date});
+            cncDayStats.set(machine.id,{date,weekStart,row:report.daily.find(row=>row.day===date),week:report.daily});
           }catch(error){if(getUser()?.uid===uid)cncDayStats.set(machine.id,{date,error:'Chưa tải được thống kê. Kiểm tra quyền đọc báo cáo.'});}
         }));
         if(getUser()?.uid===uid&&!els.cncMonitoringPage.hidden)renderCncGridOnly();
