@@ -85,6 +85,7 @@ public class FixtureSnapshot {
  public long? runTimeMs=123000,cycleTimeMs=5000; public string timerSource="fixture"; public int? partCounter=100; public double? spindleSpeed=1800, feedrate=12.5;
  public string spindleUnit="rpm", feedrateUnit="inch/min", activeProgram="O12345678", mainProgram="O0001";
  public System.Collections.Generic.Dictionary<string,string> readErrors=new System.Collections.Generic.Dictionary<string,string>();
+ public object[] positions=new object[]{new {axis="X",absolute=new {value=-125.25,unit="mm",decimals=3}}}; public object[] servoLoads=new object[]{new {axis="X",percent=23}}; public int? sequenceNumber=20,programBufferBlock=1; public string programText="N20 G1 X10"; public bool programTextLimited=false;
  public FixtureRaw rawStatus=new FixtureRaw();
 }
 public static class FanucReader { public static string AccessMode { get { return "FOCAS_STATUS_ONLY_V1"; } } public static string ProgramNumber(uint n) { return "O"+n.ToString(); } public static int Calls; public static string LastLibrary; public static FixtureSnapshot ReadWithContext(string ip,ushort port,string folder,bool verifiedProfile) { LastLibrary=folder;Calls++;return new FixtureSnapshot(); } }
@@ -106,6 +107,7 @@ try {
     $before=[FanucReader]::Calls
     & (Join-Path $fixtureDirectory 'Start-FanucBridge.ps1') -Once -LocalOnly
     Assert-True ([FanucReader]::Calls -eq $before+1) 'Local-only mode did not read exactly once'
+    Assert-True ([FanucReader]::LastLibrary -eq (Join-Path $fixtureDirectory 'lib')) 'Default library path must point to script lib, never itself or empty'
     Assert-True ($global:BridgeTest_calls.Count -eq 0) 'Local-only mode unexpectedly accessed the network'
     Assert-True (Test-Path (Join-Path $fixtureDirectory 'last-result.json')) 'Local result was not saved'
     $dataFolder=Join-Path $fixtureDirectory 'per machine data'
@@ -126,6 +128,7 @@ try {
     $telemetry=$patches[1].Body|ConvertFrom-Json
     Assert-True ($telemetry.status -eq 'running' -and $telemetry.connected -eq $true) 'Full bridge did not send measured telemetry'
     Assert-True ($telemetry.spindleSpeed -eq 1800 -and $telemetry.feedrate -eq 12.5 -and $telemetry.feedrateUnit -eq 'inch/min' -and $telemetry.activeProgram -eq 'O12345678') 'Optional telemetry or its units were lost in the cloud payload'
+    Assert-True ($telemetry.positions[0].absolute.value -eq -125.25 -and $telemetry.servoLoads[0].percent -eq 23 -and $telemetry.sequenceNumber -eq 20 -and $telemetry.programText -eq 'N20 G1 X10') 'Operator telemetry lost in cloud payload'
     $metadata=$patches[0].Body|ConvertFrom-Json
     Assert-True ($metadata.name -eq 'Neway 1260S' -and $metadata.id -eq 'neway-1260s') 'Wrong machine registered'
     $offline=$patches[-1].Body|ConvertFrom-Json

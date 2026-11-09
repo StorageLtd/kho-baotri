@@ -2,7 +2,7 @@ import {buildCncReport,vnDate} from "./cnc-reports.js?v=20261107-tool-context";
 ﻿import { downloadInventoryWorkbook } from "./inventory-xlsx.js?v=20261105-no-prices";
 import { maintenancePlan, repairHistoryForm, alarmHistoryForm, movementVoucherForm, downloadMaintenanceWorkbook } from "./maintenance-xlsx.js?v=20261107-tool-context";
 import {renderMachineModel} from "./cnc-machine-shop.js?v=20261107-machine-shop";
-import { renderCncMachineCard } from "./cnc-dashboard.js?v=20261107-tool-context";
+import {renderCncOperatorScreen} from "./cnc-operator-screen.js?v=20261109-operator-screen";
 import { openCncReports } from "./cnc-report-ui.js?v=20261107-tool-context";
 import { cncDisplayState, cncIsFresh, cncMeasurement, cncMode, cncDuration, cncServerNow, setCncClockOffset } from "./cnc-status.js?v=20261029-web-sync";
 
@@ -809,7 +809,7 @@ import { cncDisplayState, cncIsFresh, cncMeasurement, cncMode, cncDuration, cncS
       refreshCncMachineDetails();
     }
 
-    let cncDetailsDialog=null,cncSelectedMachineId=null;
+    let cncDetailsDialog=null,cncSelectedMachineId=null,cncSelectedDetailView='position';
     function ensureCncDetails(){
       if(cncDetailsDialog)return;
       cncDetailsDialog=document.createElement('dialog');cncDetailsDialog.id='cncMachineDetailsDialog';cncDetailsDialog.className='cnc-machine-detail-dialog';cncDetailsDialog.setAttribute('aria-labelledby','cncDetailsTitle');
@@ -820,7 +820,7 @@ import { cncDisplayState, cncIsFresh, cncMeasurement, cncMode, cncDuration, cncS
       cncDetailsDialog.querySelector('#cncDetailsContent').addEventListener('click',handleCncAction);
     }
     function openCncMachineDetails(id){
-      ensureCncDetails();cncSelectedMachineId=id;refreshCncMachineDetails();
+      ensureCncDetails();cncSelectedDetailView='position';cncSelectedMachineId=id;refreshCncMachineDetails();
       if(cncSelectedMachineId&&!cncDetailsDialog.open)cncDetailsDialog.showModal();
     }
     function refreshCncMachineDetails(){
@@ -830,12 +830,13 @@ import { cncDisplayState, cncIsFresh, cncMeasurement, cncMode, cncDuration, cncS
       const content=cncDetailsDialog.querySelector('#cncDetailsContent'),scroll=cncDetailsDialog.scrollTop,errorsOpen=!!content.querySelector('.cnc-read-errors[open]');
       const focus=content.contains(document.activeElement)?document.activeElement.dataset.cncAction:null;
       document.querySelector('#cncDetailsTitle').textContent=c.name;
-      content.innerHTML=renderCncMachineCard(c,{errorsOpen,daily:cncDayOwner===getUser()?.uid&&cncDayStats.get(c.id)?.date===vnDate(cncServerNow())?cncDayStats.get(c.id):null});
+      content.innerHTML=renderCncOperatorScreen(c,{view:cncSelectedDetailView,errorsOpen,daily:cncDayOwner===getUser()?.uid&&cncDayStats.get(c.id)?.date===vnDate(cncServerNow())?cncDayStats.get(c.id):null});
       cncDetailsDialog.scrollTop=scroll;if(focus)content.querySelector(`[data-cnc-action="${focus}"]`)?.focus({preventScroll:true});
     }
     function handleCncAction(event){
       const button=event.target.closest('button[data-cnc-action]');if(!button)return;
       const id=button.dataset.cncId,action=button.dataset.cncAction;
+      if(action==='operator-view'){if(['position','program','alarm','statistics'].includes(button.dataset.view)){cncSelectedDetailView=button.dataset.view;refreshCncMachineDetails();}return;}
       if(action==='details'){openCncMachineDetails(id);return;}
       if(action==='history'){openCncMachineAlarmHistory(id);return;}
       if(!canEdit()){showToast('Tài khoản chưa có quyền chỉnh sửa máy.');return;}

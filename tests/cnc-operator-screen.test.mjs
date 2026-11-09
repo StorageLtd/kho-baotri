@@ -1,0 +1,12 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import {readFile} from 'node:fs/promises';
+const uri=s=>'data:text/javascript;base64,'+Buffer.from(s).toString('base64');
+const status=uri(await readFile(new URL('../assets/js/cnc-status.js',import.meta.url),'utf8'));
+const dashboard=uri((await readFile(new URL('../assets/js/cnc-dashboard.js',import.meta.url),'utf8')).replace('./cnc-status.js?v=20261029-web-sync',status));
+const module=(await readFile(new URL('../assets/js/cnc-operator-screen.js',import.meta.url),'utf8')).replace('./cnc-status.js?v=20261029-web-sync',status).replace('./cnc-dashboard.js?v=20261107-tool-context',dashboard);
+const {renderCncOperatorScreen:render}=await import(uri(module));
+const sample=()=>({id:'test',name:'Test',source:'focas',connected:true,lastSeen:Date.now(),rawStatus:{run:3,alarm:0,emergency:0,aut:1},positions:[{axis:'X',absolute:{value:-123.456,unit:'mm',decimals:3},relative:{value:0,unit:'mm',decimals:3}}],servoLoads:[{axis:'X',percent:230}],sequenceNumber:20,programText:'N10 G0 X0\nN20 G1 X10\nM30',partCounter:21});
+test('real signed positions, actual zero, units, load and N block remain accurate',()=>{const html=render(sample());assert.match(html,/-123\.456/);assert.match(html,/0\.000/);assert.match(html,/230%/);assert.match(html,/max="200" value="200"/);assert.match(html,/<span class="active-line">N20 G1 X10/);assert.equal((html.match(/class="operator-position"/g)||[]).length,4)});
+test('old bridge and stale records do not fabricate positions or retain live telemetry',()=>{assert.match(render({...sample(),positions:null,servoLoads:null,programText:null}),/Chưa đọc tọa độ/);const html=render({...sample(),lastSeen:Date.now()-40000});assert.doesNotMatch(html,/-123\.456|230%|N20 G1/);assert.match(html,/MẤT KẾT NỐI/)});
+test('program and alarm contents are text; ambiguous repeated N blocks are not highlighted',()=>{const html=render({...sample(),programText:'<script>bad</script>\nN20 G1\nN20 G1'});assert.doesNotMatch(html,/<script>|class="active-line"/);assert.match(html,/&lt;script&gt;/);assert.match(render({...sample(),rawStatus:{run:0,alarm:1,emergency:0},alarmDetails:[{number:500,message:'<img onerror=bad>'}]},{view:'alarm'}),/&lt;img onerror=bad&gt;/)});

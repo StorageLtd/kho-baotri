@@ -184,6 +184,80 @@ public static class FanucReader
         } catch(EntryPointNotFoundException) {snapshot.readErrors["machiningContext"]="Optional macro/offset API unavailable";}
         c.sampledAtUtc=DateTime.UtcNow.ToString("o");
     }
+    [StructLayout(LayoutKind.Sequential,Pack=4)]
+    public struct PositionElement {public int data;public short dec,unit,disp;public byte name,suff;}
+    [StructLayout(LayoutKind.Sequential,Pack=4)]
+    public struct PositionReading {public PositionElement absolute,machine,relative,distance;}
+    [StructLayout(LayoutKind.Sequential,Pack=4)]
+    public struct LoadElement {public int data;public short dec,unit;public byte name,suff1,suff2,reserve;}
+    [StructLayout(LayoutKind.Sequential,Pack=4)]
+    public struct SequenceReading {public short dummy1,dummy2;public int data;}
+    public sealed class PositionValue {public double? value;public string unit;public int decimals,displayFlag;}
+    public sealed class AxisPosition {public string axis;public PositionValue absolute,machine,relative,distance;}
+    public sealed class ServoMeter {public string axis;public double? percent;public int decimals;}
+    [DllImport("Fwlib64.dll",CallingConvention=CallingConvention.Winapi,ExactSpelling=true)]
+    private static extern short cnc_rdposition(ushort handle,short type,ref short count,IntPtr data);
+    [DllImport("Fwlib64.dll",CallingConvention=CallingConvention.Winapi,ExactSpelling=true)]
+    private static extern short cnc_rdsvmeter(ushort handle,ref short count,IntPtr data);
+    [DllImport("Fwlib64.dll",CallingConvention=CallingConvention.Winapi,ExactSpelling=true)]
+    private static extern short cnc_rdseqnum(ushort handle,out SequenceReading data);
+    [DllImport("Fwlib64.dll",CallingConvention=CallingConvention.Winapi,ExactSpelling=true)]
+    private static extern short cnc_rdexecprog(ushort handle,ref ushort length,out short block,[Out] byte[] data);
+    public static string AxisLabel(byte name,byte suffix)
+    {
+        if(name<(byte)'A'||name>(byte)'Z')return null;
+        if(suffix==0||suffix==(byte)' ')return ((char)name).ToString();
+        if((suffix>=(byte)'0'&&suffix<=(byte)'9')||(suffix>=(byte)'A'&&suffix<=(byte)'Z'))return ((char)name).ToString()+((char)suffix).ToString();
+        return null;
+    }
+    public static PositionValue DecodePosition(PositionElement e)
+    {
+        string unit=e.unit==0?"mm":e.unit==1?"inch":e.unit==2?"deg":null;
+        if(unit==null||e.dec<0||e.dec>9||e.data==Int32.MinValue||AxisLabel(e.name,e.suff)==null)return null;
+        return new PositionValue{value=e.data/Math.Pow(10,e.dec),unit=unit,decimals=e.dec,displayFlag=e.disp};
+    }
+    public static ServoMeter DecodeServo(LoadElement e)
+    {
+        string axis=AxisLabel(e.name,e.suff1);
+        if(axis==null||e.unit!=0||e.dec<0||e.dec>9||e.data<0)return null;
+        return new ServoMeter{axis=axis,percent=e.data/Math.Pow(10,e.dec),decimals=e.dec};
+    }
+    private static void ReadOperatorTelemetry(ushort handle,Snapshot snapshot)
+    {
+        int axes;
+        if(!Int32.TryParse(snapshot.axes,out axes)||axes<1||axes>96){snapshot.readErrors["positions"]="Cannot validate CNC axis count";return;}
+        if(Marshal.SizeOf(typeof(PositionElement))!=12||Marshal.SizeOf(typeof(PositionReading))!=48||Marshal.SizeOf(typeof(LoadElement))!=12||Marshal.SizeOf(typeof(SequenceReading))!=8)throw new InvalidOperationException("Operator telemetry layout mismatch");
+        try {
+            int size=Marshal.SizeOf(typeof(PositionReading));IntPtr buffer=Marshal.AllocHGlobal(96*size);
+            try {
+                short count=(short)axes;short code=cnc_rdposition(handle,-1,ref count,buffer);
+                if(code==0&&count>0&&count<=axes){
+                    List<AxisPosition> positions=new List<AxisPosition>();
+                    for(int i=0;i<count;i++){
+                        PositionReading v=(PositionReading)Marshal.PtrToStructure(IntPtr.Add(buffer,i*size),typeof(PositionReading));
+                        string name=AxisLabel(v.absolute.name,v.absolute.suff)??AxisLabel(v.machine.name,v.machine.suff)??AxisLabel(v.relative.name,v.relative.suff);
+                        if(name==null)continue;
+                        positions.Add(new AxisPosition{axis=name,absolute=DecodePosition(v.absolute),machine=DecodePosition(v.machine),relative=DecodePosition(v.relative),distance=DecodePosition(v.distance)});
+                    }
+                    snapshot.positions=positions.ToArray();
+                } else snapshot.readErrors["positions"]="cnc_rdposition: "+(code==0?"Invalid axis count":"FOCAS "+code);
+            } finally{Marshal.FreeHGlobal(buffer);}
+        } catch(EntryPointNotFoundException){snapshot.readErrors["positions"]="cnc_rdposition unavailable";}
+        try {
+            int size=Marshal.SizeOf(typeof(LoadElement));IntPtr buffer=Marshal.AllocHGlobal(96*size);
+            try {
+                short count=(short)axes;short code=cnc_rdsvmeter(handle,ref count,buffer);
+                if(code==0&&count>0&&count<=axes){List<ServoMeter> loads=new List<ServoMeter>();for(int i=0;i<count;i++){ServoMeter value=DecodeServo((LoadElement)Marshal.PtrToStructure(IntPtr.Add(buffer,i*size),typeof(LoadElement)));if(value!=null)loads.Add(value);}snapshot.servoLoads=loads.ToArray();}
+                else snapshot.readErrors["servoLoads"]="cnc_rdsvmeter: "+(code==0?"Invalid axis count":"FOCAS "+code);
+            }finally{Marshal.FreeHGlobal(buffer);}
+        }catch(EntryPointNotFoundException){snapshot.readErrors["servoLoads"]="cnc_rdsvmeter unavailable";}
+        try {SequenceReading sequence;short code=cnc_rdseqnum(handle,out sequence);if(code==0&&sequence.data>=0)snapshot.sequenceNumber=sequence.data;else snapshot.readErrors["sequence"]="cnc_rdseqnum: FOCAS "+code;}catch(EntryPointNotFoundException){snapshot.readErrors["sequence"]="cnc_rdseqnum unavailable";}
+        try {
+            byte[] text=new byte[2048];ushort length=(ushort)text.Length;short block;short code=cnc_rdexecprog(handle,ref length,out block,text);
+            if(code==0&&length<=text.Length){snapshot.programText=Encoding.Default.GetString(text,0,length).TrimEnd('\0');snapshot.programBufferBlock=block;snapshot.programTextLimited=length==text.Length;}
+            else snapshot.readErrors["programText"]="cnc_rdexecprog: "+(code==0?"Invalid length":"FOCAS "+code);
+        }catch(EntryPointNotFoundException){snapshot.readErrors["programText"]="cnc_rdexecprog unavailable";}
+    }
     public sealed class Snapshot
     {
         public string timestampUtc, ip, cncType, machineType, series, version, axes;
@@ -196,6 +270,11 @@ public static class FanucReader
         public long? runTimeMs, cycleTimeMs;
         public string timerSource;
         public MachiningContext machiningContext;
+        public AxisPosition[] positions;
+        public ServoMeter[] servoLoads;
+        public int? sequenceNumber,programBufferBlock;
+        public string programText;
+        public bool programTextLimited;
         public string spindleUnit, feedrateUnit, activeProgram, mainProgram;
         public Dictionary<string, string> readErrors = new Dictionary<string, string>();
     }
@@ -386,7 +465,7 @@ public static class FanucReader
                 maximumAxes = info.max_axis, rawStatus = status
             };
             ReadOptionalTelemetry(handle, snapshot);
-            if(context)ReadMachiningContext(handle,snapshot,verifiedProfile);
+            if(context){ReadMachiningContext(handle,snapshot,verifiedProfile);ReadOperatorTelemetry(handle,snapshot);}
             ReadAlarms(handle, snapshot);
             snapshot.timestampUtc=DateTime.UtcNow.ToString("o");
             return snapshot;

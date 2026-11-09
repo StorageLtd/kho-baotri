@@ -1,5 +1,5 @@
 NEWAY 1260S - FOCAS STATUS ONLY (KHÔNG ĐỌC PMC)
-Bridge build: 20261107-machine-manager
+Bridge build: 20261109-operator-screen
 
 BẢN NÀY LÀM GÌ?
 - Đọc trạng thái CNC, tốc độ, số chương trình, PART COUNT và timer qua FOCAS.
@@ -36,7 +36,7 @@ CẬP NHẬT QUAN TRỌNG
 6. Nhập email/mật khẩu CMMS tại lời nhắc, không ghi mật khẩu vào lệnh/config.
    Token và mật khẩu không được lưu trong file. Cần tài khoản email đã xác minh,
    vai trò technician, manager hoặc admin.
-7. Phải thấy Bridge build: 20261107-machine-manager. Bản mới từ chối sử dụng lớp C# cũ.
+7. Phải thấy Bridge build: 20261109-operator-screen. Bản mới từ chối sử dụng lớp C# cũ.
    Cấu hình cũ có pmcCycleSignals=true cũng không bật được PMC trong mã mới.
 8. Giữ LAN nối CNC, Wi-Fi có Internet và cửa sổ cầu nối mở. Không chạy hai bản cùng máy.
 
@@ -112,3 +112,17 @@ Gói FANUC-Bridge-Manager cung cấp cửa sổ chọn mẫu máy và quản lý
 Các tham số LibraryDirectory / DataDirectory chỉ thay vị trí DLL và dữ liệu
 trên laptop. StopRequestPath yêu cầu dừng cầu nối, không gửi lệnh dừng CNC.
 Mỗi máy dùng thư mục dữ liệu riêng để tránh xung đột report-outbox.
+
+MÀN HÌNH CHI TIẾT CNC — 20261109
+- Bấm mô hình máy trên web để xem POSITION, PROGRAM, ALARM hoặc THỐNG KÊ.
+- Bổ sung cnc_rdposition (RELATIVE/ABSOLUTE/MACHINE/DISTANCE TO GO),
+  cnc_rdsvmeter (tải servo), cnc_rdseqnum và cnc_rdexecprog (đoạn chương trình).
+- Tất cả là API chỉ đọc, không đọc PMC và không ghi hay điều khiển CNC.
+- Mục không được bộ điều khiển/DLL hỗ trợ hiện Chưa đọc. Không lấy số trong ảnh.
+- Cần cập nhật Bridge để có các mục mới; cấu hình và report-outbox cũ giữ nguyên.
+- Vùng PROGRAM chỉ là đoạn CNC trả về, không phải toàn bộ file. Dòng N được tô
+  khi khớp duy nhất với số N đọc được; các lần đọc không phải ảnh chụp đồng thời.
+- Tải servo có thang hiển thị 0–200%, số thực vẫn giữ khi vượt thang.
+- Các tab chỉ đổi cách xem trên web. Không có nút Cycle Start/Reset/ghi offset.
+- Đã kiểm tra mã và dữ liệu thử; cần đối chiếu tọa độ, đơn vị, tải và chương trình
+  trên CNC thật lần đầu. Tên kiểu máy không tự xác nhận bảng offset H/D.

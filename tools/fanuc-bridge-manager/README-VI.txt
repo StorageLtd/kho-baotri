@@ -1,5 +1,5 @@
 LTD CNC BRIDGE MANAGER — GIAO DIỆN CẤU HÌNH NHIỀU MÁY
-Build 20261107-machine-manager | Windows 10/11 64-bit
+Build 20261109-operator-screen | Windows 10/11 64-bit
 
 KHỞI ĐỘNG
 1. Giải nén toàn bộ FANUC-Bridge-Manager.zip.
@@ -73,3 +73,17 @@ Web dùng Loại máy và Kiểu bố trí để chọn mô hình minh họa. B�
 trong Cài đặt máy trên web; cập nhật tương ứng trong Manager nếu muốn giữ
 lựa chọn đó khi Bridge khởi động lại từ cấu hình đã lưu trên laptop.
 Màu mô hình dựa trên trạng thái FOCAS được lấy mẫu, không đọc đèn/PMC vật lý.
+
+MÀN HÌNH CHI TIẾT CNC — 20261109
+- Bấm mô hình máy trên web để xem POSITION, PROGRAM, ALARM hoặc THỐNG KÊ.
+- Bổ sung cnc_rdposition (RELATIVE/ABSOLUTE/MACHINE/DISTANCE TO GO),
+  cnc_rdsvmeter (tải servo), cnc_rdseqnum và cnc_rdexecprog (đoạn chương trình).
+- Tất cả là API chỉ đọc, không đọc PMC và không ghi hay điều khiển CNC.
+- Mục không được bộ điều khiển/DLL hỗ trợ hiện Chưa đọc. Không lấy số trong ảnh.
+- Cần cập nhật Bridge để có các mục mới; cấu hình và report-outbox cũ giữ nguyên.
+- Vùng PROGRAM chỉ là đoạn CNC trả về, không phải toàn bộ file. Dòng N được tô
+  khi khớp duy nhất với số N đọc được; các lần đọc không phải ảnh chụp đồng thời.
+- Tải servo có thang hiển thị 0–200%, số thực vẫn giữ khi vượt thang.
+- Các tab chỉ đổi cách xem trên web. Không có nút Cycle Start/Reset/ghi offset.
+- Đã kiểm tra mã và dữ liệu thử; cần đối chiếu tọa độ, đơn vị, tải và chương trình
+  trên CNC thật lần đầu. Tên kiểu máy không tự xác nhận bảng offset H/D.

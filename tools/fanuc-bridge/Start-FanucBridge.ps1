@@ -2,7 +2,7 @@
     [string]$ConfigPath = (Join-Path $PSScriptRoot 'bridge-config.json'),
     [switch]$Once,
     [switch]$LocalOnly,
-    [string]$LibraryDirectory = $LibraryDirectory,
+    [string]$LibraryDirectory = (Join-Path $PSScriptRoot 'lib'),
     [string]$DataDirectory = $PSScriptRoot,
     [string]$StopRequestPath = ''
 )
@@ -151,6 +151,7 @@ function New-BridgePayload {
         activeProgram = $Snapshot.activeProgram; mainProgram = $Snapshot.mainProgram; machiningContext = $Snapshot.machiningContext
         spindleSpeed = $Snapshot.spindleSpeed; spindleUnit = $Snapshot.spindleUnit
         feedrate = $Snapshot.feedrate; feedrateUnit = $Snapshot.feedrateUnit
+        positions=$Snapshot.positions;servoLoads=$Snapshot.servoLoads;sequenceNumber=$Snapshot.sequenceNumber;programText=$Snapshot.programText;programBufferBlock=$Snapshot.programBufferBlock;programTextLimited=($Snapshot.programTextLimited -eq $true)
         readErrors = $Snapshot.readErrors; partCounter = $Snapshot.partCounter
         reportingVersion = 2; runTimeMs = $Snapshot.runTimeMs; cycleTimeMs = $Snapshot.cycleTimeMs; timerSource = $Snapshot.timerSource; readerMode = 'focas-status-only'; pmcEnabled = $false; cycleStartBit = $null; m30Bit = $null; pmcStatus = $null
         # Setpoints, override and current NC block are not read by this bridge.
@@ -173,7 +174,7 @@ try {
     if ($config.firebaseApiKey -notmatch '^[A-Za-z0-9_-]+$') { throw 'Invalid Firebase Web API key.' }
     if (-not ('FanucReader' -as [type])) { Add-Type -Path (Join-Path $PSScriptRoot 'FanucReader.cs') }
     if (-not ([FanucReader].GetProperty('AccessMode')) -or [FanucReader]::AccessMode -ne 'FOCAS_STATUS_ONLY_V1' -or -not ([FanucReader].GetMethods()|Where-Object {$_.Name -eq 'ReadWithContext' -and $_.GetParameters().Count -eq 4})) { throw 'Old reader loaded. CLOSE this PowerShell window and open a new one. The new bridge refuses to reuse the previous reader.' }
-    Write-Host "Bridge build: 20261107-machine-manager"
+    Write-Host "Bridge build: 20261109-operator-screen"
     Write-Host "Machine: $($config.machineName) | CNC $($config.cncIp):$($config.port)"
     Write-Host 'Read-only CNC access. Reading status, actual spindle/feed and current/main O-number. Reading alarm messages with cnc_rdalmmsg2; no PMC access or CNC writes.'
     Write-Host 'T modal enabled (not spindle confirmation). XYZ/H/D require a verified machine profile; no PMC.'

@@ -97,6 +97,19 @@ window.seedDayFixture = () => {cncDayOwner=getUser().uid;cncDayStats.set('neway-
             assert await page.locator('.cnc-model-tile').count()==2
             await page.get_by_role('button',name='Xem máy Neway 1260S',exact=True).click()
             assert await page.locator('#cncMachineDetailsDialog').is_visible()
+            assert await page.locator('.operator-position').count()==4
+            assert 'Chưa đọc tọa độ' in await page.locator('.operator-screen').inner_text()
+            await page.evaluate('''renderFixture([{id:'neway-1260s',name:'Neway 1260S',source:'focas',connected:true,lastSeen:Date.now(),machiningContext:{toolNumber:7},rawStatus:{run:3,alarm:0,emergency:0,aut:1},ip:'192.168.1.1',port:8193,model:'FANUC 0i-MF Plus',positions:['X','Y','Z'].map((axis,i)=>({axis,absolute:{value:[-125.25,10,80][i],unit:'mm',decimals:3},relative:{value:0,unit:'mm',decimals:3},machine:{value:[-800,-50,-200][i],unit:'mm',decimals:3},distance:{value:0,unit:'mm',decimals:3}})),servoLoads:[{axis:'X',percent:23},{axis:'Y',percent:17},{axis:'Z',percent:35}],sequenceNumber:20,programText:'N10 G0 X0\\nN20 G1 X10 F100\\nM30'}])''')
+            assert '-125.250' in await page.locator('.operator-screen').inner_text()
+            assert await page.locator('.operator-load meter').count()==3
+            assert 'N20 G1' in await page.locator('.operator-program .active-line').inner_text()
+            await page.set_viewport_size({'width':1440,'height':1000})
+            await page.screenshot(path='/tmp/cnc-operator-screen.png',full_page=True)
+            await page.set_viewport_size({'width':390,'height':844})
+            assert await page.locator('#cncMachineDetailsDialog').evaluate('e=>e.scrollWidth<=e.clientWidth+1')
+            await page.set_viewport_size({'width':1280,'height':900})
+            await page.evaluate('''renderFixture([{id:'neway-1260s',name:'Neway 1260S',source:'focas',connected:true,lastSeen:Date.now(),machiningContext:{toolNumber:7},rawStatus:{run:3,alarm:0,emergency:0,aut:1},ip:'169.254.85.99',port:8193,model:'FANUC 0i-MF Plus'},{id:'old',name:'Old demo data',status:'running',spindleSpeed:1200,ip:'192.168.1.101',port:8193}])''')
+            await page.get_by_role('button',name='THỐNG KÊ',exact=True).click()
             card = page.locator('#card-neway-1260s')
             assert 'Dữ liệu thật' in await card.inner_text()
             assert 'ĐANG CHẠY (START)' in await card.inner_text()
@@ -150,6 +163,7 @@ window.seedDayFixture = () => {cncDayOwner=getUser().uid;cncDayStats.set('neway-
             await alarm_download.save_as('/tmp/alarm-browser.xlsx')
             await page.evaluate('''renderFixture([{id:'neway-1260s',name:'Neway 1260S',source:'focas',connected:true,lastSeen:Date.now(),rawStatus:{run:3,alarm:0,emergency:0,aut:1},ip:'192.168.1.1',port:8193,model:'FANUC 0i-MF Plus',spindleSpeed:1800,feedrate:12.5,feedrateUnit:'inch/min',activeProgram:'O12345678',mainProgram:'O0001'}])''')
             await page.get_by_role('button',name='Xem máy Neway 1260S',exact=True).click()
+            await page.get_by_role('button',name='THỐNG KÊ',exact=True).click()
             assert '1800 RPM' in await card.inner_text()
             assert '12.5 inch/min' in await card.inner_text()
             assert 'O12345678' in await card.inner_text()
@@ -283,6 +297,7 @@ window.seedDayFixture = () => {cncDayOwner=getUser().uid;cncDayStats.set('neway-
                 await page.set_viewport_size({'width':width,'height':844})
                 assert await page.evaluate('document.documentElement.scrollWidth<=innerWidth')
             await page.get_by_role('button',name='Xem máy CNC 03',exact=True).click()
+            await page.get_by_role('button',name='THỐNG KÊ',exact=True).click()
             assert await page.locator('#card-missing-day .cnc-day-runtime .cnc-day-ring strong').inner_text()=='—'
             assert not errors, errors
             await browser.close()
