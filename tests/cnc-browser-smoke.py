@@ -373,9 +373,18 @@ window.seedDayFixture = () => {cncDayOwner=getUser().uid;cncDayStats.set('neway-
             await page.wait_for_function("document.querySelector('.ct-directory tbody').textContent.includes('O1234')")
             assert await transfer.locator('script').count()==0
             assert '<script>unsafe</script>' in await transfer.locator('tbody').inner_text()
-            await transfer.locator('input[type=file]').set_input_files({'name':'O2000.nc','mimeType':'text/plain','buffer':b'%\nO2000 (TEST)\nG90 G54\nM30\n%\n'})
-            await page.wait_for_function("document.querySelector('.ct-file-meta').textContent.includes('O2000.nc')")
+            await transfer.locator('input[type=file]').set_input_files({'name':'O0090.nc','mimeType':'text/plain','buffer':b'%\nO2000 (TEST)\nG90 G54\nM30\n%\n'})
+            await page.wait_for_function("document.querySelector('.ct-file-meta').textContent.includes('O0090.nc')")
             await page.wait_for_function("!document.querySelector('[data-send]').disabled")
+            assert 'Số O trong nội dung: O2000' in await transfer.locator('.ct-file-meta').inner_text()
+            assert 'CNC sẽ nhận O2000' in await transfer.locator('.ct-file-meta').inner_text()
+            # At laptop heights neither action row may be covered by the footer.
+            for width,height in [(1366,768),(1280,600),(1024,640)]:
+                await page.set_viewport_size({'width':width,'height':height})
+                bounds=await transfer.evaluate('''e=>{const footer=e.querySelector('footer').getBoundingClientRect();return [...e.querySelectorAll('.ct-actions button')].map(b=>{const r=b.getBoundingClientRect(),hit=document.elementFromPoint(r.x+r.width/2,r.y+r.height/2);return r.top>=0&&r.bottom<=footer.top+1&&r.bottom<=innerHeight&&hit&&(b===hit||b.contains(hit))})}''')
+                assert all(bounds), (width,height,bounds)
+            await page.set_viewport_size({'width':1366,'height':768})
+            await page.screenshot(path='/tmp/cnc-transfer-compact.png',full_page=True)
             await transfer.get_by_role('button',name='Truyền vào bộ nhớ CNC →',exact=True).click()
             await page.locator('.ct-confirm').wait_for(state='visible')
             assert [c['action'] for c in calls][-1]=='inspect'
@@ -411,7 +420,7 @@ window.seedDayFixture = () => {cncDayOwner=getUser().uid;cncDayStats.set('neway-
             await page.wait_for_function("document.querySelector('.ct-file-meta').textContent.includes('O2001.nc')")
             await transfer.get_by_role('button',name='Truyền vào bộ nhớ CNC →',exact=True).click()
             await page.locator('.ct-transfer-error').wait_for(state='visible')
-            assert 'Số O đã tồn tại' in await page.locator('.ct-transfer-error').inner_text()
+            assert 'O2001 đã có trong bộ nhớ CNC' in await page.locator('.ct-transfer-error').inner_text()
             assert len([c for c in calls if c['action']=='send'])==1
             await page.locator('.ct-transfer-error button').click()
             await page.locator('.ct-transfer-error').wait_for(state='detached')
