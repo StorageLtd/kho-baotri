@@ -114,7 +114,7 @@ public sealed class LtdWebTransferServer : IDisposable {
    foreach(FanucProgramTransfer.ProgramEntry p in list)rows.Add(new Entry{number=p.Number,length=p.Length,program=p.Program,comment=p.Comment,modified=p.Modified,path=p.FullPath});result.programs=rows.ToArray();result.message="Đã đọc "+rows.Count+" chương trình trong bộ nhớ CNC.";
   }else if(request.action=="receive"){
    if(sessions[currentSession].directory==FanucProgramTransfer.MemoryRoot&&String.IsNullOrEmpty(request.path))throw new InvalidOperationException("Làm mới trang web và chọn chương trình theo đường dẫn PATH1 trước khi xem/nhận.");
-   byte[] data=FanucProgramTransfer.Receive(target,cncPort,library,request.number,request.path);result.path=request.path;result.text=Encoding.ASCII.GetString(data);result.program="O"+FanucProgramTransfer.ReceivedNumber(data).ToString("D4");result.message="Đã đọc đủ chương trình từ CNC về laptop.";
+   byte[] data=FanucProgramTransfer.Receive(target,cncPort,library,request.number,request.path);result.path=request.path;result.text=Encoding.ASCII.GetString(data);result.program=FanucProgramTransfer.ReceivedProgram(data,request.number,request.path);result.message="Đã đọc đủ chương trình từ CNC về laptop.";
   }else if(request.action=="inspect"||request.action=="send"){
    if(!sessions[currentSession].directoryKnown){FanucProgramTransfer.DirectoryListing scope=FanucProgramTransfer.ListMemory(target,cncPort,library);sessions[currentSession].directory=scope.Directory;sessions[currentSession].directoryKnown=true;}
    if(request.content==null||request.content.Length>2*1024*1024)throw new InvalidOperationException("NC file vượt 2 MiB.");

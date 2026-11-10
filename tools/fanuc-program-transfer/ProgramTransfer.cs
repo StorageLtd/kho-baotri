@@ -14,7 +14,7 @@ using System.Globalization;
 // Separate, explicitly confirmed program download trial. Not used by monitoring bridges.
 public static class FanucProgramTransfer
 {
-    public static string Build { get { return "20261110-nc-file-content"; } }
+    public static string Build { get { return "20261110-named-nc-header"; } }
     public sealed class ProgramEntry { public int Number;public int? Length;public string Program,Comment,Modified,FullPath; }
     public sealed class Operation { public string Kind,Message,Text,Destination;public ProgramEntry[] Programs; }
     private static int progress;
@@ -237,7 +237,7 @@ public static class FanucProgramTransfer
         }finally{Marshal.FreeHGlobal(buffer);}
     }
     public const int MaxReceiveBytes=5*1024*1024;
-    public static string ValidateReceived(byte[] bytes,int number,bool matchNumber=true){
+    public static string ValidateReceived(byte[] bytes,int number,bool matchNumber=true,string namedFile=null){
         if(number<1||number>7999)throw new InvalidOperationException("Receiving supports O0001-O7999 in this trial.");
         if(bytes==null||bytes.Length<8||bytes.Length>MaxReceiveBytes)throw new InvalidOperationException("Incomplete or oversized CNC program.");
         foreach(byte b in bytes)if(b!=9&&b!=10&&b!=13&&(b<32||b>126))throw new InvalidOperationException("Unsupported non-ASCII CNC program.");
@@ -245,6 +245,13 @@ public static class FanucProgramTransfer
         if(!text.StartsWith("%")||!text.EndsWith("%")||text.Split('%').Length!=3)throw new InvalidOperationException("Incomplete NC envelope or additional macro export; file not saved.");
         int depth=0;foreach(char ch in text){if(ch=='('&&++depth>1)throw new InvalidOperationException("Nested comments unsupported.");if(ch==')'&&--depth<0)throw new InvalidOperationException("Invalid comments.");}if(depth!=0)throw new InvalidOperationException("Incomplete comments.");
         string code=Regex.Replace(text,@"\([^)]*\)","",RegexOptions.Singleline).Trim().Trim('%').Trim();
+        if(code.StartsWith("<",StringComparison.Ordinal)){
+            Match header=Regex.Match(code,@"^<([^<>\r\n]+)>");
+            if(namedFile==null||!header.Success||!String.Equals(header.Groups[1].Value,namedFile,StringComparison.OrdinalIgnoreCase))throw new InvalidOperationException("Received named-program header differs from selected CNC file.");
+            string body=code.Substring(header.Length);
+            if(Regex.IsMatch(body,@"(?m)^\s*<[^<>\r\n]+>"))throw new InvalidOperationException("Multiple named programs received; file not saved.");
+            code="O"+number.ToString(CultureInfo.InvariantCulture)+"\n"+body;
+        }
         MatchCollection found=Regex.Matches(code,@"(?m)^\s*O([0-9]{1,8})(?=[^0-9]|$)");
         if(found.Count!=1||Regex.Matches(code,@"(?<![A-Z])O\s*[0-9]+",RegexOptions.IgnoreCase).Count!=1||(matchNumber&&int.Parse(found[0].Groups[1].Value)!=number)||!Regex.IsMatch(code,@"^O[0-9]{1,8}(?=[^0-9]|$)"))throw new InvalidOperationException("Received O-number differs from selection.");
         return text;
@@ -253,6 +260,13 @@ public static class FanucProgramTransfer
         string text=ValidateReceived(bytes,1,false);
         string code=Regex.Replace(text,@"\([^)]*\)","",RegexOptions.Singleline).Trim().Trim('%').Trim();
         return int.Parse(Regex.Match(code,@"^O([0-9]{1,8})").Groups[1].Value);
+    }
+    public static string ReceivedProgram(byte[] bytes,int number,string path){
+        bool named=path!=null&&path.EndsWith(".NC",StringComparison.OrdinalIgnoreCase);
+        string file=named?path.Substring(path.LastIndexOf('/')+1):null;
+        string text=ValidateReceived(bytes,number,!named,file);
+        string code=Regex.Replace(text,@"\([^)]*\)","",RegexOptions.Singleline).Trim().Trim('%').Trim();
+        return code.StartsWith("<",StringComparison.Ordinal)?file:"O"+ReceivedNumber(bytes).ToString("D4");
     }
     public static byte[] Receive(string ip,ushort port,string library,int number,string fullPath=null){
         ValidateProgramPath(fullPath,number);
@@ -274,7 +288,7 @@ public static class FanucProgramTransfer
                 }
                 // upend3 can return delayed protection/data errors: never save before it succeeds.
                 short endCode=fullPath==null?cnc_upend3(handle):cnc_upend4(handle);ended=true;Check("Finish CNC to PC read",endCode);
-                byte[] bytes=output.ToArray();ValidateReceived(bytes,number,fullPath==null||!fullPath.EndsWith(".NC",StringComparison.OrdinalIgnoreCase));return bytes;
+                byte[] bytes=output.ToArray();bool named=fullPath!=null&&fullPath.EndsWith(".NC",StringComparison.OrdinalIgnoreCase);ValidateReceived(bytes,number,!named,named?fullPath.Substring(fullPath.LastIndexOf('/')+1):null);return bytes;
             }
         }finally{try{if(started&&!ended){if(fullPath==null)cnc_upend3(handle);else cnc_upend4(handle);}}finally{cnc_freelibhndl(handle);}}
     }

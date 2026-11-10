@@ -37,7 +37,7 @@ int16_t cnc_dwnstart3(uint16_t h,int16_t type){(void)h;if(type!=0)return -99;sta
 int16_t cnc_download3(uint16_t h,int32_t *length,const char *data){(void)h;download_calls++;if(*length>1280||*length<=0)return -99;if(download_calls==1){*length=0;return 10;}if(mode==8){*length=0;return 0;}int n=*length>7?7:*length;memcpy(sent+sentlen,data,n);sentlen+=n;*length=n;return 0;}
 int16_t cnc_dwnend3(uint16_t h){(void)h;ends++;return mode==5?5:0;}
 int16_t cnc_upstart3(uint16_t h,int16_t type,int32_t start,int32_t end){(void)h;if(type!=0||start!=end||start!=1234)return -99;upstarts++;return 0;}
-int16_t cnc_upload3(uint16_t h,int32_t *length,char *data){(void)h;upcalls++;if(upcalls==1){*length=0;return 10;}const char *text=mode==6?"%\nO9999\nM30\n%":mode==7?"%\nO1234\nM30":"%\nO1234 (TEST)\nM99\n%\n";int len=(int)strlen(text);if(position==len)return -2;int n=len-position;if(n>8)n=8;if(n>*length)return -99;memcpy(data,text+position,n);position+=n;*length=n;return 0;}
+int16_t cnc_upload3(uint16_t h,int32_t *length,char *data){(void)h;upcalls++;if(upcalls==1){*length=0;return 10;}const char *text=mode==23?"%\n<O0301.NC> (1283-742-01-03-OP1);\nG90;\nM30;\n%\n":mode==6?"%\nO9999\nM30\n%":mode==7?"%\nO1234\nM30":"%\nO1234 (TEST)\nM99\n%\n";int len=(int)strlen(text);if(position==len)return -2;int n=len-position;if(n>8)n=8;if(n>*length)return -99;memcpy(data,text+position,n);position+=n;*length=n;return 0;}
 int16_t cnc_upend3(uint16_t h){(void)h;upends++;return mode==4?7:0;}
 static char last_program_path[244];
 const char *tx_last_program_path(void){return last_program_path;}
