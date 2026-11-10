@@ -355,7 +355,11 @@ window.seedDayFixture = () => {cncDayOwner=getUser().uid;cncDayStats.set('neway-
                 assert body['ip']=='192.168.1.1' and body['port']==8193
                 reply={'ok':True,'message':'Đã xử lý','ip':body['ip'],'port':8193}
                 if body['action']=='list':reply['programs']=[{'number':1234,'program':'O1234','length':24,'comment':'<script>unsafe</script>','modified':'10/11/2026'}]
-                if body['action']=='inspect':reply.update({'program':'O2000','hash':'B'*64,'ticket':'C'*64})
+                if body['action']=='inspect':
+                    if 'O2001' in body['content']:
+                        await route.fulfill(status=400,content_type='application/json',body=json.dumps({'ok':False,'message':'Program already exists. Overwriting is blocked.'}),headers={'Access-Control-Allow-Origin':'*'})
+                        return
+                    reply.update({'program':'O2000','hash':'B'*64,'ticket':'C'*64})
                 if body['action']=='send':assert body['confirmation']=='TRUYEN O2000' and body['ticket']=='C'*64
                 if body['action']=='receive':reply.update({'program':'O1234','text':'%\nO1234 (TEST)\nM99\n%\n'})
                 await route.fulfill(status=200,content_type='application/json',body=json.dumps(reply),headers={'Access-Control-Allow-Origin':'*'})
@@ -371,16 +375,26 @@ window.seedDayFixture = () => {cncDayOwner=getUser().uid;cncDayStats.set('neway-
             assert '<script>unsafe</script>' in await transfer.locator('tbody').inner_text()
             await transfer.locator('input[type=file]').set_input_files({'name':'O2000.nc','mimeType':'text/plain','buffer':b'%\nO2000 (TEST)\nG90 G54\nM30\n%\n'})
             await page.wait_for_function("document.querySelector('.ct-file-meta').textContent.includes('O2000.nc')")
-            await transfer.get_by_role('button',name='Kiểm tra trước truyền',exact=True).click()
             await page.wait_for_function("!document.querySelector('[data-send]').disabled")
             await transfer.get_by_role('button',name='Truyền vào bộ nhớ CNC →',exact=True).click()
+            await page.locator('.ct-confirm').wait_for(state='visible')
+            assert [c['action'] for c in calls][-1]=='inspect'
             await page.locator('.ct-confirm input').fill('TRUYEN O2000')
             await page.get_by_role('button',name='Lưu vào bộ nhớ CNC',exact=True).click()
             await page.wait_for_function("document.querySelector('.cnc-transfer-dialog [role=status]').textContent.includes('CNC đã nhận O2000')")
             assert len([c for c in calls if c['action']=='send'])==1
             await transfer.locator('[data-row="0"]').click()
             await transfer.get_by_role('button',name='Xem chương trình',exact=True).click()
-            await page.wait_for_function("document.querySelector('.ct-remote pre').textContent.includes('M99')")
+            await page.locator('.ct-program-view').wait_for(state='visible')
+            assert 'O1234' in await page.locator('.ct-program-view h3').inner_text()
+            assert 'M99' in await page.locator('.ct-program-view pre').inner_text()
+            assert await page.locator('.ct-program-view pre').evaluate('e=>e.getBoundingClientRect().top>=0 && e.getBoundingClientRect().top<innerHeight')
+            for width in [1280,390]:
+                await page.set_viewport_size({'width':width,'height':900})
+                assert await page.locator('.ct-program-view').evaluate('e=>e.scrollWidth<=e.clientWidth+1')
+            await page.screenshot(path='/tmp/cnc-program-view.png',full_page=True)
+            await page.locator('.ct-program-view [data-close-view]').click()
+            await page.locator('.ct-program-view').wait_for(state='detached')
             async with page.expect_download() as nc_info:
                 await transfer.get_by_role('button',name='← Nhận về máy tính',exact=True).click()
             nc_download=await nc_info.value
@@ -393,6 +407,14 @@ window.seedDayFixture = () => {cncDayOwner=getUser().uid;cncDayStats.set('neway-
             await page.screenshot(path='/tmp/cnc-web-transfer-mobile.png',full_page=True)
             await page.set_viewport_size({'width':1280,'height':900})
             await page.screenshot(path='/tmp/cnc-web-transfer.png',full_page=True)
+            await transfer.locator('input[type=file]').set_input_files({'name':'O2001.nc','mimeType':'text/plain','buffer':b'%\nO2001\nM30\n%\n'})
+            await page.wait_for_function("document.querySelector('.ct-file-meta').textContent.includes('O2001.nc')")
+            await transfer.get_by_role('button',name='Truyền vào bộ nhớ CNC →',exact=True).click()
+            await page.locator('.ct-transfer-error').wait_for(state='visible')
+            assert 'Số O đã tồn tại' in await page.locator('.ct-transfer-error').inner_text()
+            assert len([c for c in calls if c['action']=='send'])==1
+            await page.locator('.ct-transfer-error button').click()
+            await page.locator('.ct-transfer-error').wait_for(state='detached')
             await transfer.locator('[data-close]').click()
             await page.locator('.cnc-transfer-dialog').wait_for(state='detached')
             assert not errors, errors
