@@ -23,6 +23,8 @@ try{
  $largeText="%`nO1234`n"+(' ' * (5*1024*1024-14))+"M30`n%`n"
  $largeBytes=[Text.Encoding]::ASCII.GetBytes($largeText);Assert ($largeBytes.Length -eq 5*1024*1024) 'Boundary fixture size wrong';$null=[FanucProgramTransfer]::ValidateReceived($largeBytes,1234)
  $failed=$false;try{$null=[FanucProgramTransfer]::ValidateReceived(($largeBytes+[byte]32),1234)}catch{$failed=$true};Assert $failed 'Receive accepted more than 5 MiB'
+ [TxFixture]::tx_reset(22);$different=[FanucProgramTransfer]::Receive('192.168.1.1',8193,'fixture',301,'//CNC_MEM/USER/PATH1/O0301.NC');Assert ([FanucProgramTransfer]::ReceivedNumber($different) -eq 1234) 'NC filename incorrectly forced internal O-number'
+ [TxFixture]::tx_reset(22);$failed=$false;try{$null=[FanucProgramTransfer]::Receive('192.168.1.1',8193,'fixture',301,'//CNC_MEM/USER/PATH1/O301')}catch{$failed=$true};Assert $failed 'Numeric program identity check was removed'
  [TxFixture]::tx_reset(17);$memory=[FanucProgramTransfer]::ListMemory('192.168.1.1',8193,'fixture');Assert ($memory.Programs.Count -eq 5 -and $memory.Method -eq 'cnc_rdpdf_alldir' -and $memory.Directory -eq '//CNC_MEM/USER/PATH1/') 'PATH1 file/folder listing did not return memory programs'
  [TxFixture]::tx_reset(22);$ncRows=[FanucProgramTransfer]::ListMemory('192.168.1.1',8193,'fixture');Assert ($ncRows.Programs.Count -eq 5 -and @($ncRows.Programs | Where-Object Program -eq 'O0301.NC').Count -eq 1) 'NC filenames from actual CNC folder were filtered out'
  [FanucProgramTransfer]::ValidateProgramPath('//CNC_MEM/USER/PATH1/O0301.NC',301)
