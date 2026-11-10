@@ -10,6 +10,7 @@ public static class TxFixture {
  [DllImport("Fwlib64.dll")]public static extern void tx_reset(int m);
  [DllImport("Fwlib64.dll")]public static extern int tx_opened();
  [DllImport("Fwlib64.dll")]public static extern System.IntPtr tx_last_ip();
+ [DllImport("Fwlib64.dll")]public static extern System.IntPtr tx_last_program_path();
  [DllImport("Fwlib64.dll")]public static extern int tx_freed();
  [DllImport("Fwlib64.dll")]public static extern int tx_starts();
  [DllImport("Fwlib64.dll")]public static extern int tx_ends();
@@ -19,6 +20,19 @@ public static class TxFixture {
 '@
 $folder=Join-Path ([IO.Path]::GetTempPath()) ('ltd-tx-'+[Guid]::NewGuid().ToString('N'));$null=New-Item -ItemType Directory $folder;$server=$null
 try{
+ [TxFixture]::tx_reset(17);$memory=[FanucProgramTransfer]::ListMemory('192.168.1.1',8193,'fixture');Assert ($memory.Programs.Count -eq 5 -and $memory.Method -eq 'cnc_rdpdf_alldir' -and $memory.Directory -eq '//CNC_MEM/USER/PATH1/') 'PATH1 file/folder listing did not return memory programs'
+ [TxFixture]::tx_reset(21);$parentRows=[FanucProgramTransfer]::ListMemory('192.168.1.1',8193,'fixture');Assert ($parentRows.Programs.Count -eq 5) 'Virtual parent folder escaped scope or hid PATH1 files'
+ [TxFixture]::tx_reset(17)
+ $sub=@($memory.Programs|Where-Object FullPath -eq '//CNC_MEM/USER/PATH1/SUB/O1234');Assert ($sub.Count -eq 1) 'Duplicate O-numbers in separate folders lost path identity'
+ $raw=[FanucProgramTransfer]::Receive('192.168.1.1',8193,'fixture',1234,$sub[0].FullPath);Assert ([Runtime.InteropServices.Marshal]::PtrToStringAnsi([TxFixture]::tx_last_program_path()) -eq $sub[0].FullPath) 'Receive used active O-number rather than exact stored file path'
+ foreach($mode in @(18,19)){
+  [TxFixture]::tx_reset($mode);$failed=$false;try{$null=[FanucProgramTransfer]::ListMemory('192.168.1.1',8193,'fixture')}catch{$failed=$true};Assert ($failed -and [TxFixture]::tx_freed() -eq 1) 'Protected/repeated PATH1 directory was silently replaced with active program'
+ }
+ foreach($badPath in @('//CNC_MEM/SYSTEM/O1234','//CNC_MEM/USER/PATH1/../O1234','//CNC_MEM/USER/PATH1/O9999')){$failed=$false;try{[FanucProgramTransfer]::ValidateProgramPath($badPath,1234)}catch{$failed=$true};Assert $failed 'Out-of-scope or mismatched file path accepted'}
+ $pdfFile=Join-Path $folder 'folder-test.nc';[IO.File]::WriteAllText($pdfFile,"%`nO5000`nM30`n%",[Text.Encoding]::ASCII)
+ [TxFixture]::tx_reset(20);$failed=$false;try{$null=[FanucProgramTransfer]::Inspect('192.168.1.1',8193,'fixture',$pdfFile,[FanucProgramTransfer]::MemoryRoot)}catch{$failed=$true};Assert ($failed -and [TxFixture]::tx_starts() -eq 0) 'Wrong selected CNC folder allowed a write'
+ [TxFixture]::tx_reset(17);$null=[FanucProgramTransfer]::Inspect('192.168.1.1',8193,'fixture',$pdfFile,[FanucProgramTransfer]::MemoryRoot)
+ [IO.File]::WriteAllText($pdfFile,"%`nO2000`nM30`n%",[Text.Encoding]::ASCII);$failed=$false;try{$null=[FanucProgramTransfer]::Inspect('192.168.1.1',8193,'fixture',$pdfFile,[FanucProgramTransfer]::MemoryRoot)}catch{$failed=$true};Assert ($failed -and [TxFixture]::tx_starts() -eq 0) 'Existing PATH1 file missed by numeric directory could be overwritten'
  $file=Join-Path $folder 'send.nc';$content="%`nO2000 (TEST)`nG90 G54`nM30`n%`n";[IO.File]::WriteAllText($file,$content,[Text.Encoding]::ASCII);$selected=[FanucProgramTransfer]::ValidateFile($file)
  [TxFixture]::tx_reset(0);$list=[FanucProgramTransfer]::ListPrograms('192.168.1.1',8193,'fixture');Assert ($list.Count -eq 2 -and $list[0].Number -eq 1234 -and $list[0].Modified -eq '10/11/2026 09:30') 'Directory PRGDIR3 ABI'
  foreach($mode in @(12,13,14,15)){
@@ -60,6 +74,11 @@ try{
  [TxFixture]::tx_reset(0);$r=Request list @{ip='192.168.1.2'} 'https://storageltd.github.io' $tokenB;Assert ($r.code -eq 400 -and [TxFixture]::tx_opened() -eq 0) 'Removed CNC still reached native API'
  Assert ($server.TrySetMachines($machines)) 'Registry refresh failed';$r=Request list @{ip='192.168.1.2'} 'https://storageltd.github.io' $tokenB;Assert ($r.code -eq 401 -and [TxFixture]::tx_opened() -eq 0) 'Removed/re-added CNC retained stale session'
  $r=Request list;Assert ($r.code -eq 200 -and $r.data.programs.Count -eq 2) 'Web list ABI'
+ [TxFixture]::tx_reset(17);$r=Request list;Assert ($r.code -eq 200 -and $r.data.programs.Count -eq 5 -and $r.data.source -eq 'cnc_rdpdf_alldir') 'PATH1 memory API not exposed through server'
+ $r=Request receive @{number=1234};Assert ($r.code -eq 400) 'Folder-aware session silently read selected program without a file path'
+ $r=Request receive @{number=1234;path='//CNC_MEM/USER/PATH1/SUB/O1234'};Assert ($r.code -eq 200 -and $r.data.path -eq '//CNC_MEM/USER/PATH1/SUB/O1234') 'PATH1 receive lost folder path'
+ $r=Request inspect @{content=$content};Assert ($r.code -eq 400 -and [TxFixture]::tx_starts() -eq 0) 'Server missed existing program in root memory'
+ [TxFixture]::tx_reset(0);$null=Request list
  $r=Request send @{content=$content;hash=$selected.Hash;confirmation='TRUYEN O2000'};Assert ($r.code -eq 400 -and [TxFixture]::tx_starts() -eq 0) 'No-ticket send reached CNC'
  $check=Request inspect @{content=$content};Assert ($check.code -eq 200 -and $check.data.ticket.Length -eq 64) 'Inspection grant missing'
  $r=Request send @{content=$content;hash=$check.data.hash;ticket=$check.data.ticket;confirmation='TRUYEN O2000'};Assert ($r.code -eq 200 -and [TxFixture]::tx_matches($content) -eq 1) 'Confirmed send failed'

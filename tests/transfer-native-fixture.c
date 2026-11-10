@@ -39,3 +39,26 @@ int16_t cnc_dwnend3(uint16_t h){(void)h;ends++;return mode==5?5:0;}
 int16_t cnc_upstart3(uint16_t h,int16_t type,int32_t start,int32_t end){(void)h;if(type!=0||start!=end||start!=1234)return -99;upstarts++;return 0;}
 int16_t cnc_upload3(uint16_t h,int32_t *length,char *data){(void)h;upcalls++;if(upcalls==1){*length=0;return 10;}const char *text=mode==6?"%\nO9999\nM30\n%":mode==7?"%\nO1234\nM30":"%\nO1234 (TEST)\nM99\n%\n";int len=(int)strlen(text);if(position==len)return -2;int n=len-position;if(n>8)n=8;if(n>*length)return -99;memcpy(data,text+position,n);position+=n;*length=n;return 0;}
 int16_t cnc_upend3(uint16_t h){(void)h;upends++;return mode==4?7:0;}
+static char last_program_path[244];
+const char *tx_last_program_path(void){return last_program_path;}
+static void pdfentry(uint8_t *p,int folder,const char *name){
+ memset(p,0,128);int16_t kind=folder?0:1;memcpy(p,&kind,2);int16_t date[]={2026,11,10,10,30,0};memcpy(p+2,date,12);int32_t size=32;memcpy(p+20,&size,4);strncpy((char*)p+28,name,35);memcpy(p+64,"(MEMORY FILE)",13);
+}
+int16_t cnc_rdpdf_alldir(uint16_t h,int16_t *count,const uint8_t *input,uint8_t *out){
+ (void)h;if(mode<17)return 6;if(mode==18)return 7;
+ int16_t index,size_kind,type;memcpy(&index,input+212,2);memcpy(&size_kind,input+214,2);memcpy(&type,input+216,2);
+ if(*count<1||size_kind!=1||type!=1)return -99;
+ const char *path=(const char*)input;
+ if(mode==19){pdfentry(out,0,"O1234");*count=1;return 0;}
+ if(strcmp(path,"//CNC_MEM/USER/PATH1/")==0){
+  if(mode==21){if(index==0){pdfentry(out,1,"..");*count=1;return 0;}index--;}
+  if(index>=3){*count=0;return 0;}const char *names[]={"O1234","O2000","SUB"};pdfentry(out,index==2,names[index]);*count=1;return 0;
+ }
+ if(strcmp(path,"//CNC_MEM/USER/PATH1/SUB/")==0){
+  if(index>=3){*count=0;return 0;}const char *names[]={"O1234","O3000","O4000"};pdfentry(out,0,names[index]);*count=1;return 0;
+ }return 5;
+}
+int16_t cnc_rdpdf_curdir(uint16_t h,int16_t kind,char *path){(void)h;if(kind!=1)return -99;strcpy(path,mode==20?"//CNC_MEM/USER/PATH1/OTHER/":"//CNC_MEM/USER/PATH1/");return 0;}
+int16_t cnc_upstart4(uint16_t h,int16_t type,const char *path){strncpy(last_program_path,path,243);return cnc_upstart3(h,type,1234,1234);}
+int16_t cnc_upload4(uint16_t h,int32_t *length,char *data){return cnc_upload3(h,length,data);}
+int16_t cnc_upend4(uint16_t h){return cnc_upend3(h);}

@@ -12,17 +12,17 @@ using System.Security.Cryptography;
 // Loopback companion for the company's website. No Firebase queue or internet listener.
 public sealed class LtdWebTransferServer : IDisposable {
  [DataContract] public sealed class Request {
-  [DataMember] public string action,ip,content,hash,confirmation,ticket,password;
+  [DataMember] public string action,ip,content,hash,confirmation,ticket,password,path;
   [DataMember] public int port,number;
  }
  [DataContract] public sealed class Entry {
   [DataMember] public int number;
   [DataMember] public int? length;
-  [DataMember] public string program,comment,modified;
+  [DataMember] public string program,comment,modified,path;
  }
  [DataContract] public sealed class Response {
   [DataMember] public bool ok;
-  [DataMember] public string message,ip,program,hash,ticket,text,token;
+  [DataMember] public string message,ip,program,hash,ticket,text,token,directory,source,note,path;
   [DataMember] public int port;
   [DataMember] public Entry[] programs;
  }
@@ -34,7 +34,7 @@ public sealed class LtdWebTransferServer : IDisposable {
   [DataMember] public string machineId,machineName,cncIp;
   [DataMember] public int port;
  }
- private sealed class LoginSession {public DateTime expires;public string endpoint;}
+ private sealed class LoginSession {public DateTime expires;public string endpoint,directory;public bool directoryKnown;}
  private readonly Dictionary<string,LoginSession> sessions=new Dictionary<string,LoginSession>();
  private Dictionary<string,string> machines=new Dictionary<string,string>();
  public int MachineCount {get{lock(gate){return machines.Count;}}}
@@ -110,11 +110,13 @@ public sealed class LtdWebTransferServer : IDisposable {
   Response result=new Response{ok=true,ip=target,port=cncPort};
   if(request.action=="connect"){result.message="Đã xác thực phiên truyền/nhận. Chưa kiểm tra kết nối CNC.";return result;}
   if(request.action=="list"){
-   FanucProgramTransfer.ProgramEntry[] list=FanucProgramTransfer.ListPrograms(target,cncPort,library);List<Entry> rows=new List<Entry>();
-   foreach(FanucProgramTransfer.ProgramEntry p in list)rows.Add(new Entry{number=p.Number,length=p.Length,program=p.Program,comment=p.Comment,modified=p.Modified});result.programs=rows.ToArray();result.message="Đã đọc "+rows.Count+" chương trình trong bộ nhớ CNC.";
+   FanucProgramTransfer.DirectoryListing listing=FanucProgramTransfer.ListMemory(target,cncPort,library);sessions[currentSession].directory=listing.Directory;sessions[currentSession].directoryKnown=true;result.directory=listing.Directory;result.source=listing.Method;result.note=listing.Note;FanucProgramTransfer.ProgramEntry[] list=listing.Programs;List<Entry> rows=new List<Entry>();
+   foreach(FanucProgramTransfer.ProgramEntry p in list)rows.Add(new Entry{number=p.Number,length=p.Length,program=p.Program,comment=p.Comment,modified=p.Modified,path=p.FullPath});result.programs=rows.ToArray();result.message="Đã đọc "+rows.Count+" chương trình trong bộ nhớ CNC.";
   }else if(request.action=="receive"){
-   byte[] data=FanucProgramTransfer.Receive(target,cncPort,library,request.number);result.text=Encoding.ASCII.GetString(data);result.program="O"+request.number.ToString("D4");result.message="Đã đọc đủ chương trình từ CNC về laptop.";
+   if(sessions[currentSession].directory==FanucProgramTransfer.MemoryRoot&&String.IsNullOrEmpty(request.path))throw new InvalidOperationException("Làm mới trang web và chọn chương trình theo đường dẫn PATH1 trước khi xem/nhận.");
+   byte[] data=FanucProgramTransfer.Receive(target,cncPort,library,request.number,request.path);result.path=request.path;result.text=Encoding.ASCII.GetString(data);result.program="O"+request.number.ToString("D4");result.message="Đã đọc đủ chương trình từ CNC về laptop.";
   }else if(request.action=="inspect"||request.action=="send"){
+   if(!sessions[currentSession].directoryKnown){FanucProgramTransfer.DirectoryListing scope=FanucProgramTransfer.ListMemory(target,cncPort,library);sessions[currentSession].directory=scope.Directory;sessions[currentSession].directoryKnown=true;}
    if(request.content==null||request.content.Length>2*1024*1024)throw new InvalidOperationException("NC file vượt 2 MiB.");
    foreach(char ch in request.content)if(ch>127)throw new InvalidOperationException("Chỉ hỗ trợ file NC ASCII.");
    string path=Path.Combine(Path.GetTempPath(),"ltd-transfer-"+Guid.NewGuid().ToString("N")+".nc");
@@ -123,12 +125,12 @@ public sealed class LtdWebTransferServer : IDisposable {
     FanucProgramTransfer.SelectedProgram selected=FanucProgramTransfer.ValidateFile(path);
     result.hash=selected.Hash;result.program=selected.Program;
     if(request.action=="inspect"){
-     ticket=null;result.message=FanucProgramTransfer.Inspect(target,cncPort,library,path);ticket=RandomCode();ticketHash=selected.Hash;ticketSession=currentSession;ticketExpiry=DateTime.UtcNow.AddMinutes(2);result.ticket=ticket;
+     ticket=null;result.message=FanucProgramTransfer.Inspect(target,cncPort,library,path,sessions[currentSession].directory);ticket=RandomCode();ticketHash=selected.Hash;ticketSession=currentSession;ticketExpiry=DateTime.UtcNow.AddMinutes(2);result.ticket=ticket;
     }else{
      bool valid=ticketSession==currentSession&&SameCode(request.ticket,ticket)&&request.hash==ticketHash&&selected.Hash==ticketHash&&DateTime.UtcNow<ticketExpiry;
      ticket=null;
      if(!valid)throw new InvalidOperationException("Kiểm tra trước truyền đã hết hạn hoặc file thay đổi. Kiểm tra lại.");
-     result.message=FanucProgramTransfer.Send(target,cncPort,library,path,request.hash,request.confirmation);
+     result.message=FanucProgramTransfer.Send(target,cncPort,library,path,request.hash,request.confirmation,sessions[currentSession].directory);
     }
    }finally{try{if(File.Exists(path))File.Delete(path);}catch(IOException){Note("Không xóa được file tạm trên laptop.");}catch(UnauthorizedAccessException){Note("Không xóa được file tạm trên laptop.");}}
   }else throw new InvalidOperationException("Thao tác không được hỗ trợ.");

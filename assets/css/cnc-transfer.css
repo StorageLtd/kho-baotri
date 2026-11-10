@@ -12,3 +12,4 @@
 .ct-workspace .ct-actions{padding:8px;gap:7px;position:relative;background:white}.ct-workspace .btn{font-size:12px;min-height:34px;padding:7px 10px;white-space:normal}
 .cnc-transfer-dialog>footer{position:static;flex:0 0 auto;padding:8px 16px;box-shadow:none}.cnc-transfer-dialog [role=status]{margin:3px 0;font-size:12px;max-height:3.5em;overflow:auto}
 @media(max-width:760px){.cnc-transfer-dialog .ct-workspace{grid-template-columns:1fr;overflow:auto;flex-basis:0;align-content:start}.ct-workspace>section{min-height:330px}.cnc-transfer-dialog>header{padding:10px 12px}.cnc-transfer-dialog .ct-pair{padding:8px 12px}.ct-pair .btn{padding:7px 9px;font-size:12px}}
+.ct-program-path{display:block;font-size:10px;font-weight:500;color:#607b8b;overflow-wrap:anywhere;margin-top:4px}

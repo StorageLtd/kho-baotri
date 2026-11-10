@@ -1,5 +1,5 @@
 ﻿LTD CNC BRIDGE MANAGER
-Build 20261110-directory-pages · Windows 10/11 64-bit
+Build 20261110-path1-directory · Windows 10/11 64-bit
 
 CẬP NHẬT
 1. Trong bản Manager cũ: dừng từng cầu nối, chờ tiến trình dừng.
@@ -33,6 +33,23 @@ TRUYỀN/NHẬN BẰNG MẬT KHẨU RIÊNG — KHÔNG CẦN MÃ GHÉP
   cũng xóa phiên đã nhớ và gửi yêu cầu thu hồi phiên cục bộ.
 - Nhập sai 5 lần bị chặn đăng nhập 60 giây. Không có chức năng bỏ qua
   mật khẩu, force bit, đổi mode hoặc chạy chương trình từ xa.
+
+ĐỌC THƯ MỤC PATH1 TRÊN FANUC 0i-D/F / 30i
+- Ưu tiên cnc_rdpdf_alldir để duyệt //CNC_MEM/USER/PATH1/ và thư mục con.
+  Không lấy chương trình đang chọn để thay thế thư mục bộ nhớ.
+- Hiển thị đường dẫn từng chương trình, phân biệt cùng số O ở các thư mục.
+  Xem/nhận dùng cnc_upstart4/upload4/upend4 với đường dẫn cụ thể; không
+  thay đổi chương trình đang chọn hoặc thư mục foreground/background.
+- Nếu máy không hỗ trợ API thư mục, dùng cnc_rdprogdir3 như bản trước.
+  Giao diện hiện nguồn PATH1 khi đọc bằng API thư mục, không giả metadata.
+- Không truy cập CF/USB/Data Server hoặc SYSTEM. Giới hạn 60 giây,
+  10.000 mục, 256 thư mục và 8 mức; hết giới hạn báo lỗi thay vì báo đủ.
+- Thư mục bị bảo vệ không bị vượt quyền; báo chú thích nếu phải bỏ qua.
+- Khi gửi từ giao diện PATH1, CNC phải đang chọn root PATH1. Chương trình
+  kiểm tra lại thư mục và số O trực tiếp từ thư mục trước khi ghi; không
+  tự đổi thư mục CNC và không thêm API ghi ngoài download3 hiện có.
+- Đã kiểm tra mô phỏng 5 file ở root/thư mục con, trùng số O khác thư mục,
+  đọc đúng đường dẫn, thư mục lặp/bảo vệ, chặn sai thư mục và O đã tồn tại.
 
 ĐỌC DANH SÁCH BỘ NHỚ CNC
 - Đọc thư mục qua cnc_rdprogdir3, không dùng số chương trình đang chọn

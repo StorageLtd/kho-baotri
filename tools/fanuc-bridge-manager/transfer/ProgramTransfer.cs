@@ -14,8 +14,8 @@ using System.Globalization;
 // Separate, explicitly confirmed program download trial. Not used by monitoring bridges.
 public static class FanucProgramTransfer
 {
-    public static string Build { get { return "20261110-directory-pages"; } }
-    public sealed class ProgramEntry { public int Number;public int? Length;public string Program,Comment,Modified; }
+    public static string Build { get { return "20261110-path1-directory"; } }
+    public sealed class ProgramEntry { public int Number;public int? Length;public string Program,Comment,Modified,FullPath; }
     public sealed class Operation { public string Kind,Message,Text,Destination;public ProgramEntry[] Programs; }
     private static int progress;
     public static int Progress { get { return Interlocked.CompareExchange(ref progress,0,0); } }
@@ -50,6 +50,55 @@ public static class FanucProgramTransfer
     {
         public string FilePath,Program,Hash,Preview;public int Number;public byte[] Bytes;
     }
+    public const string MemoryRoot="//CNC_MEM/USER/PATH1/";
+    public sealed class DirectoryListing {public ProgramEntry[] Programs;public string Directory,Method,Note;}
+    [DllImport("Fwlib64.dll",ExactSpelling=true)] private static extern short cnc_rdpdf_alldir(ushort handle,ref short count,IntPtr input,IntPtr output);
+    [DllImport("Fwlib64.dll",ExactSpelling=true)] private static extern short cnc_rdpdf_curdir(ushort handle,short kind,[Out] byte[] path);
+    [DllImport("Fwlib64.dll",ExactSpelling=true,CharSet=CharSet.Ansi)] private static extern short cnc_upstart4(ushort handle,short type,string path);
+    [DllImport("Fwlib64.dll",ExactSpelling=true)] private static extern short cnc_upload4(ushort handle,ref int length,[Out] byte[] data);
+    [DllImport("Fwlib64.dll",ExactSpelling=true)] private static extern short cnc_upend4(ushort handle);
+    private static string FixedText(byte[] data,int start,int length){int end=Array.IndexOf(data,(byte)0,start,length);if(end<0)throw new InvalidOperationException("Invalid unterminated CNC directory string.");return Encoding.Default.GetString(data,start,end-start);}
+    private static DirectoryListing ReadFolderDirectory(ushort handle,bool recurse=true){
+        const int batch=16,stride=128;List<ProgramEntry> rows=new List<ProgramEntry>();Queue<string> pending=new Queue<string>();HashSet<string> seen=new HashSet<string>(StringComparer.OrdinalIgnoreCase);pending.Enqueue(MemoryRoot);int entries=0,protectedFolders=0;
+        DateTime deadline=DateTime.UtcNow.AddSeconds(60);IntPtr input=Marshal.AllocHGlobal(220),output=Marshal.AllocHGlobal(batch*stride);
+        try{
+            while(pending.Count>0){
+                string folder=pending.Dequeue();if(!seen.Add(folder))throw new InvalidOperationException("Repeated CNC folder.");int index=0;
+                while(true){
+                    if(DateTime.UtcNow>deadline||entries>10000||seen.Count>256)throw new InvalidOperationException("PATH1 directory limit reached; partial list not presented as complete.");
+                    byte[] request=new byte[220],name=Encoding.ASCII.GetBytes(folder);if(name.Length>210)throw new InvalidOperationException("CNC folder path too long.");Buffer.BlockCopy(name,0,request,0,name.Length);Buffer.BlockCopy(BitConverter.GetBytes((short)index),0,request,212,2);request[214]=1;request[216]=1;Marshal.Copy(request,0,input,220);Marshal.Copy(new byte[batch*stride],0,output,batch*stride);
+                    short count=batch,code;
+                    try{code=cnc_rdpdf_alldir(handle,ref count,input,output);}catch(EntryPointNotFoundException){if(entries==0&&folder==MemoryRoot)return null;throw;}
+                    if((code==1||code==6||code==4||code==5)&&entries==0&&folder==MemoryRoot)return null;
+                    if(code==3)break;Check("Read PATH1 folders / cnc_rdpdf_alldir",code);if(count<0||count>batch)throw new InvalidOperationException("Invalid PATH1 directory count.");if(count==0)break;
+                    byte[] data=new byte[count*stride];Marshal.Copy(output,data,0,data.Length);
+                    for(int i=0;i<count;i++){
+                        int at=i*stride;short kind=BitConverter.ToInt16(data,at);uint attributes=BitConverter.ToUInt32(data,at+24);string file=FixedText(data,at+28,36);
+                        if(kind==0&&(file=="."||file==".."))continue;
+                        if(file.Length==0||file=="."||file==".."||file.IndexOfAny(new char[]{'/','\\',':','\0'})>=0||Regex.IsMatch(file,@"[^ -~]"))throw new InvalidOperationException("Invalid CNC folder/file name.");
+                        if(kind==0){if(!recurse)continue;if((attributes&2)!=0){protectedFolders++;continue;}if(folder.Substring(MemoryRoot.Length).Split('/').Length>8)throw new InvalidOperationException("CNC folder depth limit.");pending.Enqueue(folder+file+"/");continue;}
+                        if(kind!=1)throw new InvalidOperationException("Invalid CNC directory entry kind.");if((attributes&8)!=0)continue;
+                        Match match=Regex.Match(file,@"^O([0-9]{1,8})$");if(!match.Success)continue;int number=int.Parse(match.Groups[1].Value);if(number<1)continue;
+                        int length=BitConverter.ToInt32(data,at+20);if(length<0)throw new InvalidOperationException("Invalid CNC file size.");
+                        string modified="—";try{modified=new DateTime(BitConverter.ToInt16(data,at+2),BitConverter.ToInt16(data,at+4),BitConverter.ToInt16(data,at+6),BitConverter.ToInt16(data,at+8),BitConverter.ToInt16(data,at+10),0).ToString("dd/MM/yyyy HH:mm");}catch(ArgumentOutOfRangeException){}
+                        string full=folder+file;foreach(ProgramEntry old in rows)if(old.FullPath==full)throw new InvalidOperationException("Repeated PATH1 file; partial list not presented as complete.");
+                        rows.Add(new ProgramEntry{Number=number,Program="O"+number.ToString("D4"),Length=length,Comment=FixedText(data,at+64,52),Modified=modified,FullPath=full});
+                    }
+                    index+=count;entries+=count;if(index>32767)throw new InvalidOperationException("CNC folder index limit.");
+                }
+            }
+            rows.Sort((a,b)=>StringComparer.Ordinal.Compare(a.FullPath,b.FullPath));return new DirectoryListing{Programs=rows.ToArray(),Directory=MemoryRoot,Method="cnc_rdpdf_alldir",Note=protectedFolders>0?"Có thư mục được bảo vệ, không đọc nội dung.":null};
+        }finally{Marshal.FreeHGlobal(input);Marshal.FreeHGlobal(output);}
+    }
+    public static DirectoryListing ListMemory(string ip,ushort port,string library){ushort handle=Open(ip,port,library);try{return ReadFolderDirectory(handle)??new DirectoryListing{Programs=ReadNumberDirectory(handle),Method="cnc_rdprogdir3"};}finally{cnc_freelibhndl(handle);}}
+    public static ProgramEntry[] ListPrograms(string ip,ushort port,string library){return ListMemory(ip,port,library).Programs;}
+    public static void ValidateProgramPath(string path,int number){if(path==null)return;if(path.Length>241||!path.StartsWith(MemoryRoot,StringComparison.Ordinal)||path.Contains("..")||path.Contains("\\")||path.IndexOfAny(new char[]{'\r','\n','\0'})>=0)throw new InvalidOperationException("Only PATH1 memory program paths are allowed.");Match match=Regex.Match(path.Substring(MemoryRoot.Length),@"^(?:[A-Za-z0-9_ .-]+/)*O([0-9]{1,8})$");if(!match.Success||int.Parse(match.Groups[1].Value)!=number)throw new InvalidOperationException("Program path and O-number differ.");}
+    private static void RequireUnusedDestination(ushort handle,int number,string directory){
+        if(directory==null){RequireUnused(handle,number);return;}
+        DirectoryListing listing=ReadFolderDirectory(handle,false);if(listing==null)throw new InvalidOperationException("Cannot confirm destination folder; transmission blocked.");
+        foreach(ProgramEntry entry in listing.Programs)if(entry.Number==number&&entry.FullPath.Substring(0,entry.FullPath.LastIndexOf('/')+1)==MemoryRoot)throw new InvalidOperationException("Program already exists. Overwriting is blocked.");
+    }
+    private static void CheckWriteDirectory(ushort handle,string directory){if(directory==null)return;if(directory!=MemoryRoot)throw new InvalidOperationException("Unsupported destination folder.");byte[] value=new byte[212];Check("Read destination folder / cnc_rdpdf_curdir",cnc_rdpdf_curdir(handle,1,value));string current=FixedText(value,0,212);if(!String.Equals(current.TrimEnd('/'),MemoryRoot.TrimEnd('/'),StringComparison.OrdinalIgnoreCase))throw new InvalidOperationException("Thư mục đang chọn trên CNC là "+current+". Chọn "+MemoryRoot+" tại máy trước khi gửi; phần mềm không đổi thư mục CNC.");}
     public static SelectedProgram ValidateFile(string path)
     {
         if(!File.Exists(path))throw new InvalidOperationException("Choose an NC file first.");
@@ -118,19 +167,19 @@ public static class FanucProgramTransfer
     {
         if(path!=1 || paths!=1)throw new InvalidOperationException("Trial supports a single CNC path only. Multi-path machines require a verified channel configuration.");
     }
-    public static string Inspect(string ip,ushort port,string library,string file)
+    public static string Inspect(string ip,ushort port,string library,string file,string directory=null)
     {
         SelectedProgram selected=ValidateFile(file);ushort handle=Open(ip,port,library);
-        try {CheckStoppedEdit(handle);RequireUnused(handle,selected.Number);return selected.Program+" is unused; CNC is stopped in EDIT. Confirm IP and file at the machine before sending.";}finally{cnc_freelibhndl(handle);}
+        try {CheckWriteDirectory(handle,directory);CheckStoppedEdit(handle);RequireUnusedDestination(handle,selected.Number,directory);return selected.Program+" is unused; CNC is stopped in EDIT. Confirm IP and file at the machine before sending.";}finally{cnc_freelibhndl(handle);}
     }
-    public static string Send(string ip,ushort port,string library,string file,string expectedHash,string confirmation)
+    public static string Send(string ip,ushort port,string library,string file,string expectedHash,string confirmation,string directory=null)
     {
         SelectedProgram selected=ValidateFile(file);
         if(expectedHash!=selected.Hash)throw new InvalidOperationException("File changed after selection. Select and inspect it again.");
         if(confirmation!="TRUYEN "+selected.Program)throw new InvalidOperationException("Type exactly: TRUYEN "+selected.Program);
         ushort handle=Open(ip,port,library);bool started=false,finished=false;
         try {
-            CheckStoppedEdit(handle);RequireUnused(handle,selected.Number);CheckStoppedEdit(handle);
+            CheckWriteDirectory(handle,directory);CheckStoppedEdit(handle);RequireUnusedDestination(handle,selected.Number,directory);CheckWriteDirectory(handle,directory);CheckStoppedEdit(handle);
             Check("Start transfer",cnc_dwnstart3(handle,0));started=true;
             Interlocked.Exchange(ref progress,0);int position=0;DateTime deadline=DateTime.UtcNow.AddSeconds(90);
             while(position<selected.Bytes.Length){
@@ -156,8 +205,8 @@ public static class FanucProgramTransfer
         try{modified=new DateTime(BitConverter.ToInt16(data,offset+64),BitConverter.ToInt16(data,offset+66),BitConverter.ToInt16(data,offset+68),BitConverter.ToInt16(data,offset+70),BitConverter.ToInt16(data,offset+72),0).ToString("dd/MM/yyyy HH:mm",CultureInfo.InvariantCulture);}catch(ArgumentOutOfRangeException){}
         return new ProgramEntry{Number=number,Length=length,Program="O"+number.ToString("D4"),Comment=Encoding.Default.GetString(data,offset+12,52).Split('\0')[0].Trim(),Modified=modified};
     }
-    public static ProgramEntry[] ListPrograms(string ip,ushort port,string library){
-        ushort handle=Open(ip,port,library);const int capacity=32;int requested=capacity;List<ProgramEntry> rows=new List<ProgramEntry>();
+    private static ProgramEntry[] ReadNumberDirectory(ushort handle){
+        const int capacity=32;int requested=capacity;List<ProgramEntry> rows=new List<ProgramEntry>();
         IntPtr buffer=Marshal.AllocHGlobal(capacity*88);
         try{
             int next=1;short format=2;DateTime deadline=DateTime.UtcNow.AddSeconds(60);
@@ -185,7 +234,7 @@ public static class FanucProgramTransfer
                 if(next>99999999)break;
                 // A short page is not proof of EOF. Ask again from the next O-number.
             }return rows.ToArray();
-        }finally{Marshal.FreeHGlobal(buffer);cnc_freelibhndl(handle);}
+        }finally{Marshal.FreeHGlobal(buffer);}
     }
     public static string ValidateReceived(byte[] bytes,int number){
         if(number<1||number>7999)throw new InvalidOperationException("Receiving supports O0001-O7999 in this trial.");
@@ -199,16 +248,17 @@ public static class FanucProgramTransfer
         if(found.Count!=1||Regex.Matches(code,@"(?<![A-Z])O\s*[0-9]+",RegexOptions.IgnoreCase).Count!=1||int.Parse(found[0].Groups[1].Value)!=number||!Regex.IsMatch(code,@"^O[0-9]{1,8}(?=[^0-9]|$)"))throw new InvalidOperationException("Received O-number differs from selection.");
         return text;
     }
-    public static byte[] Receive(string ip,ushort port,string library,int number){
+    public static byte[] Receive(string ip,ushort port,string library,int number,string fullPath=null){
+        ValidateProgramPath(fullPath,number);
         if(number<1||number>7999)throw new InvalidOperationException("Select O0001-O7999.");
         ushort handle=Open(ip,port,library);bool started=false,ended=false;
         try{
-            Check("Start CNC to PC read",cnc_upstart3(handle,0,number,number));started=true;
+            Check("Start CNC to PC read",fullPath==null?cnc_upstart3(handle,0,number,number):cnc_upstart4(handle,0,fullPath));started=true;
             using(MemoryStream output=new MemoryStream()){
                 byte[] buffer=new byte[4096];DateTime deadline=DateTime.UtcNow.AddSeconds(90);
                 while(true){
                     if(DateTime.UtcNow>deadline)throw new TimeoutException("CNC receive timeout; incomplete file not saved.");
-                    int count=buffer.Length;short code=cnc_upload3(handle,ref count,buffer);
+                    int count=buffer.Length;short code=fullPath==null?cnc_upload3(handle,ref count,buffer):cnc_upload4(handle,ref count,buffer);
                     if(code==10){Thread.Sleep(20);continue;}
                     if(code==-2)break;Check("Read CNC program",code);
                     if(count<0||count>buffer.Length)throw new InvalidOperationException("Invalid CNC upload byte count.");
@@ -217,10 +267,10 @@ public static class FanucProgramTransfer
                     output.Write(buffer,0,count);
                 }
                 // upend3 can return delayed protection/data errors: never save before it succeeds.
-                short endCode=cnc_upend3(handle);ended=true;Check("Finish CNC to PC read",endCode);
+                short endCode=fullPath==null?cnc_upend3(handle):cnc_upend4(handle);ended=true;Check("Finish CNC to PC read",endCode);
                 byte[] bytes=output.ToArray();ValidateReceived(bytes,number);return bytes;
             }
-        }finally{try{if(started&&!ended)cnc_upend3(handle);}finally{cnc_freelibhndl(handle);}}
+        }finally{try{if(started&&!ended){if(fullPath==null)cnc_upend3(handle);else cnc_upend4(handle);}}finally{cnc_freelibhndl(handle);}}
     }
     public static void SaveReceived(string path,byte[] bytes,int number){
         ValidateReceived(bytes,number);

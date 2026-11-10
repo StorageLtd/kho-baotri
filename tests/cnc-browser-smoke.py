@@ -364,14 +364,19 @@ window.seedDayFixture = () => {cncDayOwner=getUser().uid;cncDayStats.set('neway-
                 if body['action']=='connect' and transfer_state['reject_connect']:
                     await route.fulfill(status=401,content_type='application/json',body=json.dumps({'ok':False,'message':'Phiên truyền đã hết hạn.'}),headers={'Access-Control-Allow-Origin':'*'})
                     return
-                if body['action']=='list':reply['programs']=[{'number':1234,'program':'O1234','length':24,'comment':'<script>unsafe</script>','modified':'10/11/2026'},{'number':1235,'program':'O1235','length':None,'comment':'','modified':'—'}]
+                if body['action']=='list':
+                    reply['directory']='//CNC_MEM/USER/PATH1/'
+                    reply['source']='cnc_rdpdf_alldir'
+                    reply['programs']=[{'number':1234,'program':'O1234','length':24,'comment':'<script>unsafe</script>','modified':'10/11/2026','path':'//CNC_MEM/USER/PATH1/O1234'},{'number':1235,'program':'O1235','length':None,'comment':'','modified':'—','path':'//CNC_MEM/USER/PATH1/O1235'},{'number':1234,'program':'O1234','length':42,'comment':'SUB FILE','path':'//CNC_MEM/USER/PATH1/SUB/O1234'},{'number':3000,'program':'O3000','length':68,'comment':'','path':'//CNC_MEM/USER/PATH1/SUB/O3000'},{'number':4000,'program':'O4000','length':99,'comment':'','path':'//CNC_MEM/USER/PATH1/O4000'}]
                 if body['action']=='inspect':
                     if 'O2001' in body['content']:
                         await route.fulfill(status=400,content_type='application/json',body=json.dumps({'ok':False,'message':'Program already exists. Overwriting is blocked.'}),headers={'Access-Control-Allow-Origin':'*'})
                         return
                     reply.update({'program':'O2002' if 'O2002' in body['content'] else 'O2000','hash':'B'*64,'ticket':'C'*64})
                 if body['action']=='send':assert body['confirmation']==('TRUYEN O2002' if body['ip']=='192.168.1.2' else 'TRUYEN O2000') and body['ticket']=='C'*64
-                if body['action']=='receive':reply.update({'program':'O1234','text':'%\nO1234 (TEST)\nM99\n%\n'})
+                if body['action']=='receive':
+                    assert body['path']=='//CNC_MEM/USER/PATH1/O1234'
+                    reply.update({'program':'O1234','text':'%\nO1234 (TEST)\nM99\n%\n'})
                 await route.fulfill(status=200,content_type='application/json',body=json.dumps(reply),headers={'Access-Control-Allow-Origin':'*'})
             await page.route('http://127.0.0.1:8766/transfer',transfer_reply)
             await page.get_by_role('button',name='Truyền chương trình',exact=True).click()
@@ -391,7 +396,7 @@ window.seedDayFixture = () => {cncDayOwner=getUser().uid;cncDayStats.set('neway-
             await page.wait_for_function("document.querySelector('.ct-directory tbody').textContent.includes('O1234')")
             assert await transfer.locator('script').count()==0
             assert '<script>unsafe</script>' in await transfer.locator('tbody').inner_text()
-            assert await transfer.locator('tbody tr').count()==2
+            assert await transfer.locator('tbody tr').count()==5
             assert await transfer.locator('tbody tr').nth(1).locator('td').nth(1).inner_text()=='—'
             await transfer.locator('input[type=file]').set_input_files({'name':'O0090.nc','mimeType':'text/plain','buffer':b'%\nO2000 (TEST)\nG90 G54\nM30\n%\n'})
             await page.wait_for_function("document.querySelector('.ct-file-meta').textContent.includes('O0090.nc')")
