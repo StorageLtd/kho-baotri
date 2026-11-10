@@ -14,7 +14,7 @@ using System.Globalization;
 // Separate, explicitly confirmed program download trial. Not used by monitoring bridges.
 public static class FanucProgramTransfer
 {
-    public static string Build { get { return "20261110-nc-directory"; } }
+    public static string Build { get { return "20261110-receive-5mib"; } }
     public sealed class ProgramEntry { public int Number;public int? Length;public string Program,Comment,Modified,FullPath; }
     public sealed class Operation { public string Kind,Message,Text,Destination;public ProgramEntry[] Programs; }
     private static int progress;
@@ -236,9 +236,10 @@ public static class FanucProgramTransfer
             }return rows.ToArray();
         }finally{Marshal.FreeHGlobal(buffer);}
     }
+    public const int MaxReceiveBytes=5*1024*1024;
     public static string ValidateReceived(byte[] bytes,int number){
         if(number<1||number>7999)throw new InvalidOperationException("Receiving supports O0001-O7999 in this trial.");
-        if(bytes==null||bytes.Length<8||bytes.Length>2*1024*1024)throw new InvalidOperationException("Incomplete or oversized CNC program.");
+        if(bytes==null||bytes.Length<8||bytes.Length>MaxReceiveBytes)throw new InvalidOperationException("Incomplete or oversized CNC program.");
         foreach(byte b in bytes)if(b!=9&&b!=10&&b!=13&&(b<32||b>126))throw new InvalidOperationException("Unsupported non-ASCII CNC program.");
         string text=Encoding.ASCII.GetString(bytes).Replace("\r\n","\n").Replace("\r","\n").Trim();
         if(!text.StartsWith("%")||!text.EndsWith("%")||text.Split('%').Length!=3)throw new InvalidOperationException("Incomplete NC envelope or additional macro export; file not saved.");
@@ -255,7 +256,7 @@ public static class FanucProgramTransfer
         try{
             Check("Start CNC to PC read",fullPath==null?cnc_upstart3(handle,0,number,number):cnc_upstart4(handle,0,fullPath));started=true;
             using(MemoryStream output=new MemoryStream()){
-                byte[] buffer=new byte[4096];DateTime deadline=DateTime.UtcNow.AddSeconds(90);
+                byte[] buffer=new byte[4096];DateTime deadline=DateTime.UtcNow.AddSeconds(120);
                 while(true){
                     if(DateTime.UtcNow>deadline)throw new TimeoutException("CNC receive timeout; incomplete file not saved.");
                     int count=buffer.Length;short code=fullPath==null?cnc_upload3(handle,ref count,buffer):cnc_upload4(handle,ref count,buffer);
@@ -263,7 +264,7 @@ public static class FanucProgramTransfer
                     if(code==-2)break;Check("Read CNC program",code);
                     if(count<0||count>buffer.Length)throw new InvalidOperationException("Invalid CNC upload byte count.");
                     if(count==0){Thread.Sleep(20);continue;}
-                    if(output.Length+count>2*1024*1024)throw new InvalidOperationException("CNC program exceeds 2 MiB; no partial file saved.");
+                    if(output.Length+count>MaxReceiveBytes)throw new InvalidOperationException("CNC program exceeds 5 MiB; no partial file saved.");
                     output.Write(buffer,0,count);
                 }
                 // upend3 can return delayed protection/data errors: never save before it succeeds.

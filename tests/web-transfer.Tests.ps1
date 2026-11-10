@@ -20,6 +20,9 @@ public static class TxFixture {
 '@
 $folder=Join-Path ([IO.Path]::GetTempPath()) ('ltd-tx-'+[Guid]::NewGuid().ToString('N'));$null=New-Item -ItemType Directory $folder;$server=$null
 try{
+ $largeText="%`nO1234`n"+(' ' * (5*1024*1024-14))+"M30`n%`n"
+ $largeBytes=[Text.Encoding]::ASCII.GetBytes($largeText);Assert ($largeBytes.Length -eq 5*1024*1024) 'Boundary fixture size wrong';$null=[FanucProgramTransfer]::ValidateReceived($largeBytes,1234)
+ $failed=$false;try{$null=[FanucProgramTransfer]::ValidateReceived(($largeBytes+[byte]32),1234)}catch{$failed=$true};Assert $failed 'Receive accepted more than 5 MiB'
  [TxFixture]::tx_reset(17);$memory=[FanucProgramTransfer]::ListMemory('192.168.1.1',8193,'fixture');Assert ($memory.Programs.Count -eq 5 -and $memory.Method -eq 'cnc_rdpdf_alldir' -and $memory.Directory -eq '//CNC_MEM/USER/PATH1/') 'PATH1 file/folder listing did not return memory programs'
  [TxFixture]::tx_reset(22);$ncRows=[FanucProgramTransfer]::ListMemory('192.168.1.1',8193,'fixture');Assert ($ncRows.Programs.Count -eq 5 -and @($ncRows.Programs | Where-Object Program -eq 'O0301.NC').Count -eq 1) 'NC filenames from actual CNC folder were filtered out'
  [FanucProgramTransfer]::ValidateProgramPath('//CNC_MEM/USER/PATH1/O0301.NC',301)
