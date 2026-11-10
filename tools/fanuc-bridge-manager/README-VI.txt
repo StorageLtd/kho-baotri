@@ -1,5 +1,5 @@
-LTD CNC BRIDGE MANAGER
-Build 20261109-state-io · Windows 10/11 64-bit
+﻿LTD CNC BRIDGE MANAGER
+Build 20261110-manager-transfer · Windows 10/11 64-bit
 
 CẬP NHẬT
 1. Trong bản Manager cũ: dừng từng cầu nối, chờ tiến trình dừng.
@@ -9,6 +9,65 @@ CẬP NHẬT
 4. Nhấp đúp START-MANAGER.cmd. Máy đã lưu trong LocalAppData vẫn còn.
 5. Chọn máy → Chạy cầu nối → mở tab Đăng nhập CMMS, nhập email/mật khẩu và bấm Đăng nhập và kết nối.
    Mật khẩu và token chỉ nằm trong bộ nhớ, không ghi vào cấu hình hay nhật ký.
+
+TRUYỀN CHƯƠNG TRÌNH TRÊN WEB — ĐÃ TÍCH HỢP TRONG MANAGER
+- Không cần mở START-WEB-TRANSFER riêng hoặc một ứng dụng truyền khác.
+- Chọn máy đã lưu ở cây bên trái → bấm Truyền trên web trên thanh nút.
+- Trong tab Truyền chương trình trên web, bấm Bật cho máy đang chọn.
+- Bấm Sao chép mã. Mở web trên chính laptop này, chọn đúng máy →
+  Truyền chương trình → dán mã → Ghép kết nối.
+- Dùng chung bộ DLL trong lib và IP/cổng của cấu hình máy đã lưu.
+- Mỗi lần chỉ bật một phiên truyền cho một máy. Muốn đổi máy: dừng
+  phiên cũ, chọn máy khác rồi bật lại. Mã cũ mất hiệu lực khi dừng.
+- Không tự bật chức năng ghi khi Manager khởi động. Truyền vào bộ nhớ
+  CNC chỉ diễn ra sau khi bấm và xác nhận trên web.
+- Nút X thu nhỏ vào khay: giám sát và phiên truyền đang bật vẫn tiếp tục.
+  Thoát quản lý sẽ dừng tiện ích truyền, các cầu nối giám sát con vẫn chạy.
+  Nếu có thao tác truyền/nhận CNC đang diễn ra, chờ hoàn tất mới được thoát.
+- Không sửa/gỡ cấu hình máy đang có phiên truyền; dừng phiên đó trước.
+- Dừng phiên truyền chỉ ngừng tiện ích trên laptop, không dừng CNC.
+- Cầu nối giám sát vẫn chỉ đọc, không được thêm lệnh ghi hay đọc PMC.
+  Chức năng ghi chương trình nằm trong mô-đun truyền riêng có xác nhận.
+
+GIỚI HẠN TRUYỀN
+- Truyền vào bộ nhớ CNC để chọn/chạy tại máy; không chạy DNC.
+- Một file ASCII, một chương trình O0001–O7999, % đầu/cuối, tối đa 2 MiB.
+  Gửi cần M02/M30, CNC dừng trong EDIT, không alarm/emergency, một path.
+- Không ghi đè số O đã có, không xóa/chọn/chạy chương trình từ xa.
+- Có danh sách bộ nhớ, xem chương trình và nhận về file .nc trên trình duyệt.
+- Xác nhận gửi gồm máy/IP, số O và SHA256; ticket dùng một lần, hết hạn
+  sau 2 phút. Kiểm tra lại nội dung, trạng thái và số O trước khi ghi.
+- Nếu mất mạng khi truyền, có thể còn chương trình chưa hoàn chỉnh.
+  Kiểm tra tại máy; không tự gửi lại hoặc xóa chương trình.
+- Xác nhận CNC nhận xong không xác nhận gia công an toàn. Người vận hành
+  kiểm tra toàn bộ mã, dao, gốc tọa độ, offset và quy trình chạy thử.
+- Không truyền đồng thời từ công cụ khác vào cùng CNC.
+
+BẢO MẬT PHIÊN TRUYỀN
+- Chỉ lắng nghe ở 127.0.0.1:8766, không trên LAN/Internet.
+- Chỉ nhận nguồn https://storageltd.github.io, đúng mã phiên và IP/cổng
+  đã ghim. Không mở cổng router; không đưa file NC lên Firebase.
+- Mã phiên chỉ trong bộ nhớ/clipboard, không ghi vào cấu hình hay nhật ký.
+- Giữ Manager chạy và laptop không Sleep. Cho phép quyền mạng cục bộ
+  trong trình duyệt nếu được hỏi. Nếu IT chặn, cần IT cho phép.
+- Không dùng mã ghép để điều khiển từ điện thoại/laptop khác trong bản này.
+
+LỖI KHỞI ĐỘNG
+- Đã bổ sung System.Xml.dll khi biên dịch mô-đun truyền trên Windows
+  PowerShell 5.1/.NET Framework; đây là một lỗi ở gói truyền trước.
+- Mô-đun truyền chỉ nạp khi bật tính năng. Nếu lỗi, chi tiết giữ trong
+  tab Truyền chương trình; không làm tắt giám sát.
+- Nếu Manager không khởi động, cửa sổ lỗi hiển thị nội dung có thể sao chép.
+  Nhật ký lưu tại %LOCALAPPDATA%\LTD\CncBridgeManager\manager-startup-error.log.
+  Giữ lại nội dung lỗi, không gửi mật khẩu hoặc mã ghép.
+
+KIỂM CHỨNG BẢN TÍCH HỢP
+- Tái hiện lỗi thiếu System.Xml bằng bộ tham chiếu .NET Framework 4.8.
+- Mã truyền đã biên dịch/emit bằng C# 5 và bộ tham chiếu .NET Framework
+  đúng danh sách DLL của bản phát hành; chưa chạy WinForms trên Windows.
+- Đã kiểm tra tích hợp chọn máy đã lưu, hash, DLL chung, bật/tắt tự nguyện,
+  chặn dừng khi bận, không sửa cấu hình hoặc lưu mã phiên; native/API và
+  trình duyệt dùng máy CNC mô phỏng. Chưa truyền vào CNC thật.
 
 THÊM / SỬA / GỠ MÁY
 - + Thêm máy → chọn mẫu Vertical Mill, Horizontal Mill, Lathe hoặc Custom.

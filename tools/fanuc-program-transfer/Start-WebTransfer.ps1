@@ -3,7 +3,7 @@ try{
  if(-not [Environment]::Is64BitProcess){throw 'Cần Windows PowerShell 64-bit.'}
  Add-Type -AssemblyName System.Windows.Forms
  Add-Type -AssemblyName System.Drawing
- Add-Type -Path @((Join-Path $PSScriptRoot 'ProgramTransfer.cs'),(Join-Path $PSScriptRoot 'WebTransferServer.cs')) -ReferencedAssemblies @('System.dll','System.Core.dll','System.Runtime.Serialization.dll')
+ Add-Type -Path @((Join-Path $PSScriptRoot 'ProgramTransfer.cs'),(Join-Path $PSScriptRoot 'WebTransferServer.cs')) -ReferencedAssemblies @('System.dll','System.Core.dll','System.Runtime.Serialization.dll','System.Xml.dll')
  [Windows.Forms.Application]::EnableVisualStyles()
  $form=New-Object Windows.Forms.Form;$form.Text='LTD | Web Program Transfer';$form.Size=New-Object Drawing.Size(820,530);$form.MinimumSize=$form.Size;$form.StartPosition='CenterScreen';$form.BackColor=[Drawing.Color]::FromArgb(237,243,248);$form.Font=New-Object Drawing.Font('Segoe UI',10);$form.AutoScaleMode='Dpi'
  $heading=New-Object Windows.Forms.Label;$heading.Text="LTD | WEB PROGRAM TRANSFER`r`nLưu chương trình vào bộ nhớ CNC · Build 20261110-transfer-tool";$heading.SetBounds(0,0,820,90);$heading.Padding=New-Object Windows.Forms.Padding(22,14,0,0);$heading.BackColor=[Drawing.Color]::FromArgb(17,50,74);$heading.ForeColor=[Drawing.Color]::White;$heading.Font=New-Object Drawing.Font('Segoe UI',15,[Drawing.FontStyle]::Bold);$heading.Anchor='Top,Left,Right';$form.Controls.Add($heading)
