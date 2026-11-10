@@ -13,7 +13,26 @@ int16_t cnc_freelibhndl(uint16_t h){if(h!=12)return -99;freed++;return 0;}
 int16_t cnc_getpath(uint16_t h,int16_t *path,int16_t *paths){(void)h;*path=1;*paths=mode==3?2:1;return 0;}
 int16_t cnc_statinfo(uint16_t h,Status *s){(void)h;if(mode==11)usleep(300000);memset(s,0,sizeof(*s));s->aut=3;s->run=mode==2?3:0;return 0;}
 static void entry(uint8_t *p,int32_t number){int32_t length=24;memset(p,0,88);memcpy(p,&number,4);memcpy(p+4,&length,4);memcpy(p+12,"(TEST)",6);int16_t date[]={2026,11,10,9,30,0};memcpy(p+64,date,12);}
-int16_t cnc_rdprogdir3(uint16_t h,int16_t type,int32_t *top,int16_t *count,uint8_t *p){(void)h;if(type!=2)return -99;if(mode==9){*count=33;return 0;}if(*count==1){if(mode==1){entry(p,*top);}else{*count=0;}return 0;}entry(p,1234);entry(p+88,1235);*top=1234;*count=2;return 0;}
+int16_t cnc_rdprogdir3(uint16_t h,int16_t type,int32_t *top,int16_t *count,uint8_t *p){
+ (void)h;
+ if(mode==14&&type==2)return 4;
+ if(type!=2&&type!=0)return -99;
+ if(mode==9){*count=33;return 0;}
+ if(mode==13&&*count>1)return 2;
+ if(*count==1&&mode!=12&&mode!=13&&mode!=14&&mode!=15&&mode!=16){if(mode==1){entry(p,*top);}else{*count=0;}return 0;}
+ int32_t requested=*top;int16_t capacity=*count;
+ int32_t numbers[]={1234,1235,7020};int total=(mode>=12&&mode<=16)?3:2;
+ if(mode==16){entry(p,1234);*top=1234;*count=1;return 0;}
+ *count=0;
+ for(int i=0;i<total;i++){
+  if(numbers[i]<requested)continue;
+  if(*count==0){*top=numbers[i];}
+  entry(p+(*count)*88,numbers[i]);(*count)++;
+  if(*count==capacity||mode==12||mode==13||mode==14||mode==15)break;
+ }
+ if(mode==15&&*count==0)return 3;
+ return 0;
+}
 int16_t cnc_dwnstart3(uint16_t h,int16_t type){(void)h;if(type!=0)return -99;starts++;return 0;}
 int16_t cnc_download3(uint16_t h,int32_t *length,const char *data){(void)h;download_calls++;if(*length>1280||*length<=0)return -99;if(download_calls==1){*length=0;return 10;}if(mode==8){*length=0;return 0;}int n=*length>7?7:*length;memcpy(sent+sentlen,data,n);sentlen+=n;*length=n;return 0;}
 int16_t cnc_dwnend3(uint16_t h){(void)h;ends++;return mode==5?5:0;}

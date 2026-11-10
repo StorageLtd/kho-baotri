@@ -21,6 +21,10 @@ $folder=Join-Path ([IO.Path]::GetTempPath()) ('ltd-tx-'+[Guid]::NewGuid().ToStri
 try{
  $file=Join-Path $folder 'send.nc';$content="%`nO2000 (TEST)`nG90 G54`nM30`n%`n";[IO.File]::WriteAllText($file,$content,[Text.Encoding]::ASCII);$selected=[FanucProgramTransfer]::ValidateFile($file)
  [TxFixture]::tx_reset(0);$list=[FanucProgramTransfer]::ListPrograms('192.168.1.1',8193,'fixture');Assert ($list.Count -eq 2 -and $list[0].Number -eq 1234 -and $list[0].Modified -eq '10/11/2026 09:30') 'Directory PRGDIR3 ABI'
+ foreach($mode in @(12,13,14,15)){
+  [TxFixture]::tx_reset($mode);$paged=[FanucProgramTransfer]::ListPrograms('192.168.1.1',8193,'fixture');Assert (($paged.Number -join ',') -eq '1234,1235,7020') ('Short/limited page lost memory programs, mode '+$mode);Assert ([TxFixture]::tx_freed() -eq 1) 'Directory handle leaked';if($mode -eq 14){Assert ($null -eq $paged[0].Length -and $paged[0].Comment -eq '') 'Number-only directory invented metadata'}
+ }
+ [TxFixture]::tx_reset(16);$failed=$false;try{$null=[FanucProgramTransfer]::ListPrograms('192.168.1.1',8193,'fixture')}catch{$failed=$_.Exception.Message -match 'repeated or moved backwards'};Assert ($failed -and [TxFixture]::tx_freed() -eq 1) 'Repeated active program shown as complete memory directory'
  [TxFixture]::tx_reset(0);$null=[FanucProgramTransfer]::Send('192.168.1.1',8193,'fixture',$file,$selected.Hash,'TRUYEN O2000');Assert ([TxFixture]::tx_matches($content) -eq 1 -and [TxFixture]::tx_ends() -eq 1 -and [FanucProgramTransfer]::Progress -eq 100) 'Partial chunk handling, EW_BUFFER or transmitted bytes'
  foreach($mode in @(1,2,3,5,8)){
   [TxFixture]::tx_reset($mode);$failed=$false;try{$null=[FanucProgramTransfer]::Send('192.168.1.1',8193,'fixture',$file,$selected.Hash,'TRUYEN O2000')}catch{$failed=$true};Assert $failed ('Unsafe send accepted '+$mode);Assert ([TxFixture]::tx_opened() -eq [TxFixture]::tx_freed()) 'Send handle leak';if($mode -in @(1,2,3)){Assert ([TxFixture]::tx_starts() -eq 0) 'Write started before gates'}else{Assert ([TxFixture]::tx_ends() -eq 1) 'End retried or missing cleanup'}

@@ -364,7 +364,7 @@ window.seedDayFixture = () => {cncDayOwner=getUser().uid;cncDayStats.set('neway-
                 if body['action']=='connect' and transfer_state['reject_connect']:
                     await route.fulfill(status=401,content_type='application/json',body=json.dumps({'ok':False,'message':'Phiên truyền đã hết hạn.'}),headers={'Access-Control-Allow-Origin':'*'})
                     return
-                if body['action']=='list':reply['programs']=[{'number':1234,'program':'O1234','length':24,'comment':'<script>unsafe</script>','modified':'10/11/2026'}]
+                if body['action']=='list':reply['programs']=[{'number':1234,'program':'O1234','length':24,'comment':'<script>unsafe</script>','modified':'10/11/2026'},{'number':1235,'program':'O1235','length':None,'comment':'','modified':'—'}]
                 if body['action']=='inspect':
                     if 'O2001' in body['content']:
                         await route.fulfill(status=400,content_type='application/json',body=json.dumps({'ok':False,'message':'Program already exists. Overwriting is blocked.'}),headers={'Access-Control-Allow-Origin':'*'})
@@ -391,6 +391,8 @@ window.seedDayFixture = () => {cncDayOwner=getUser().uid;cncDayStats.set('neway-
             await page.wait_for_function("document.querySelector('.ct-directory tbody').textContent.includes('O1234')")
             assert await transfer.locator('script').count()==0
             assert '<script>unsafe</script>' in await transfer.locator('tbody').inner_text()
+            assert await transfer.locator('tbody tr').count()==2
+            assert await transfer.locator('tbody tr').nth(1).locator('td').nth(1).inner_text()=='—'
             await transfer.locator('input[type=file]').set_input_files({'name':'O0090.nc','mimeType':'text/plain','buffer':b'%\nO2000 (TEST)\nG90 G54\nM30\n%\n'})
             await page.wait_for_function("document.querySelector('.ct-file-meta').textContent.includes('O0090.nc')")
             await page.wait_for_function("!document.querySelector('[data-send]').disabled")

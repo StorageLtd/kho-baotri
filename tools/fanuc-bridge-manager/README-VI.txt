@@ -1,5 +1,5 @@
 ﻿LTD CNC BRIDGE MANAGER
-Build 20261110-transfer-multi · Windows 10/11 64-bit
+Build 20261110-directory-pages · Windows 10/11 64-bit
 
 CẬP NHẬT
 1. Trong bản Manager cũ: dừng từng cầu nối, chờ tiến trình dừng.
@@ -33,6 +33,20 @@ TRUYỀN/NHẬN BẰNG MẬT KHẨU RIÊNG — KHÔNG CẦN MÃ GHÉP
   cũng xóa phiên đã nhớ và gửi yêu cầu thu hồi phiên cục bộ.
 - Nhập sai 5 lần bị chặn đăng nhập 60 giây. Không có chức năng bỏ qua
   mật khẩu, force bit, đổi mode hoặc chạy chương trình từ xa.
+
+ĐỌC DANH SÁCH BỘ NHỚ CNC
+- Đọc thư mục qua cnc_rdprogdir3, không dùng số chương trình đang chọn
+  để thay thế danh sách bộ nhớ. Tiếp tục từ số O kế tiếp dù lần trước
+  trả ít dòng hơn yêu cầu; chỉ kết thúc khi CNC báo hết hoặc đạt số O tối đa.
+- Nếu CNC giới hạn số dòng/lần, thử đọc một dòng/lần. Nếu không hỗ trợ
+  metadata thư mục, đọc số O; dung lượng chưa đọc được hiển thị —.
+- Nếu CNC lặp lại số O hoặc trả số đếm không hợp lệ, hiện lỗi; không
+  trình bày phần đã đọc như danh sách đầy đủ. Giới hạn 60 giây/10.000 dòng.
+- Phạm vi là các chương trình đã đăng ký trong bộ nhớ CNC ở path được
+  hỗ trợ. Không tự duyệt thẻ CF/USB/Data Server hoặc đổi path/folder máy.
+- Chỉ đọc thư mục; không sửa chương trình, tham số hoặc PMC.
+- Kiểm tra mô phỏng gồm CNC trả từng dòng, trang ngắn, giới hạn số dòng,
+  không hỗ trợ metadata, kết thúc bằng EW_NUMBER và trả trùng một số O.
 
 TRUYỀN CHƯƠNG TRÌNH
 - Chọn file, kiểm tra đúng máy/IP và số O trong nội dung.

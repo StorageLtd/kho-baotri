@@ -14,8 +14,8 @@ using System.Globalization;
 // Separate, explicitly confirmed program download trial. Not used by monitoring bridges.
 public static class FanucProgramTransfer
 {
-    public static string Build { get { return "20261110-transfer-tool"; } }
-    public sealed class ProgramEntry { public int Number,Length;public string Program,Comment,Modified; }
+    public static string Build { get { return "20261110-directory-pages"; } }
+    public sealed class ProgramEntry { public int Number;public int? Length;public string Program,Comment,Modified; }
     public sealed class Operation { public string Kind,Message,Text,Destination;public ProgramEntry[] Programs; }
     private static int progress;
     public static int Progress { get { return Interlocked.CompareExchange(ref progress,0,0); } }
@@ -99,7 +99,8 @@ public static class FanucProgramTransfer
         int cursor=target;short count=1;IntPtr buffer=Marshal.AllocHGlobal(88);
         try {
             Marshal.Copy(new byte[88],0,buffer,88);
-            Check("Check existing O-number",cnc_rdprogdir3(handle,2,ref cursor,ref count,buffer));
+            // Existence checks need only the O-number, not optional size/date metadata.
+            Check("Check existing O-number / cnc_rdprogdir3",cnc_rdprogdir3(handle,0,ref cursor,ref count,buffer));
             ValidateDirectory(count,Marshal.ReadInt32(buffer),target);
         } finally {Marshal.FreeHGlobal(buffer);}
     }
@@ -156,18 +157,33 @@ public static class FanucProgramTransfer
         return new ProgramEntry{Number=number,Length=length,Program="O"+number.ToString("D4"),Comment=Encoding.Default.GetString(data,offset+12,52).Split('\0')[0].Trim(),Modified=modified};
     }
     public static ProgramEntry[] ListPrograms(string ip,ushort port,string library){
-        ushort handle=Open(ip,port,library);const int batch=32;List<ProgramEntry> rows=new List<ProgramEntry>();
-        IntPtr buffer=Marshal.AllocHGlobal(batch*88);
+        ushort handle=Open(ip,port,library);const int capacity=32;int requested=capacity;List<ProgramEntry> rows=new List<ProgramEntry>();
+        IntPtr buffer=Marshal.AllocHGlobal(capacity*88);
         try{
-            int next=1;DateTime deadline=DateTime.UtcNow.AddSeconds(60);
+            int next=1;short format=2;DateTime deadline=DateTime.UtcNow.AddSeconds(60);
             while(true){
-                if(DateTime.UtcNow>deadline||rows.Count>=10000)throw new InvalidOperationException("Program directory exceeds trial limit; incomplete list not presented as complete.");
-                int cursor=next;short count=batch;Marshal.Copy(new byte[batch*88],0,buffer,batch*88);
-                Check("Read program directory",cnc_rdprogdir3(handle,2,ref cursor,ref count,buffer));
-                if(count<0||count>batch)throw new InvalidOperationException("Invalid CNC directory count.");
-                if(count==0)break;byte[] bytes=new byte[count*88];Marshal.Copy(buffer,bytes,0,bytes.Length);
-                for(int i=0;i<count;i++){ProgramEntry row=DecodeEntry(bytes,i*88);if(row.Number<next)throw new InvalidOperationException("Directory not ordered; listing stopped.");rows.Add(row);next=row.Number+1;}
-                if(count<batch)break;
+                if(DateTime.UtcNow>deadline)throw new InvalidOperationException("Read CNC directory / cnc_rdprogdir3: timeout; partial list not presented as complete.");
+                int cursor=next;short count=(short)requested;Marshal.Copy(new byte[capacity*88],0,buffer,capacity*88);
+                short code=cnc_rdprogdir3(handle,format,ref cursor,ref count,buffer);
+                // Some controls limit the records per call or omit directory date/size attributes.
+                // Retry reads only, at the same cursor; never modify a CNC setting or program.
+                if(code==2&&requested>1){requested=1;continue;}
+                if(code==4&&format==2&&rows.Count==0){format=0;next=1;continue;}
+                // SDK's directory iteration example treats EW_NUMBER after advancing as end.
+                if(code==3&&rows.Count>0)break;
+                Check("Read CNC directory / cnc_rdprogdir3",code);
+                if(count<0||count>requested)throw new InvalidOperationException("Read CNC directory: invalid returned record count.");
+                if(count==0)break;
+                if(rows.Count+count>10000)throw new InvalidOperationException("Program directory exceeds 10,000 records; partial list not presented as complete.");
+                byte[] bytes=new byte[count*88];Marshal.Copy(buffer,bytes,0,bytes.Length);
+                for(int i=0;i<count;i++){
+                    ProgramEntry row=DecodeEntry(bytes,i*88);
+                    if(row.Number<next)throw new InvalidOperationException("CNC directory repeated or moved backwards at O"+row.Number.ToString("D4")+" while requesting O"+next.ToString("D4")+"; partial list not presented as complete.");
+                    if(format==0){row.Length=null;row.Comment="";row.Modified="—";}
+                    rows.Add(row);next=row.Number+1;
+                }
+                if(next>99999999)break;
+                // A short page is not proof of EOF. Ask again from the next O-number.
             }return rows.ToArray();
         }finally{Marshal.FreeHGlobal(buffer);cnc_freelibhndl(handle);}
     }

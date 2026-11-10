@@ -16,7 +16,8 @@ public sealed class LtdWebTransferServer : IDisposable {
   [DataMember] public int port,number;
  }
  [DataContract] public sealed class Entry {
-  [DataMember] public int number,length;
+  [DataMember] public int number;
+  [DataMember] public int? length;
   [DataMember] public string program,comment,modified;
  }
  [DataContract] public sealed class Response {

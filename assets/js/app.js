@@ -1,4 +1,4 @@
-import {openCncTransfer,clearCncTransferSessions} from "./cnc-transfer-ui.js?v=20261110-transfer-multi";
+import {openCncTransfer,clearCncTransferSessions} from "./cnc-transfer-ui.js?v=20261110-directory-pages";
 import {buildCncReport,vnDate} from "./cnc-reports.js?v=20261107-tool-context";
 ﻿import { downloadInventoryWorkbook } from "./inventory-xlsx.js?v=20261105-no-prices";
 import { maintenancePlan, repairHistoryForm, alarmHistoryForm, movementVoucherForm, downloadMaintenanceWorkbook } from "./maintenance-xlsx.js?v=20261107-tool-context";
