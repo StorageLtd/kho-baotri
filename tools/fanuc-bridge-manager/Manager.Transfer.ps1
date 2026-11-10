@@ -13,23 +13,29 @@ function Set-ManagerTransferPassword([string]$Password){
  Initialize-ManagerTransfer
  [TransferPasswordStore]::Save((Get-ManagerTransferPasswordPath),$Password)
 }
-function Start-ManagerTransfer([string]$Id,[string]$ExpectedHash){
- if($script:ManagerTransferServer){throw 'Đang bật truyền cho một máy. Dừng phiên cũ trước khi chọn máy khác.'}
- if(-not $Id){throw 'Chọn và lưu máy trước khi bật truyền.'}
- $path=Get-MachineConfigPath $Id
- if(-not (Test-Path -LiteralPath $path) -or (Get-FileHash -LiteralPath $path -Algorithm SHA256).Hash -cne $ExpectedHash){throw 'Cấu hình đã thay đổi. Chọn lại máy đã lưu.'}
- $saved=Get-Content -LiteralPath $path -Raw -Encoding UTF8|ConvertFrom-Json
+function Update-ManagerTransferMachines {
+ if(-not $script:ManagerTransferServer){return}
+ $machines=@(Get-ManagerMachines);$json=ConvertTo-Json -InputObject @($machines|Select-Object machineId,machineName,cncIp,port) -Depth 6 -Compress
+ if($json -cne $script:ManagerTransferRegistryJson -and $script:ManagerTransferServer.TrySetMachines($json)){$script:ManagerTransferRegistryJson=$json}
+ $script:ManagerTransferTarget=[pscustomobject]@{count=$script:ManagerTransferServer.MachineCount}
+}
+function Start-ManagerTransfer([string]$Id='',[string]$ExpectedHash=''){
+ if($script:ManagerTransferServer){Update-ManagerTransferMachines;return $script:ManagerTransferServer}
+ if($Id){$path=Get-MachineConfigPath $Id;if(-not (Test-Path -LiteralPath $path) -or (Get-FileHash -LiteralPath $path -Algorithm SHA256).Hash -cne $ExpectedHash){throw 'Cấu hình đã thay đổi. Chọn lại máy đã lưu.'}}
+ $machines=@(Get-ManagerMachines);if(-not $machines.Count){throw 'Lưu ít nhất một máy trong Manager trước.'}
+ $saved=$machines[0]
  Initialize-ManagerTransfer
  [FanucProgramTransfer]::LoadLibrary((Join-Path $script:ManagerPackage 'lib'))
  $server=New-Object LtdWebTransferServer([string]$saved.cncIp,[uint16]$saved.port,(Join-Path $script:ManagerPackage 'lib'),8766,(Get-ManagerTransferPasswordPath))
- try{$server.Start()}catch{$server.Dispose();throw}
- $script:ManagerTransferServer=$server
- $script:ManagerTransferTarget=[pscustomobject]@{id=$saved.machineId;name=$saved.machineName;ip=$saved.cncIp;port=$saved.port}
+ $json=ConvertTo-Json -InputObject @($machines|Select-Object machineId,machineName,cncIp,port) -Depth 6 -Compress
+ try{if(-not $server.TrySetMachines($json)){throw 'Chưa cập nhật được danh sách máy.'};$server.Start()}catch{$server.Dispose();throw}
+ $script:ManagerTransferServer=$server;$script:ManagerTransferRegistryJson=$json
+ $script:ManagerTransferTarget=[pscustomobject]@{count=$machines.Count}
  return $server
 }
 function Stop-ManagerTransfer {
  if(-not $script:ManagerTransferServer){return $true}
  if(-not $script:ManagerTransferServer.TryStop()){return $false}
- $script:ManagerTransferServer.Dispose();$script:ManagerTransferServer=$null;$script:ManagerTransferTarget=$null
+ $script:ManagerTransferServer.Dispose();$script:ManagerTransferServer=$null;$script:ManagerTransferTarget=$null;$script:ManagerTransferRegistryJson=''
  return $true
 }

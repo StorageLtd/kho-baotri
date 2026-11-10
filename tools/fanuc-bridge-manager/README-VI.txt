@@ -1,5 +1,5 @@
 ﻿LTD CNC BRIDGE MANAGER
-Build 20261110-transfer-password · Windows 10/11 64-bit
+Build 20261110-transfer-multi · Windows 10/11 64-bit
 
 CẬP NHẬT
 1. Trong bản Manager cũ: dừng từng cầu nối, chờ tiến trình dừng.
@@ -18,8 +18,10 @@ TRUYỀN/NHẬN BẰNG MẬT KHẨU RIÊNG — KHÔNG CẦN MÃ GHÉP
 - Chỉ thiết lập một lần trên laptop. Cấu hình kiểm tra mật khẩu lưu tại
   %LOCALAPPDATA%\LTD\CncBridgeManager\machines\transfer-auth.json,
   dạng PBKDF2-SHA256 có salt ngẫu nhiên; không lưu mật khẩu dạng rõ.
-- Khi đã đặt mật khẩu, chọn máy đã lưu sẽ tự bật truy cập web nếu chưa
-  có máy khác đang bật. Nếu chưa bật, bấm Bật cho máy đang chọn.
+- Khi đã đặt mật khẩu, Manager tự bật truy cập cho các máy đã lưu khi
+  mở ứng dụng. Có thể bấm Bật truyền cho các máy nếu đang dừng.
+- Chỉ cần khai báo máy một lần. Mở máy A hoặc B trên web, đăng nhập
+  mật khẩu truyền/nhận và thao tác; không đổi phiên/máy trong Manager.
 - Trên chính laptop này: mở web → chi tiết máy → Truyền chương trình →
   nhập mật khẩu truyền/nhận riêng → Đăng nhập truyền/nhận.
 - Không nhập mật khẩu đăng nhập web vào ô này. Không cần chép mã ghép.
@@ -48,10 +50,15 @@ TRUYỀN CHƯƠNG TRÌNH
 
 KẾT NỐI VÀ BẢO MẬT
 - Dùng chung lib và cấu hình máy đã lưu; không cần mở ứng dụng truyền riêng.
-- Một phiên truy cập cho một máy tại một thời điểm. Muốn đổi máy, dừng
-  truy cập máy cũ rồi chọn máy khác. Giám sát nhiều máy vẫn hoạt động.
+- Một tiện ích phục vụ các máy đã lưu. Mỗi phiên đăng nhập chỉ dùng
+  cho đúng IP/cổng của máy đang mở trên web. Máy chưa khai báo hoặc
+  có IP/cổng khác Manager bị chặn; không tự dò hoặc chọn IP thay thế.
+- Thêm/sửa/gỡ máy sẽ cập nhật danh sách phục vụ; máy gỡ bị thu hồi phiên.
+  Khi đang truyền/nhận, chờ thao tác hoàn tất trước khi sửa cấu hình.
+- Các yêu cầu truyền xử lý lần lượt; không tự gửi lại hoặc truyền đồng
+  thời vào nhiều CNC. Giám sát vẫn hoạt động độc lập.
 - Chỉ lắng nghe 127.0.0.1:8766, chỉ nhận nguồn web công ty và IP/cổng
-  đã ghim. Không mở cổng router, không gửi file NC/mật khẩu lên Firebase.
+  đã lưu và phiên đăng nhập đúng máy. Không mở cổng router, không gửi file NC/mật khẩu lên Firebase.
 - Mật khẩu chỉ gửi tới tiện ích localhost trên chính laptop. Phiên ngẫu
   nhiên chỉ trong RAM và được thu hồi khi dừng Manager hoặc hết hạn.
 - Nút X thu nhỏ vào khay: giám sát và truyền vẫn tiếp tục. Thoát Manager
@@ -68,7 +75,9 @@ LỖI VÀ KIỂM CHỨNG
   Không gửi mật khẩu hoặc token khi báo lỗi.
 - Đã kiểm tra C# 5/.NET Framework 4.8, lưu/kiểm tra mật khẩu, phiên,
   chặn thử sai, native/API và trình duyệt bằng máy CNC mô phỏng.
-  Chưa chạy WinForms trên Windows hoặc truyền vào CNC thật.
+  Đã kiểm tra hai CNC mô phỏng: A/B dùng đúng IP, phiên/ticket không
+  dùng chéo máy, máy chưa khai báo/đã gỡ bị chặn và không đổi danh sách
+  giữa thao tác. Chưa chạy WinForms trên Windows hoặc truyền vào CNC thật.
 
 THÊM / SỬA / GỠ MÁY
 - + Thêm máy → chọn mẫu Vertical Mill, Horizontal Mill, Lathe hoặc Custom.

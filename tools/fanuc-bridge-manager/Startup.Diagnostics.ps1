@@ -2,7 +2,7 @@
 function Save-ManagerStartupFailure($Failure,[string]$Folder=''){
  $details=if($Failure.Exception){$Failure.Exception.Message}else{[string]$Failure}
  if($Failure.InvocationInfo){$details+="`r`nFile: $($Failure.InvocationInfo.ScriptName)`r`nDòng: $($Failure.InvocationInfo.ScriptLineNumber)"}
- $details="LTD Bridge Manager — Lỗi khởi động`r`nBuild 20261110-transfer-password`r`n`r`n"+$details
+ $details="LTD Bridge Manager — Lỗi khởi động`r`nBuild 20261110-transfer-multi`r`n`r`n"+$details
  $logPath=$null
  try{if(-not $Folder){$Folder=Join-Path ([Environment]::GetFolderPath('LocalApplicationData')) 'LTD/CncBridgeManager'};$null=New-Item -ItemType Directory -Path $Folder -Force;$logPath=Join-Path $Folder 'manager-startup-error.log';[IO.File]::WriteAllText($logPath,$details,[Text.UTF8Encoding]::new($true))}catch{}
  return [pscustomobject]@{Details=$details;LogPath=$logPath}

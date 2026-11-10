@@ -25,20 +25,36 @@ public sealed class LtdWebTransferServer : IDisposable {
   [DataMember] public int port;
   [DataMember] public Entry[] programs;
  }
- private readonly TcpListener listener;private readonly string target,library,origin;private readonly ushort cncPort;private readonly int webPort;
+ private readonly TcpListener listener;private readonly string library,origin;private readonly int webPort;
  private volatile bool running,busy;private Thread worker;private readonly object gate=new object();private string log="Sẵn sàng.";
  private string ticket,ticketHash,ticketSession;private DateTime ticketExpiry;
  private readonly TransferPasswordStore passwords;
- private readonly Dictionary<string,DateTime> sessions=new Dictionary<string,DateTime>();
+ [DataContract] public sealed class RegisteredMachine {
+  [DataMember] public string machineId,machineName,cncIp;
+  [DataMember] public int port;
+ }
+ private sealed class LoginSession {public DateTime expires;public string endpoint;}
+ private readonly Dictionary<string,LoginSession> sessions=new Dictionary<string,LoginSession>();
+ private Dictionary<string,string> machines=new Dictionary<string,string>();
+ public int MachineCount {get{lock(gate){return machines.Count;}}}
+ public bool TrySetMachines(string json){
+  RegisteredMachine[] rows;using(MemoryStream input=new MemoryStream(Encoding.UTF8.GetBytes(json))){rows=(RegisteredMachine[])new DataContractJsonSerializer(typeof(RegisteredMachine[])).ReadObject(input);}
+  if(rows==null||rows.Length>256)throw new InvalidOperationException("Danh sách máy không hợp lệ.");
+  Dictionary<string,string> next=new Dictionary<string,string>();
+  foreach(RegisteredMachine row in rows){if(row==null||row.port<1||row.port>65535)throw new InvalidOperationException("Cổng máy không hợp lệ.");FanucProgramTransfer.ValidateTarget(row.cncIp,(ushort)row.port);string key=Endpoint(row.cncIp,row.port);if(next.ContainsKey(key))throw new InvalidOperationException("Hai máy trùng IP/cổng.");next.Add(key,row.machineName??row.machineId??row.cncIp);}
+  lock(gate){if(busy)return false;machines=next;List<string> removed=new List<string>();foreach(KeyValuePair<string,LoginSession> entry in sessions)if(!machines.ContainsKey(entry.Value.endpoint))removed.Add(entry.Key);foreach(string token in removed){sessions.Remove(token);if(ticketSession==token)ticket=null;}return true;}
+ }
+ private static string Endpoint(string ip,int port){return ip+":"+port.ToString(System.Globalization.CultureInfo.InvariantCulture);}
+ private void RequireRegistered(Request request){if(request==null)throw new InvalidOperationException("Yêu cầu không hợp lệ.");lock(gate){if(!machines.ContainsKey(Endpoint(request.ip,request.port)))throw new InvalidOperationException("Máy này chưa có trong cấu hình Manager hoặc IP/cổng trên web khác cấu hình đã lưu. Kiểm tra khai báo máy.");}}
  private int failedLogins;private DateTime blockedUntil;
  private string currentSession,authRevision;
  public bool Busy {get{return busy;}}public string LastMessage {get{lock(gate){return log;}}}
  public LtdWebTransferServer(string ip,ushort port,string lib,int localPort):this(ip,port,lib,localPort,TransferPasswordStore.DefaultPath){}
  public LtdWebTransferServer(string ip,ushort port,string lib,int localPort,string passwordPath){
   FanucProgramTransfer.ValidateTarget(ip,port);if(localPort<1024||localPort>65535)throw new ArgumentException("Invalid local port.");
-  target=ip;cncPort=port;library=lib;webPort=localPort;origin="https://storageltd.github.io";
+  library=lib;webPort=localPort;origin="https://storageltd.github.io";
   listener=new TcpListener(IPAddress.Loopback,localPort);listener.ExclusiveAddressUse=true;
-  passwords=new TransferPasswordStore(passwordPath);authRevision=passwords.Revision;
+  passwords=new TransferPasswordStore(passwordPath);authRevision=passwords.Revision;machines.Add(Endpoint(ip,port),ip);
  }
  private static string RandomCode(){byte[] bytes=new byte[32];using(RandomNumberGenerator rng=RandomNumberGenerator.Create()){rng.GetBytes(bytes);}return BitConverter.ToString(bytes).Replace("-","");}
  public void Start(){listener.Start(4);running=true;worker=new Thread(Serve);worker.IsBackground=true;worker.Start();}
@@ -70,25 +86,26 @@ public sealed class LtdWebTransferServer : IDisposable {
    try{
     Request request;using(MemoryStream data=new MemoryStream(bytes)){request=(Request)new DataContractJsonSerializer(typeof(Request)).ReadObject(data);}
     if(!running)throw new InvalidOperationException("Tiện ích đã dừng.");
-    if(request==null||request.ip!=target||request.port!=cncPort)throw new InvalidOperationException("Máy trên web khác máy đã chọn trong Manager. Kiểm tra IP/cổng.");
+    RequireRegistered(request);
     string revision=passwords.Revision;if(revision!=authRevision){sessions.Clear();ticket=null;authRevision=revision;}
     if(request.action=="login"){
      if(DateTime.UtcNow<blockedUntil){Reply(stream,429,new Response{message="Nhập sai nhiều lần. Chờ 60 giây rồi đăng nhập lại."},true);return;}
      bool valid;try{valid=passwords.Verify(request.password);}finally{request.password=null;}
      if(!valid){failedLogins++;if(failedLogins>=5){blockedUntil=DateTime.UtcNow.AddSeconds(60);failedLogins=0;}Reply(stream,401,new Response{message="Mật khẩu truyền/nhận không đúng."},true);return;}
-     failedLogins=0;DateTime now=DateTime.UtcNow;List<string> expired=new List<string>();foreach(KeyValuePair<string,DateTime> entry in sessions)if(entry.Value<=now)expired.Add(entry.Key);foreach(string old in expired)sessions.Remove(old);
-     if(sessions.Count>=8)sessions.Clear();string token=RandomCode();sessions[token]=now.AddMinutes(30);
-     Reply(stream,200,new Response{ok=true,token=token,ip=target,port=cncPort,message="Đăng nhập truyền/nhận thành công."},true);return;
+     failedLogins=0;DateTime now=DateTime.UtcNow;List<string> expired=new List<string>();foreach(KeyValuePair<string,LoginSession> entry in sessions)if(entry.Value.expires<=now)expired.Add(entry.Key);foreach(string old in expired)sessions.Remove(old);
+     if(sessions.Count>=8)sessions.Clear();string token=RandomCode();sessions[token]=new LoginSession{expires=now.AddMinutes(30),endpoint=Endpoint(request.ip,request.port)};
+     Reply(stream,200,new Response{ok=true,token=token,ip=request.ip,port=request.port,message="Đăng nhập truyền/nhận thành công."},true);return;
     }
-    DateTime expires;if(code==null||!sessions.TryGetValue(code,out expires)||DateTime.UtcNow>=expires){if(code!=null)sessions.Remove(code);Reply(stream,401,new Response{message="Phiên truyền đã hết hạn. Đăng nhập bằng mật khẩu truyền/nhận."},true);return;}
+    LoginSession session;if(code==null||!sessions.TryGetValue(code,out session)||DateTime.UtcNow>=session.expires){if(code!=null)sessions.Remove(code);Reply(stream,401,new Response{message="Phiên truyền đã hết hạn. Đăng nhập bằng mật khẩu truyền/nhận."},true);return;}
+    if(session.endpoint!=Endpoint(request.ip,request.port)){Reply(stream,401,new Response{message="Phiên đăng nhập thuộc máy khác. Đăng nhập mật khẩu cho máy đang mở."},true);return;}
     if(request.action=="logout"){sessions.Remove(code);if(ticketSession==code)ticket=null;Reply(stream,200,new Response{ok=true,message="Đã đăng xuất truyền/nhận."},true);return;}
     currentSession=code;Response result=Execute(request);Reply(stream,200,result,true);
-   }catch(Exception e){Note("Lỗi: "+e.Message);Reply(stream,400,new Response{message=e.Message,ip=target,port=cncPort},true);}
+   }catch(Exception e){Note("Lỗi: "+e.Message);Reply(stream,400,new Response{message=e.Message},true);}
    finally{busy=false;}
   }
  }
  private Response Execute(Request request){
-  if(request==null||request.ip!=target||request.port!=cncPort)throw new InvalidOperationException("Máy trên web khác máy đã chọn tại tiện ích laptop. Kiểm tra IP/cổng.");
+  RequireRegistered(request);string target=request.ip;ushort cncPort=(ushort)request.port;
   Response result=new Response{ok=true,ip=target,port=cncPort};
   if(request.action=="connect"){result.message="Đã xác thực phiên truyền/nhận. Chưa kiểm tra kết nối CNC.";return result;}
   if(request.action=="list"){

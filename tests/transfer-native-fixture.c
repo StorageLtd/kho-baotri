@@ -2,11 +2,13 @@
 #include <string.h>
 #include <unistd.h>
 typedef struct {int16_t hdck,tmmode,aut,run,motion,mstb,emergency,alarm,edit;} Status;
+static char last_ip[64];
+const char *tx_last_ip(void){return last_ip;}
 static int mode,opened,freed,starts,ends,download_calls,upstarts,upends,upcalls,position;static char sent[2097152];static int sentlen;
 void tx_reset(int m){mode=m;opened=freed=starts=ends=download_calls=upstarts=upends=upcalls=position=sentlen=0;}
 int tx_opened(void){return opened;}int tx_freed(void){return freed;}int tx_starts(void){return starts;}int tx_ends(void){return ends;}int tx_upends(void){return upends;}int tx_sentlen(void){return sentlen;}
 int tx_matches(const char *text){return (int)strlen(text)==sentlen&&memcmp(text,sent,sentlen)==0;}
-int16_t cnc_allclibhndl3(const char *ip,uint16_t port,int32_t timeout,uint16_t *h){(void)ip;if(port!=8193||timeout!=10)return -99;*h=12;opened++;return 0;}
+int16_t cnc_allclibhndl3(const char *ip,uint16_t port,int32_t timeout,uint16_t *h){strncpy(last_ip,ip,63);last_ip[63]=0;if(port!=8193||timeout!=10)return -99;*h=12;opened++;return 0;}
 int16_t cnc_freelibhndl(uint16_t h){if(h!=12)return -99;freed++;return 0;}
 int16_t cnc_getpath(uint16_t h,int16_t *path,int16_t *paths){(void)h;*path=1;*paths=mode==3?2:1;return 0;}
 int16_t cnc_statinfo(uint16_t h,Status *s){(void)h;if(mode==11)usleep(300000);memset(s,0,sizeof(*s));s->aut=3;s->run=mode==2?3:0;return 0;}

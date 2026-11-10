@@ -354,7 +354,7 @@ window.seedDayFixture = () => {cncDayOwner=getUser().uid;cncDayStats.set('neway-
                 calls.append(body)
                 assert route.request.headers.get('x-ltd-token','')==('' if body['action']=='login' else 'A'*64)
                 if body['action']!='login':assert 'password' not in body
-                assert body['ip']=='192.168.1.1' and body['port']==8193
+                assert body['ip'] in ['192.168.1.1','192.168.1.2'] and body['port']==8193
                 reply={'ok':True,'message':'Đã xử lý','ip':body['ip'],'port':8193}
                 if body['action']=='login':
                     if body.get('password')!='fixture-transfer-pass':
@@ -369,8 +369,8 @@ window.seedDayFixture = () => {cncDayOwner=getUser().uid;cncDayStats.set('neway-
                     if 'O2001' in body['content']:
                         await route.fulfill(status=400,content_type='application/json',body=json.dumps({'ok':False,'message':'Program already exists. Overwriting is blocked.'}),headers={'Access-Control-Allow-Origin':'*'})
                         return
-                    reply.update({'program':'O2000','hash':'B'*64,'ticket':'C'*64})
-                if body['action']=='send':assert body['confirmation']=='TRUYEN O2000' and body['ticket']=='C'*64
+                    reply.update({'program':'O2002' if 'O2002' in body['content'] else 'O2000','hash':'B'*64,'ticket':'C'*64})
+                if body['action']=='send':assert body['confirmation']==('TRUYEN O2002' if body['ip']=='192.168.1.2' else 'TRUYEN O2000') and body['ticket']=='C'*64
                 if body['action']=='receive':reply.update({'program':'O1234','text':'%\nO1234 (TEST)\nM99\n%\n'})
                 await route.fulfill(status=200,content_type='application/json',body=json.dumps(reply),headers={'Access-Control-Allow-Origin':'*'})
             await page.route('http://127.0.0.1:8766/transfer',transfer_reply)
@@ -492,6 +492,24 @@ window.seedDayFixture = () => {cncDayOwner=getUser().uid;cncDayStats.set('neway-
             transfer=page.locator('.cnc-transfer-dialog')
             assert await transfer.locator('.ct-pair input').input_value()==''
             assert len([c for c in calls if c['action']=='connect'])==before_connect
+            await transfer.locator('[data-close]').click()
+            await transfer.wait_for(state='detached')
+            # Opening another CNC on the website chooses its endpoint without Manager interaction.
+            await page.locator('#cncMachineDetailsDialog [data-close-details]').click()
+            await page.get_by_role('button',name='Xem máy Neway 1260SL',exact=True).click()
+            await page.get_by_role('button',name='Truyền chương trình',exact=True).click()
+            transfer=page.locator('.cnc-transfer-dialog')
+            assert '192.168.1.2:8193' in await transfer.locator('header').inner_text()
+            await transfer.locator('.ct-pair input').fill('fixture-transfer-pass')
+            await transfer.get_by_role('button',name='Đăng nhập truyền/nhận',exact=True).click()
+            await page.wait_for_function("document.querySelector('.ct-directory tbody').textContent.includes('O1234')")
+            assert calls[-1]['ip']=='192.168.1.2' and calls[-1]['action']=='list'
+            await transfer.locator('input[type=file]').set_input_files({'name':'O2002.nc','mimeType':'text/plain','buffer':b'%\nO2002\nM30\n%\n'})
+            await page.wait_for_function("document.querySelector('.ct-file-meta').textContent.includes('O2002.nc')")
+            await transfer.get_by_role('button',name='Truyền vào bộ nhớ CNC →',exact=True).click()
+            await page.wait_for_function("document.querySelector('.cnc-transfer-dialog [role=status]').textContent.includes('CNC đã nhận O2002')")
+            assert calls[-1]['ip']=='192.168.1.2' and calls[-1]['action']=='send'
+            assert len([c for c in calls if c['action']=='send'])==2
             await transfer.locator('[data-close]').click()
             await transfer.wait_for(state='detached')
             assert not errors, errors
