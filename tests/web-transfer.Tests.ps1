@@ -21,6 +21,9 @@ public static class TxFixture {
 $folder=Join-Path ([IO.Path]::GetTempPath()) ('ltd-tx-'+[Guid]::NewGuid().ToString('N'));$null=New-Item -ItemType Directory $folder;$server=$null
 try{
  [TxFixture]::tx_reset(17);$memory=[FanucProgramTransfer]::ListMemory('192.168.1.1',8193,'fixture');Assert ($memory.Programs.Count -eq 5 -and $memory.Method -eq 'cnc_rdpdf_alldir' -and $memory.Directory -eq '//CNC_MEM/USER/PATH1/') 'PATH1 file/folder listing did not return memory programs'
+ [TxFixture]::tx_reset(22);$ncRows=[FanucProgramTransfer]::ListMemory('192.168.1.1',8193,'fixture');Assert ($ncRows.Programs.Count -eq 5 -and @($ncRows.Programs | Where-Object Program -eq 'O0301.NC').Count -eq 1) 'NC filenames from actual CNC folder were filtered out'
+ [FanucProgramTransfer]::ValidateProgramPath('//CNC_MEM/USER/PATH1/O0301.NC',301)
+ [TxFixture]::tx_reset(22);$ncBytes=[FanucProgramTransfer]::Receive('192.168.1.1',8193,'fixture',1234,'//CNC_MEM/USER/PATH1/O1234.NC');Assert ($ncBytes.Length -gt 0 -and [Runtime.InteropServices.Marshal]::PtrToStringAnsi([TxFixture]::tx_last_program_path()) -eq '//CNC_MEM/USER/PATH1/O1234.NC') 'NC receive did not preserve extension'
  [TxFixture]::tx_reset(21);$parentRows=[FanucProgramTransfer]::ListMemory('192.168.1.1',8193,'fixture');Assert ($parentRows.Programs.Count -eq 5) 'Virtual parent folder escaped scope or hid PATH1 files'
  [TxFixture]::tx_reset(17)
  $sub=@($memory.Programs|Where-Object FullPath -eq '//CNC_MEM/USER/PATH1/SUB/O1234');Assert ($sub.Count -eq 1) 'Duplicate O-numbers in separate folders lost path identity'

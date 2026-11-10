@@ -49,6 +49,7 @@ int16_t cnc_rdpdf_alldir(uint16_t h,int16_t *count,const uint8_t *input,uint8_t 
  int16_t index,size_kind,type;memcpy(&index,input+212,2);memcpy(&size_kind,input+214,2);memcpy(&type,input+216,2);
  if(*count<1||size_kind!=1||type!=1)return -99;
  const char *path=(const char*)input;
+ if(mode==22){const char *names[]={"O0012","O0301.NC","O0999.NC","O1111.NC","O2222.NC"};if(index>=5){*count=0;return 0;}pdfentry(out,0,names[index]);*count=1;return 0;}
  if(mode==19){pdfentry(out,0,"O1234");*count=1;return 0;}
  if(strcmp(path,"//CNC_MEM/USER/PATH1/")==0){
   if(mode==21){if(index==0){pdfentry(out,1,"..");*count=1;return 0;}index--;}

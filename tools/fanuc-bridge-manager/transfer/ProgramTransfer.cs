@@ -14,7 +14,7 @@ using System.Globalization;
 // Separate, explicitly confirmed program download trial. Not used by monitoring bridges.
 public static class FanucProgramTransfer
 {
-    public static string Build { get { return "20261110-path1-directory"; } }
+    public static string Build { get { return "20261110-nc-directory"; } }
     public sealed class ProgramEntry { public int Number;public int? Length;public string Program,Comment,Modified,FullPath; }
     public sealed class Operation { public string Kind,Message,Text,Destination;public ProgramEntry[] Programs; }
     private static int progress;
@@ -77,12 +77,12 @@ public static class FanucProgramTransfer
                         if(kind==0&&(file=="."||file==".."))continue;
                         if(file.Length==0||file=="."||file==".."||file.IndexOfAny(new char[]{'/','\\',':','\0'})>=0||Regex.IsMatch(file,@"[^ -~]"))throw new InvalidOperationException("Invalid CNC folder/file name.");
                         if(kind==0){if(!recurse)continue;if((attributes&2)!=0){protectedFolders++;continue;}if(folder.Substring(MemoryRoot.Length).Split('/').Length>8)throw new InvalidOperationException("CNC folder depth limit.");pending.Enqueue(folder+file+"/");continue;}
-                        if(kind!=1)throw new InvalidOperationException("Invalid CNC directory entry kind.");if((attributes&8)!=0)continue;
-                        Match match=Regex.Match(file,@"^O([0-9]{1,8})$");if(!match.Success)continue;int number=int.Parse(match.Groups[1].Value);if(number<1)continue;
+                        if(kind!=1)throw new InvalidOperationException("Invalid CNC directory entry kind.");
+                        Match match=Regex.Match(file,@"^[Oo]([0-9]{1,8})(?:\.[Nn][Cc])?$");if(!match.Success)continue;int number=int.Parse(match.Groups[1].Value);if(number<1)continue;
                         int length=BitConverter.ToInt32(data,at+20);if(length<0)throw new InvalidOperationException("Invalid CNC file size.");
                         string modified="—";try{modified=new DateTime(BitConverter.ToInt16(data,at+2),BitConverter.ToInt16(data,at+4),BitConverter.ToInt16(data,at+6),BitConverter.ToInt16(data,at+8),BitConverter.ToInt16(data,at+10),0).ToString("dd/MM/yyyy HH:mm");}catch(ArgumentOutOfRangeException){}
                         string full=folder+file;foreach(ProgramEntry old in rows)if(old.FullPath==full)throw new InvalidOperationException("Repeated PATH1 file; partial list not presented as complete.");
-                        rows.Add(new ProgramEntry{Number=number,Program="O"+number.ToString("D4"),Length=length,Comment=FixedText(data,at+64,52),Modified=modified,FullPath=full});
+                        rows.Add(new ProgramEntry{Number=number,Program=file,Length=length,Comment=FixedText(data,at+64,52),Modified=modified,FullPath=full});
                     }
                     index+=count;entries+=count;if(index>32767)throw new InvalidOperationException("CNC folder index limit.");
                 }
@@ -92,7 +92,7 @@ public static class FanucProgramTransfer
     }
     public static DirectoryListing ListMemory(string ip,ushort port,string library){ushort handle=Open(ip,port,library);try{return ReadFolderDirectory(handle)??new DirectoryListing{Programs=ReadNumberDirectory(handle),Method="cnc_rdprogdir3"};}finally{cnc_freelibhndl(handle);}}
     public static ProgramEntry[] ListPrograms(string ip,ushort port,string library){return ListMemory(ip,port,library).Programs;}
-    public static void ValidateProgramPath(string path,int number){if(path==null)return;if(path.Length>241||!path.StartsWith(MemoryRoot,StringComparison.Ordinal)||path.Contains("..")||path.Contains("\\")||path.IndexOfAny(new char[]{'\r','\n','\0'})>=0)throw new InvalidOperationException("Only PATH1 memory program paths are allowed.");Match match=Regex.Match(path.Substring(MemoryRoot.Length),@"^(?:[A-Za-z0-9_ .-]+/)*O([0-9]{1,8})$");if(!match.Success||int.Parse(match.Groups[1].Value)!=number)throw new InvalidOperationException("Program path and O-number differ.");}
+    public static void ValidateProgramPath(string path,int number){if(path==null)return;if(path.Length>241||!path.StartsWith(MemoryRoot,StringComparison.Ordinal)||path.Contains("..")||path.Contains("\\")||path.IndexOfAny(new char[]{'\r','\n','\0'})>=0)throw new InvalidOperationException("Only PATH1 memory program paths are allowed.");Match match=Regex.Match(path.Substring(MemoryRoot.Length),@"^(?:[A-Za-z0-9_ .-]+/)*[Oo]([0-9]{1,8})(?:\.[Nn][Cc])?$");if(!match.Success||int.Parse(match.Groups[1].Value)!=number)throw new InvalidOperationException("Program path and O-number differ.");}
     private static void RequireUnusedDestination(ushort handle,int number,string directory){
         if(directory==null){RequireUnused(handle,number);return;}
         DirectoryListing listing=ReadFolderDirectory(handle,false);if(listing==null)throw new InvalidOperationException("Cannot confirm destination folder; transmission blocked.");
