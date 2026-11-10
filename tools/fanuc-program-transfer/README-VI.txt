@@ -26,8 +26,11 @@ GỬI CHƯƠNG TRÌNH VÀO BỘ NHỚ CNC
   tiện ích không đổi mode, không bấm Cycle Start hoặc Reset.
 - Bấm Kiểm tra trước truyền. Tiện ích kiểm tra file, trạng thái CNC,
   path và số O chưa tồn tại, trả SHA256 và mã kiểm tra hạn 2 phút.
-- Bấm Truyền vào bộ nhớ CNC, đối chiếu máy/IP/file/số O trong hộp xác nhận.
-  Nhập đúng TRUYEN Oxxxx rồi bấm Lưu vào bộ nhớ CNC.
+- Đối chiếu máy/IP/file/số O trên màn hình. Sau khi kiểm tra đạt, bấm
+  Truyền vào bộ nhớ CNC để gửi ngay, không phải gõ TRUYEN Oxxxx.
+- Đóng/mở khung truyền trong cùng tab sẽ khôi phục ghép theo đúng tài
+  khoản và máy. Không khôi phục file/ticket hoặc gửi lại lệnh. Quên ghép,
+  đăng xuất/đổi tài khoản sẽ xóa ghép; tải lại trang cần ghép lại.
 - Máy được kiểm tra lại ngay trước khi ghi. Số O đã tồn tại sẽ bị chặn,
   không có chức năng ghi đè hoặc xóa chương trình.
 - Không đóng tiện ích, tắt máy tính hoặc rút cáp khi đang truyền.

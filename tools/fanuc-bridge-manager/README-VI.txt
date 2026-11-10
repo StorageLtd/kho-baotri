@@ -19,8 +19,12 @@ TRUYỀN CHƯƠNG TRÌNH TRÊN WEB — ĐÃ TÍCH HỢP TRONG MANAGER
 - Dùng chung bộ DLL trong lib và IP/cổng của cấu hình máy đã lưu.
 - Mỗi lần chỉ bật một phiên truyền cho một máy. Muốn đổi máy: dừng
   phiên cũ, chọn máy khác rồi bật lại. Mã cũ mất hiệu lực khi dừng.
-- Không tự bật chức năng ghi khi Manager khởi động. Truyền vào bộ nhớ
-  CNC chỉ diễn ra sau khi bấm và xác nhận trên web.
+- Không tự bật chức năng ghi khi Manager khởi động. Sau khi kiểm tra đạt,
+  bấm Truyền trên web để gửi ngay; không phải gõ TRUYEN Oxxxx.
+- Đóng/mở lại khung truyền trong cùng tab web sẽ tự khôi phục ghép đúng
+  tài khoản, máy và IP/cổng. Không giữ file NC hay ticket gửi cũ. Có nút
+  Quên ghép; đăng xuất/đổi tài khoản sẽ xóa ghép. Tải lại trang hoặc mở tab
+  mới cần ghép lại. Manager đổi/dừng phiên làm mã cũ mất hiệu lực.
 - Nút X thu nhỏ vào khay: giám sát và phiên truyền đang bật vẫn tiếp tục.
   Thoát quản lý sẽ dừng tiện ích truyền, các cầu nối giám sát con vẫn chạy.
   Nếu có thao tác truyền/nhận CNC đang diễn ra, chờ hoàn tất mới được thoát.

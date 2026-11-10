@@ -15,7 +15,7 @@ export const signOutUser = async () => {};
 export const sendVerification = async () => {};
 export const registerAccount = async () => {};
 export const getToken = async () => 'fixture-token';
-export const getUser = () => ({uid:'fixture',emailVerified:true});
+export const getUser = () => ({uid:globalThis.fixtureUserId||'fixture',emailVerified:true});
 export const loadProfile = async () => ({});
 export const role = () => 'admin';
 export const canEdit = () => true;
@@ -348,12 +348,16 @@ window.seedDayFixture = () => {cncDayOwner=getUser().uid;cncDayStats.set('neway-
             await page.locator('#cncMachineDetailsDialog [data-close-details]').click()
             await page.get_by_role('button',name='Xem máy Neway 1260S',exact=True).click()
             calls=[]
+            transfer_state={'reject_connect':False}
             async def transfer_reply(route):
                 body=json.loads(route.request.post_data)
                 calls.append(body)
                 assert route.request.headers['x-ltd-token']=='A'*64
                 assert body['ip']=='192.168.1.1' and body['port']==8193
                 reply={'ok':True,'message':'Đã xử lý','ip':body['ip'],'port':8193}
+                if body['action']=='connect' and transfer_state['reject_connect']:
+                    await route.fulfill(status=403,content_type='application/json',body=json.dumps({'ok':False,'message':'Invalid session code.'}),headers={'Access-Control-Allow-Origin':'*'})
+                    return
                 if body['action']=='list':reply['programs']=[{'number':1234,'program':'O1234','length':24,'comment':'<script>unsafe</script>','modified':'10/11/2026'}]
                 if body['action']=='inspect':
                     if 'O2001' in body['content']:
@@ -385,11 +389,11 @@ window.seedDayFixture = () => {cncDayOwner=getUser().uid;cncDayStats.set('neway-
                 assert all(bounds), (width,height,bounds)
             await page.set_viewport_size({'width':1366,'height':768})
             await page.screenshot(path='/tmp/cnc-transfer-compact.png',full_page=True)
+            await transfer.get_by_role('button',name='Kiểm tra trước truyền',exact=True).click()
+            await page.wait_for_function("document.querySelector('.cnc-transfer-dialog [role=status]').textContent.includes('Sẵn sàng truyền vào bộ nhớ CNC')")
+            assert len([c for c in calls if c['action']=='send'])==0
             await transfer.get_by_role('button',name='Truyền vào bộ nhớ CNC →',exact=True).click()
-            await page.locator('.ct-confirm').wait_for(state='visible')
-            assert [c['action'] for c in calls][-1]=='inspect'
-            await page.locator('.ct-confirm input').fill('TRUYEN O2000')
-            await page.get_by_role('button',name='Lưu vào bộ nhớ CNC',exact=True).click()
+            assert await page.locator('.ct-confirm').count()==0
             await page.wait_for_function("document.querySelector('.cnc-transfer-dialog [role=status]').textContent.includes('CNC đã nhận O2000')")
             assert len([c for c in calls if c['action']=='send'])==1
             await transfer.locator('[data-row="0"]').click()
@@ -426,6 +430,56 @@ window.seedDayFixture = () => {cncDayOwner=getUser().uid;cncDayStats.set('neway-
             await page.locator('.ct-transfer-error').wait_for(state='detached')
             await transfer.locator('[data-close]').click()
             await page.locator('.cnc-transfer-dialog').wait_for(state='detached')
+            # Reopening restores only pairing, with read-only connect/list; never replays a send.
+            before_connect=len([c for c in calls if c['action']=='connect'])
+            await page.get_by_role('button',name='Truyền chương trình',exact=True).click()
+            transfer=page.locator('.cnc-transfer-dialog')
+            await page.wait_for_function("document.querySelector('.ct-directory tbody').textContent.includes('O1234')")
+            assert await transfer.locator('.ct-pair input').input_value()=='A'*64
+            assert len([c for c in calls if c['action']=='connect'])==before_connect+1
+            assert len([c for c in calls if c['action']=='send'])==1
+            assert await transfer.locator('[data-send]').is_disabled()  # File/ticket are never restored.
+            assert await page.evaluate("!Object.values(localStorage).some(x=>x.includes('A'.repeat(64))) && !Object.values(sessionStorage).some(x=>x.includes('A'.repeat(64)))")
+            await transfer.get_by_role('button',name='Quên ghép',exact=True).click()
+            await transfer.locator('[data-close]').click()
+            await transfer.wait_for(state='detached')
+            before_connect=len([c for c in calls if c['action']=='connect'])
+            await page.get_by_role('button',name='Truyền chương trình',exact=True).click()
+            transfer=page.locator('.cnc-transfer-dialog')
+            assert await transfer.locator('.ct-pair input').input_value()==''
+            assert len([c for c in calls if c['action']=='connect'])==before_connect
+            # A Manager session rotation invalidates a cached key, without any CNC write retry.
+            await transfer.locator('.ct-pair input').fill('A'*64)
+            await transfer.get_by_role('button',name='Ghép kết nối',exact=True).click()
+            await page.wait_for_function("document.querySelector('.ct-directory tbody').textContent.includes('O1234')")
+            await transfer.locator('[data-close]').click()
+            await transfer.wait_for(state='detached')
+            transfer_state['reject_connect']=True
+            await page.get_by_role('button',name='Truyền chương trình',exact=True).click()
+            transfer=page.locator('.cnc-transfer-dialog')
+            await page.wait_for_function("document.querySelector('.cnc-transfer-dialog [role=status]').textContent.includes('Chưa khôi phục')")
+            assert await transfer.locator('.ct-pair input').input_value()==''
+            assert await transfer.locator('[data-send]').is_disabled()
+            assert len([c for c in calls if c['action']=='send'])==1
+            await transfer.locator('[data-close]').click()
+            await transfer.wait_for(state='detached')
+            # Re-pair, then change the authenticated user: previous user's key is never reused.
+            transfer_state['reject_connect']=False
+            await page.get_by_role('button',name='Truyền chương trình',exact=True).click()
+            transfer=page.locator('.cnc-transfer-dialog')
+            await transfer.locator('.ct-pair input').fill('A'*64)
+            await transfer.get_by_role('button',name='Ghép kết nối',exact=True).click()
+            await page.wait_for_function("document.querySelector('.ct-directory tbody').textContent.includes('O1234')")
+            await transfer.locator('[data-close]').click()
+            await transfer.wait_for(state='detached')
+            before_connect=len([c for c in calls if c['action']=='connect'])
+            await page.evaluate("window.fixtureUserId='another-user'")
+            await page.get_by_role('button',name='Truyền chương trình',exact=True).click()
+            transfer=page.locator('.cnc-transfer-dialog')
+            assert await transfer.locator('.ct-pair input').input_value()==''
+            assert len([c for c in calls if c['action']=='connect'])==before_connect
+            await transfer.locator('[data-close]').click()
+            await transfer.wait_for(state='detached')
             assert not errors, errors
             await browser.close()
             print('PASS: live telemetry, unit-aware display, freshness, mobile; report summary/verified production, real XLSX download, empty period, and Firebase permission errors; no page errors.')
