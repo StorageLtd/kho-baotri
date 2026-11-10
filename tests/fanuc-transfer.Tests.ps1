@@ -8,6 +8,8 @@ try{
  [IO.File]::WriteAllText($file,"%`nO1234 (TEST)`nG90 G54`nM30`n%`n",[Text.Encoding]::ASCII)
  $valid=[FanucProgramTransfer]::ValidateFile($file)
  Assert ($valid.Program -eq 'O1234' -and $valid.Hash.Length -eq 64 -and $valid.Bytes.Length -gt 0) 'Valid file not recognized'
+ [IO.File]::WriteAllText($file,"%`nO1234`nIF[#1EQ0]GOTO100`nN100 M30`n%`n",[Text.Encoding]::ASCII)
+ Assert (([FanucProgramTransfer]::ValidateFile($file)).Number -eq 1234) 'GOTO was confused with an O-number declaration'
  foreach($bad in @("%`nO9000`nM30`n%","%`nO1234`nM30`nO1235`nM30`n%","O1234`nM30","%`nO1234 (bad`nM30`n%","%`nO1234`nM99`n%","%`nG90`nO1234`nM30`n%","%`nO1234`nN10 O1235`nM30`n%")){
   [IO.File]::WriteAllText($file,$bad,[Text.Encoding]::ASCII);$rejected=$false;try{$null=[FanucProgramTransfer]::ValidateFile($file)}catch{$rejected=$true};Assert $rejected 'Unsafe / unsupported file accepted'
  }

@@ -1,8 +1,9 @@
+import {openCncTransfer} from "./cnc-transfer-ui.js?v=20261110-transfer-tool";
 import {buildCncReport,vnDate} from "./cnc-reports.js?v=20261107-tool-context";
 ﻿import { downloadInventoryWorkbook } from "./inventory-xlsx.js?v=20261105-no-prices";
 import { maintenancePlan, repairHistoryForm, alarmHistoryForm, movementVoucherForm, downloadMaintenanceWorkbook } from "./maintenance-xlsx.js?v=20261107-tool-context";
 import {renderMachineModel} from "./cnc-machine-shop.js?v=20261109-work-offset-tray";
-import {renderCncOperatorScreen} from "./cnc-operator-screen.js?v=20261109-productivity";
+import {renderCncOperatorScreen} from "./cnc-operator-screen.js?v=20261110-transfer-tool";
 import { openCncReports } from "./cnc-report-ui.js?v=20261107-tool-context";
 import { cncDisplayState, cncIsFresh, cncMeasurement, cncMode, cncDuration, cncServerNow, setCncClockOffset } from "./cnc-status.js?v=20261029-web-sync";
 
@@ -843,6 +844,7 @@ import { cncDisplayState, cncIsFresh, cncMeasurement, cncMode, cncDuration, cncS
       if(action==='details'){openCncMachineDetails(id);return;}
       if(action==='history'){openCncMachineAlarmHistory(id);return;}
       if(!canEdit()){showToast('Tài khoản chưa có quyền chỉnh sửa máy.');return;}
+      if(action==='transfer'){const machine=cncs.find(c=>c.id===id);if(machine)openCncTransfer(machine);return;}
       if(action==='edit')openCncDialog(id);
       if(action==='delete')deleteCnc(id);
     }
@@ -1789,6 +1791,7 @@ import { cncDisplayState, cncIsFresh, cncMeasurement, cncMode, cncDuration, cncS
         unlockApp();
         return;
       }
+      document.querySelectorAll(".ct-confirm,.cnc-transfer-dialog").forEach(dialog=>dialog.close());
       document.body.classList.add("locked");
     });
     els.toggleRegistrationBtn.addEventListener("click", () => setRegistrationMode(!registrationMode));

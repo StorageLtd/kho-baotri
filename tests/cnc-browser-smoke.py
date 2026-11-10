@@ -344,6 +344,57 @@ window.seedDayFixture = () => {cncDayOwner=getUser().uid;cncDayStats.set('neway-
             await page.get_by_role('button',name='Xem máy CNC 03',exact=True).click()
             await page.get_by_role('button',name='THỐNG KÊ',exact=True).click()
             assert await page.locator('#card-missing-day .cnc-state-donut strong').inner_text()=='—'
+            # Integrated transfer: only the loopback companion sees NC content, never Firebase.
+            await page.locator('#cncMachineDetailsDialog [data-close-details]').click()
+            await page.get_by_role('button',name='Xem máy Neway 1260S',exact=True).click()
+            calls=[]
+            async def transfer_reply(route):
+                body=json.loads(route.request.post_data)
+                calls.append(body)
+                assert route.request.headers['x-ltd-token']=='A'*64
+                assert body['ip']=='192.168.1.1' and body['port']==8193
+                reply={'ok':True,'message':'Đã xử lý','ip':body['ip'],'port':8193}
+                if body['action']=='list':reply['programs']=[{'number':1234,'program':'O1234','length':24,'comment':'<script>unsafe</script>','modified':'10/11/2026'}]
+                if body['action']=='inspect':reply.update({'program':'O2000','hash':'B'*64,'ticket':'C'*64})
+                if body['action']=='send':assert body['confirmation']=='TRUYEN O2000' and body['ticket']=='C'*64
+                if body['action']=='receive':reply.update({'program':'O1234','text':'%\nO1234 (TEST)\nM99\n%\n'})
+                await route.fulfill(status=200,content_type='application/json',body=json.dumps(reply),headers={'Access-Control-Allow-Origin':'*'})
+            await page.route('http://127.0.0.1:8766/transfer',transfer_reply)
+            await page.get_by_role('button',name='Truyền chương trình',exact=True).click()
+            transfer=page.locator('.cnc-transfer-dialog')
+            assert await transfer.is_visible()
+            assert await transfer.locator('[data-inspect]').is_disabled()
+            await transfer.locator('.ct-pair input').fill('A'*64)
+            await transfer.get_by_role('button',name='Ghép kết nối',exact=True).click()
+            await page.wait_for_function("document.querySelector('.ct-directory tbody').textContent.includes('O1234')")
+            assert await transfer.locator('script').count()==0
+            assert '<script>unsafe</script>' in await transfer.locator('tbody').inner_text()
+            await transfer.locator('input[type=file]').set_input_files({'name':'O2000.nc','mimeType':'text/plain','buffer':b'%\nO2000 (TEST)\nG90 G54\nM30\n%\n'})
+            await page.wait_for_function("document.querySelector('.ct-file-meta').textContent.includes('O2000.nc')")
+            await transfer.get_by_role('button',name='Kiểm tra trước truyền',exact=True).click()
+            await page.wait_for_function("!document.querySelector('[data-send]').disabled")
+            await transfer.get_by_role('button',name='Truyền vào bộ nhớ CNC →',exact=True).click()
+            await page.locator('.ct-confirm input').fill('TRUYEN O2000')
+            await page.get_by_role('button',name='Lưu vào bộ nhớ CNC',exact=True).click()
+            await page.wait_for_function("document.querySelector('.cnc-transfer-dialog [role=status]').textContent.includes('CNC đã nhận O2000')")
+            assert len([c for c in calls if c['action']=='send'])==1
+            await transfer.locator('[data-row="0"]').click()
+            await transfer.get_by_role('button',name='Xem chương trình',exact=True).click()
+            await page.wait_for_function("document.querySelector('.ct-remote pre').textContent.includes('M99')")
+            async with page.expect_download() as nc_info:
+                await transfer.get_by_role('button',name='← Nhận về máy tính',exact=True).click()
+            nc_download=await nc_info.value
+            assert nc_download.suggested_filename=='O1234.nc'
+            await nc_download.save_as('/tmp/received-program.nc')
+            assert Path('/tmp/received-program.nc').read_text().startswith('%\nO1234')
+            for width in [1280,390]:
+                await page.set_viewport_size({'width':width,'height':900})
+                assert await transfer.evaluate('e=>e.scrollWidth<=e.clientWidth+1')
+            await page.screenshot(path='/tmp/cnc-web-transfer-mobile.png',full_page=True)
+            await page.set_viewport_size({'width':1280,'height':900})
+            await page.screenshot(path='/tmp/cnc-web-transfer.png',full_page=True)
+            await transfer.locator('[data-close]').click()
+            await page.locator('.cnc-transfer-dialog').wait_for(state='detached')
             assert not errors, errors
             await browser.close()
             print('PASS: live telemetry, unit-aware display, freshness, mobile; report summary/verified production, real XLSX download, empty period, and Firebase permission errors; no page errors.')
