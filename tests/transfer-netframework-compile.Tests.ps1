@@ -6,7 +6,7 @@ $match=[regex]::Match($module,'-ReferencedAssemblies @\(([^)]+)\)')
 if(-not $match.Success){throw 'Windows compilation references missing.'}
 $names=@('mscorlib.dll')+@([regex]::Matches($match.Groups[1].Value,"'([^']+)'")|ForEach-Object {$_.Groups[1].Value})
 $trees=@();$parse=[Microsoft.CodeAnalysis.CSharp.CSharpParseOptions]::Default.WithLanguageVersion([Microsoft.CodeAnalysis.CSharp.LanguageVersion]::CSharp5)
-foreach($name in @('ProgramTransfer.cs','WebTransferServer.cs')){
+foreach($name in @('ProgramTransfer.cs','WebTransferServer.cs','TransferPasswordStore.cs')){
  $source=[IO.File]::ReadAllText((Join-Path $root "tools/fanuc-bridge-manager/transfer/$name"))
  if($source -cne [IO.File]::ReadAllText((Join-Path $root "tools/fanuc-program-transfer/$name"))){throw "Canonical and Manager source differ: $name"}
  $trees+=[Microsoft.CodeAnalysis.CSharp.CSharpSyntaxTree]::ParseText($source,$parse)

@@ -1,99 +1,178 @@
-﻿LTD WEB PROGRAM TRANSFER
-Build: 20261110-transfer-tool
+﻿LTD CNC BRIDGE MANAGER
+Build 20261110-transfer-password · Windows 10/11 64-bit
 
-Chức năng được tích hợp trong web công ty, mục chi tiết máy CNC →
-Truyền chương trình. Giao diện hai khung: Máy tính và Bộ nhớ CNC.
-Truyền file vào bộ nhớ CNC để người vận hành xem/chọn chạy tại máy.
-Nhận và xem chương trình từ bộ nhớ CNC về máy tính. Không chạy DNC.
+CẬP NHẬT
+1. Trong bản Manager cũ: dừng từng cầu nối, chờ tiến trình dừng.
+2. Nhấp phải biểu tượng Manager ở khay hệ thống → Thoát quản lý.
+3. Giải nén bản mới ra thư mục mới. Chép Fwlib64.dll, fwlibe64.dll,
+   fwlib30i64.dll của bạn vào lib. Không chạy đồng thời hai cầu nối cùng máy.
+4. Nhấp đúp START-MANAGER.cmd. Máy đã lưu trong LocalAppData vẫn còn.
+5. Chọn máy → Chạy cầu nối → mở tab Đăng nhập CMMS, nhập email/mật khẩu và bấm Đăng nhập và kết nối.
+   Mật khẩu và token chỉ nằm trong bộ nhớ, không ghi vào cấu hình hay nhật ký.
 
-CÁCH DÙNG
-1. Giải nén gói FANUC-Web-Transfer-Tool vào thư mục riêng.
-2. Chép bộ 3 DLL tin cậy đang dùng vào lib:
-   Fwlib64.dll, fwlibe64.dll, fwlib30i64.dll. Gói không kèm DLL.
-3. Mở START-WEB-TRANSFER.cmd trên chính laptop sẽ mở web.
-4. Nhập IP/cổng CNC hoặc bấm Nhập cấu hình máy để lấy IP/cổng từ
-   bridge-config.json. Không sửa file cấu hình cầu nối.
-5. Bấm Bật kết nối web rồi Sao chép mã.
-6. Đăng nhập web công ty bằng tài khoản có quyền chỉnh sửa.
-   Mở máy cần truyền → Truyền chương trình. Dán mã ghép rồi bấm Ghép kết nối.
-   IP/cổng của máy trên web phải khớp chính xác máy đã chọn ở tiện ích.
-7. Nếu Chrome/Edge hỏi quyền truy cập mạng cục bộ, cho phép.
-   Nếu IT chặn quyền này, cần IT cho phép. Không tắt bảo vệ trình duyệt.
+TRUYỀN/NHẬN BẰNG MẬT KHẨU RIÊNG — KHÔNG CẦN MÃ GHÉP
+- Bản này dùng mật khẩu truyền/nhận riêng, độc lập mật khẩu CMMS.
+- Lần đầu: chọn máy đã lưu → Truyền trên web → nhập mật khẩu riêng
+  trong ô thiết lập → Lưu mật khẩu riêng. Nhập mật khẩu do anh chọn;
+  gói công khai không có mật khẩu mặc định hoặc verifier dùng chung.
+- Chỉ thiết lập một lần trên laptop. Cấu hình kiểm tra mật khẩu lưu tại
+  %LOCALAPPDATA%\LTD\CncBridgeManager\machines\transfer-auth.json,
+  dạng PBKDF2-SHA256 có salt ngẫu nhiên; không lưu mật khẩu dạng rõ.
+- Khi đã đặt mật khẩu, chọn máy đã lưu sẽ tự bật truy cập web nếu chưa
+  có máy khác đang bật. Nếu chưa bật, bấm Bật cho máy đang chọn.
+- Trên chính laptop này: mở web → chi tiết máy → Truyền chương trình →
+  nhập mật khẩu truyền/nhận riêng → Đăng nhập truyền/nhận.
+- Không nhập mật khẩu đăng nhập web vào ô này. Không cần chép mã ghép.
+- Đổi mật khẩu: dừng truy cập truyền trước, nhập mật khẩu mới rồi lưu.
+  Các phiên cũ mất hiệu lực sau khi dừng/đổi mật khẩu.
+- Đóng/mở khung truyền trong cùng tab giữ phiên đăng nhập tối đa 30 phút.
+  Không lưu mật khẩu hay phiên vào localStorage/sessionStorage/file web.
+- Đăng xuất truyền/nhận để kết thúc phiên; đăng xuất/đổi tài khoản web
+  cũng xóa phiên đã nhớ và gửi yêu cầu thu hồi phiên cục bộ.
+- Nhập sai 5 lần bị chặn đăng nhập 60 giây. Không có chức năng bỏ qua
+  mật khẩu, force bit, đổi mode hoặc chạy chương trình từ xa.
 
-GỬI CHƯƠNG TRÌNH VÀO BỘ NHỚ CNC
-- Chọn file NC ở khung Máy tính. Kiểm tra nội dung.
-- Máy CNC phải dừng ở EDIT, không có alarm/emergency. Chuyển tại máy;
-  tiện ích không đổi mode, không bấm Cycle Start hoặc Reset.
-- Bấm Kiểm tra trước truyền. Tiện ích kiểm tra file, trạng thái CNC,
-  path và số O chưa tồn tại, trả SHA256 và mã kiểm tra hạn 2 phút.
-- Đối chiếu máy/IP/file/số O trên màn hình. Sau khi kiểm tra đạt, bấm
-  Truyền vào bộ nhớ CNC để gửi ngay, không phải gõ TRUYEN Oxxxx.
-- Đóng/mở khung truyền trong cùng tab sẽ khôi phục ghép theo đúng tài
-  khoản và máy. Không khôi phục file/ticket hoặc gửi lại lệnh. Quên ghép,
-  đăng xuất/đổi tài khoản sẽ xóa ghép; tải lại trang cần ghép lại.
-- Máy được kiểm tra lại ngay trước khi ghi. Số O đã tồn tại sẽ bị chặn,
-  không có chức năng ghi đè hoặc xóa chương trình.
-- Không đóng tiện ích, tắt máy tính hoặc rút cáp khi đang truyền.
-- Khi CNC nhận xong, kiểm tra toàn bộ nội dung, dao, gốc tọa độ, offset
-  và quy trình chạy thử tại máy trước khi chọn chạy.
-- Thông báo nhận xong dựa vào cnc_dwnend3, không phải kiểm định gia công
-  hoặc xác minh byte-for-byte bằng đọc ngược. Có thể dùng Xem chương trình
-  để tự đối chiếu chương trình trong bộ nhớ.
-- Không dùng đồng thời công cụ khác để sửa/truyền chương trình vào cùng CNC.
-
-NHẬN CHƯƠNG TRÌNH VỀ MÁY TÍNH
-- Làm mới để đọc danh sách bộ nhớ CNC.
-- Chọn một hàng → Xem chương trình hoặc Nhận về máy tính.
-- File chỉ được trả sau khi đọc đủ, đúng số O và kết thúc upload thành công.
-  Bản nhận có thể có M99 (chương trình con). Không tự sửa mã NC.
-- Tải về bằng chức năng tải file của trình duyệt, tên Oxxxx.nc.
-- Chương trình được bảo vệ hoặc không có tùy chọn đọc sẽ hiện mã lỗi.
-  Không sửa tham số CNC để vượt bảo vệ.
-
-GIỚI HẠN CỦA BẢN THỬ
-- Windows 64-bit; máy CNC một path. Chưa có cấu hình chọn đa path.
-- Một file ASCII có % đầu/cuối, một số O, tối đa 2 MiB.
-- Gửi: O0001–O7999 và có M02/M30. Chỉ kiểm tra định dạng, không xác nhận
-  đường chạy dao an toàn. Macro GOTO không bị nhầm thành một số O khác.
-- Nhận: O0001–O7999; file đầy đủ, không gộp dữ liệu macro xuất thêm sau %.
-- Danh sách tối đa 10.000 chương trình; quá giới hạn sẽ báo lỗi thay vì
-  trình bày danh sách thiếu như thể đã đủ.
-- Bảo vệ O8000/O9000 được giữ nguyên. Không force, không tự retry gửi.
-- Truyền vào bộ nhớ, không có DNC streaming, xóa/đổi tên trên CNC,
-  thay offset/tham số/PMC, chọn hoặc chạy chương trình từ xa.
-- Đây là tiện ích LTD, không phải phần mềm FANUC chính hãng hay bản sao
-  được FANUC chứng nhận. Chưa kiểm chứng với CNC thật.
+TRUYỀN CHƯƠNG TRÌNH
+- Chọn file, kiểm tra đúng máy/IP và số O trong nội dung.
+- Kiểm tra đạt → bấm Truyền để gửi ngay, không gõ câu xác nhận.
+- CNC phải dừng ở EDIT, không alarm/emergency; chỉ máy một path.
+- Một file ASCII, % đầu/cuối, một chương trình O0001–O7999, M02/M30,
+  tối đa 2 MiB. Không ghi đè số O đã có hoặc xóa chương trình trên CNC.
+- Danh sách, xem nội dung và nhận file .nc lấy từ bộ nhớ CNC thực tế.
+- Ticket kiểm tra dùng một lần, hết hạn 2 phút, gắn đúng file và phiên
+  đăng nhập; trạng thái máy, hash và số O được kiểm tra lại trước khi ghi.
+- Truyền vào bộ nhớ, không chạy DNC. Người vận hành kiểm tra toàn bộ mã,
+  dao/gốc/offset và quy trình chạy thử trước khi chọn chạy tại CNC.
+- Nếu mất mạng, có thể còn chương trình chưa hoàn chỉnh. Kiểm tra tại
+  máy; không tự gửi lại/xóa. Không truyền đồng thời bằng công cụ khác.
 
 KẾT NỐI VÀ BẢO MẬT
-- Chỉ lắng nghe tại 127.0.0.1:8766 trên laptop. Không cần mở cổng router,
-  không nghe trên 0.0.0.0/LAN và không chuyển tiếp 8193 ra Internet.
-- Chỉ nhận yêu cầu từ nguồn web https://storageltd.github.io, đúng Host,
-  đúng mã ngẫu nhiên 256-bit của phiên đang mở và đúng IP/cổng CNC đã ghim.
-- Yêu cầu ghi cần thêm ticket dùng một lần, hết hạn sau 2 phút, gắn với
-  nội dung đã kiểm tra. File, hash và trạng thái máy được kiểm tra lại.
-- Mã ghép không ghi vào URL, Firebase, localStorage hay file cấu hình.
-  Không chia sẻ mã ghép; đóng tiện ích sẽ làm mất hiệu lực mã cũ.
-- Nội dung NC đi từ trình duyệt → tiện ích cục bộ → CNC. Không đưa file
-  NC hay hàng đợi lệnh lên Firebase. File tạm ngẫu nhiên được xóa sau xử lý.
-- Cần mở tiện ích trên chính laptop đang dùng web, laptop kết nối LAN tới CNC.
-  Điện thoại hoặc máy ở nhà chưa điều khiển tiện ích trên laptop khác.
-- Cầu nối giám sát hiện tại không cần thay thế. Tiện ích truyền có handle
-  FOCAS riêng; nếu CNC hết kết nối, xử lý ở laptop, không sửa tham số máy.
-- Ứng dụng có thao tác GHI vào bộ nhớ chương trình. Chỉ truyền khi đã đối
-  chiếu đúng máy và có người vận hành kiểm soát tại CNC.
+- Dùng chung lib và cấu hình máy đã lưu; không cần mở ứng dụng truyền riêng.
+- Một phiên truy cập cho một máy tại một thời điểm. Muốn đổi máy, dừng
+  truy cập máy cũ rồi chọn máy khác. Giám sát nhiều máy vẫn hoạt động.
+- Chỉ lắng nghe 127.0.0.1:8766, chỉ nhận nguồn web công ty và IP/cổng
+  đã ghim. Không mở cổng router, không gửi file NC/mật khẩu lên Firebase.
+- Mật khẩu chỉ gửi tới tiện ích localhost trên chính laptop. Phiên ngẫu
+  nhiên chỉ trong RAM và được thu hồi khi dừng Manager hoặc hết hạn.
+- Nút X thu nhỏ vào khay: giám sát và truyền vẫn tiếp tục. Thoát Manager
+  dừng truy cập truyền; các cầu nối giám sát con vẫn chạy. Chờ thao tác
+  CNC hoàn tất mới được dừng/thoát. Laptop phải bật, không Sleep.
+- Nếu trình duyệt hỏi quyền mạng cục bộ, cho phép. Nếu IT chặn, cần IT
+  cho phép; không tắt bảo vệ trình duyệt.
+- Cầu nối giám sát vẫn chỉ đọc; mô-đun ghi chương trình là phần riêng.
 
-NẾU LỖI / MẤT KẾT NỐI
-Có thể còn chương trình chưa hoàn chỉnh trong bộ nhớ CNC. Kiểm tra tại máy
-trước bước tiếp theo. Không tự xóa và không tự gửi lại. Nếu bị chặn do số O
-đã có, hãy đối chiếu và xử lý tại CNC theo quy trình của công ty.
+LỖI VÀ KIỂM CHỨNG
+- Truyền chỉ nạp khi dùng; nếu lỗi, chi tiết giữ trong tab Truyền.
+- Lỗi khởi động Manager hiển thị cửa sổ có thể sao chép và lưu tại
+  %LOCALAPPDATA%\LTD\CncBridgeManager\manager-startup-error.log.
+  Không gửi mật khẩu hoặc token khi báo lỗi.
+- Đã kiểm tra C# 5/.NET Framework 4.8, lưu/kiểm tra mật khẩu, phiên,
+  chặn thử sai, native/API và trình duyệt bằng máy CNC mô phỏng.
+  Chưa chạy WinForms trên Windows hoặc truyền vào CNC thật.
 
-KIỂM CHỨNG
-Đã kiểm tra C#/PowerShell, native ABI bằng máy mô phỏng, gửi từng phần,
-EW_BUFFER, trạng thái EDIT/dừng, số O trùng, lỗi trễ, nhận đủ file và giải
-phóng handle; origin/host/token/IP, ticket dùng một lần/hết hạn/nội dung
-đổi; Chromium với API mô phỏng cho thao tác truyền, nhận, tải file và
-bố cục desktop/điện thoại. Chưa chạy WinForms trên Windows, chưa truyền
-vào CNC thật và chưa xác nhận quyền mạng cục bộ trên laptop của anh.
+THÊM / SỬA / GỠ MÁY
+- + Thêm máy → chọn mẫu Vertical Mill, Horizontal Mill, Lathe hoặc Custom.
+- Điền tên, IP, cổng, model và tên trục đúng với CNC; bấm Lưu cấu hình.
+- Chọn đúng bảng Memory A, B hoặc C và xác nhận đã đối chiếu nếu cần đọc offset.
+  Ảnh có LENGTH GEOM/WEAR và RADIUS GEOM/WEAR tương ứng Memory C.
+- Kiểm tra FOCAS: chỉ đọc thử, không gửi dữ liệu lên web.
+- Chạy cầu nối: đăng nhập CMMS, bắt đầu gửi dữ liệu và báo cáo lên web.
+- Sửa cấu hình: dừng cầu nối trước. Gỡ cấu hình: chuyển cả dữ liệu máy sang
+  LocalAppData/LTD/CncBridgeManager/archive, không xóa báo cáo cũ.
+- Gỡ cấu hình Manager không tự xóa bản ghi web. Trên web có nút Xóa máy.
 
-Gói cũ START-TRANSFER.cmd vẫn là cửa sổ thử riêng. Gói dùng cho web này
-mở bằng START-WEB-TRANSFER.cmd.
+CHẠY NỀN
+- Sau khi đăng nhập, cầu nối chạy nền, không cần giữ cửa sổ PowerShell.
+- Nút X của Manager hoặc Chạy ở khay hệ thống chỉ ẩn giao diện.
+- Nhấp biểu tượng LTD Bridge Manager ở khay hệ thống để mở lại.
+- Thoát quản lý trong menu khay cũng không dừng các cầu nối đang chạy.
+- Dừng cầu nối chỉ ngừng thu thập, không gửi lệnh dừng máy CNC.
+- Laptop phải bật, không Sleep/Hibernate; giữ LAN tới CNC và Internet tới Firebase.
+  Đây là tiến trình của tài khoản Windows hiện tại, không phải dịch vụ tự chạy
+  sau khởi động/đăng xuất. Không tự lưu mật khẩu để đăng nhập lại.
+- Tab Nhật ký cầu nối hiển thị nhật ký cục bộ; thanh dưới hiển thị trạng thái gửi.
+
+CÁC MÀN HÌNH TRÊN WEB
+POSITION: tọa độ, tải servo, đoạn đang thực thi, G modal và thông số trong một khung.
+PROGRAM / WORK: toàn bộ file O đang chạy và EXT / G54–G59 cho máy phay XYZ được xác minh.
+OFFSET: bảng đã cài đặt, phân trang 16 dòng; phân biệt Memory A/B/C.
+ALARM: chỉ trạng thái/mã/mô tả lỗi và lịch sử alarm.
+THỐNG KÊ: các biểu đồ trong ngày và báo cáo đã có.
+
+NGUỒN DỮ LIỆU / GIỚI HẠN
+- HD.T và NX.T đọc bằng cnc_rdhdnxt (vị trí trục chính/chờ thứ nhất của CNC).
+  T modal chỉ lưu riêng; không dùng thay thế HD.T. Không phải cảm biến vật lý.
+- Bảng gốc XYZ dùng cnc_rdzofs theo từng trục, cnc_getfigure cho độ chia và
+  đơn vị CNC đã xác minh. EXT / G54–G59 là giá trị cài đặt, không suy ra
+  bằng MACHINE trừ ABSOLUTE. H/D ưu tiên CNC modal, không phụ thuộc macro.
+  G54.1/P, G52, xoay tọa độ, TCP và gốc của máy tiện chưa được diễn giải.
+- Offset được đối chiếu kiểu khai báo với cnc_rdtofsinfo; lấy độ chia từ
+  cnc_getfigure. Chỉ diễn giải phay XYZ 3 trục đã xác nhận; bảng tiện để trống.
+  Bảng được đọc lại khoảng 30 giây/lần; thời điểm đọc hiện ngay tại bảng.
+- Full file O đọc bằng cnc_upstart3/upload3/upend3 theo chiều CNC → PC.
+  Không truyền chương trình từ PC sang CNC; không bật sửa hoặc bỏ bảo vệ.
+  Đổi O thì đọc lại; cùng O làm mới khoảng 60 giây. Tối đa 2 MiB, ngân sách
+  vòng đọc 8 giây (mỗi lời gọi vẫn chịu timeout thư viện). Chỉ hiển thị là đủ
+  file khi kiểm tra đúng số O và ký tự kết thúc %. File lỗi/thiếu không giả làm đủ.
+  CNC bận, chế độ hoặc tùy chọn không cho phép: để Chưa đọc và hiện chẩn đoán.
+- Path 1 / trục chính mặc định; mẫu nhiều trục không tự bật thu thập đa kênh.
+- Tất cả chức năng trong gói này chỉ đọc. Không đọc/ghi PMC, không ghi offset,
+  sửa/chạy/xóa chương trình, đổi tham số hoặc điều khiển chuyển động CNC.
+- Giữ report-outbox khi cập nhật. last-result.json là mẫu gần nhất.
+- Đã kiểm tra bằng fixture và trình duyệt. Chưa thử GUI Windows/CNC thật;
+  cần đối chiếu lần đầu HD.T/NX.T, đơn vị, gốc và bảng offset với màn hình máy.
+
+ĐĂNG NHẬP TRỰC TIẾP TRONG MANAGER — 20261109-state-io
+- Có sẵn tab Đăng nhập CMMS, không chờ hộp thoại từ tiến trình nền.
+- Chọn máy → Chạy cầu nối → nhập email và mật khẩu → Đăng nhập và kết nối.
+- Manager chuyển tài khoản một lần qua stdin riêng cho tiến trình cầu nối.
+  Gói dùng base64 để giữ đúng Unicode, không coi base64 là mã hóa.
+  Không ghi mật khẩu/token vào file, cấu hình, argv hoặc biến môi trường.
+- Cầu nối xác thực tài khoản trước khi đọc CNC; lỗi nằm ở Nhật ký cầu nối.
+- Khi cập nhật: nút X chỉ ẩn Manager. Chọn Thoát quản lý từ menu khay hệ thống.
+- Nếu tiến trình cũ kẹt: Dừng cầu nối, chờ 15 giây, bấm Đóng tiến trình và xác nhận.
+  Chỉ đóng đúng phần mềm cầu nối trên laptop, không gửi lệnh tới CNC.
+- Đã kiểm tra luồng tài khoản và tiến trình con thực trên môi trường thử Linux.
+  Chưa chạy thử WinForms trên Windows hoặc kết nối CNC thật của người dùng.
+
+SỬA NHẬN DẠNG VÀ ĐỌC DỮ LIỆU — 20261109-state-io
+- Mã ASCII cố định có đệm: " M", "03", " 3" được chuẩn hóa đúng.
+  Vẫn kiểm tra máy phay 3 trục, tên trục XYZ, bảng thật và xác nhận của người dùng.
+- Đọc gốc bằng cnc_rdzofs; không cần đọc biến macro khi đã có đơn vị/vị trí CNC.
+- Khi EW_BUFFER, chờ 10 ms để CNC có thời gian cung cấp dữ liệu.
+  Ngân sách vòng đọc file 8 giây / 2 MiB; không ghi hay đổi con trỏ chương trình.
+- Nếu chưa xong, giữ lỗi đầu tiên và số byte/lượt chờ khi thử lại sau 30 giây.
+- Tab PROGRAM / WORK dùng đoạn CNC đang trả về nếu chưa có đủ file O;
+  có nhãn phân biệt đoạn chương trình với file đầy đủ.
+- Dừng cầu nối, thoát Manager qua menu khay trước khi nâng cấp.
+  Bản mới từ chối lớp C# cũ nếu chưa khởi động lại tiến trình.
+
+SỬA ĐỘ CHIA BẢNG — 20261109-state-io
+- cnc_getfigure có thể trả dec_fig_in khác dec_fig_out; đây không phải lỗi.
+- Các giá trị thô của cnc_rdzofs / cnc_rdtofs / cnc_rdtofsr được chia theo
+  dec_fig_in của đúng loại dữ liệu, không lấy dec_fig_out để chia bảng.
+- Vẫn kiểm tra phạm vi độ chia, tên trục, đơn vị và loại bảng đã xác nhận.
+- Có kiểm tra giả lập đầu vào 4 / đầu ra 6 với giá trị âm, khác 0; input
+  ngoài phạm vi vẫn bị từ chối. Cần đối chiếu giá trị hiện tại trên CNC thật.
+
+ĐỒNG HỒ TRỤC CHÍNH — 20261109-state-io
+- POSITION có Spindle Load Meter và Spindle Speed Meter cạnh Servo Load.
+- Tải trục chính thứ nhất đọc bằng cnc_rdspmeter(type=0), xác minh đơn vị %.
+  Thang hình 0–200%; số đo thực vẫn hiển thị nếu vượt 200%. Chưa đọc được là —.
+- Tốc độ hiển thị RPM thực đã đọc bằng cnc_rdspeed. Không dùng tốc độ motor
+  trong ODBSPLOAD thay thế tốc độ trục chính; không tự đặt giới hạn RPM máy.
+- Dữ liệu quá hạn được ẩn. Chỉ đọc FOCAS, không có truy cập PMC hay ghi CNC.
+- Cần cập nhật Bridge để có tải trục chính; web tải lại bằng Ctrl+F5.
+
+SỬA FILE TRẠNG THÁI — 20261109-state-io
+- bridge-state.json ghi qua file tạm riêng rồi thay thế nguyên vẹn. Manager mở
+  đọc với FileShare.ReadWrite/Delete, tránh va chạm với lần ghi tiếp theo.
+- Có thử lại ngắn; lỗi file trạng thái phụ không dừng thu thập/gửi CNC.
+- Nhật ký và lỗi khởi động tách theo từng phiên GUID; Manager chỉ hiển thị
+  file của phiên hiện tại, không ghép lỗi HTTP 400 của phiên trước vào phiên mới.
+- Mã lỗi xác thực Firebase chỉ hiện các mã an toàn đã biết (ví dụ
+  INVALID_LOGIN_CREDENTIALS), không in body phản hồi, mật khẩu hay URL/token.
+- Khi cập nhật phải thay đủ thư mục, gồm Bridge.State.ps1; không chỉ chép
+  Start-FanucBridge.ps1. Nút X chỉ ẩn Manager; chọn Thoát quản lý ở khay.
+- Đã kiểm tra I/O và giả lập lỗi ghi; nhánh khóa deny-delete được kiểm tra
+  khi bộ kiểm thử chạy trên Windows. Chưa chạy trực tiếp trên laptop/CNC thật.

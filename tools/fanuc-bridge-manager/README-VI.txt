@@ -1,5 +1,5 @@
 ﻿LTD CNC BRIDGE MANAGER
-Build 20261110-manager-transfer · Windows 10/11 64-bit
+Build 20261110-transfer-password · Windows 10/11 64-bit
 
 CẬP NHẬT
 1. Trong bản Manager cũ: dừng từng cầu nối, chờ tiến trình dừng.
@@ -10,68 +10,65 @@ CẬP NHẬT
 5. Chọn máy → Chạy cầu nối → mở tab Đăng nhập CMMS, nhập email/mật khẩu và bấm Đăng nhập và kết nối.
    Mật khẩu và token chỉ nằm trong bộ nhớ, không ghi vào cấu hình hay nhật ký.
 
-TRUYỀN CHƯƠNG TRÌNH TRÊN WEB — ĐÃ TÍCH HỢP TRONG MANAGER
-- Không cần mở START-WEB-TRANSFER riêng hoặc một ứng dụng truyền khác.
-- Chọn máy đã lưu ở cây bên trái → bấm Truyền trên web trên thanh nút.
-- Trong tab Truyền chương trình trên web, bấm Bật cho máy đang chọn.
-- Bấm Sao chép mã. Mở web trên chính laptop này, chọn đúng máy →
-  Truyền chương trình → dán mã → Ghép kết nối.
-- Dùng chung bộ DLL trong lib và IP/cổng của cấu hình máy đã lưu.
-- Mỗi lần chỉ bật một phiên truyền cho một máy. Muốn đổi máy: dừng
-  phiên cũ, chọn máy khác rồi bật lại. Mã cũ mất hiệu lực khi dừng.
-- Không tự bật chức năng ghi khi Manager khởi động. Sau khi kiểm tra đạt,
-  bấm Truyền trên web để gửi ngay; không phải gõ TRUYEN Oxxxx.
-- Đóng/mở lại khung truyền trong cùng tab web sẽ tự khôi phục ghép đúng
-  tài khoản, máy và IP/cổng. Không giữ file NC hay ticket gửi cũ. Có nút
-  Quên ghép; đăng xuất/đổi tài khoản sẽ xóa ghép. Tải lại trang hoặc mở tab
-  mới cần ghép lại. Manager đổi/dừng phiên làm mã cũ mất hiệu lực.
-- Nút X thu nhỏ vào khay: giám sát và phiên truyền đang bật vẫn tiếp tục.
-  Thoát quản lý sẽ dừng tiện ích truyền, các cầu nối giám sát con vẫn chạy.
-  Nếu có thao tác truyền/nhận CNC đang diễn ra, chờ hoàn tất mới được thoát.
-- Không sửa/gỡ cấu hình máy đang có phiên truyền; dừng phiên đó trước.
-- Dừng phiên truyền chỉ ngừng tiện ích trên laptop, không dừng CNC.
-- Cầu nối giám sát vẫn chỉ đọc, không được thêm lệnh ghi hay đọc PMC.
-  Chức năng ghi chương trình nằm trong mô-đun truyền riêng có xác nhận.
+TRUYỀN/NHẬN BẰNG MẬT KHẨU RIÊNG — KHÔNG CẦN MÃ GHÉP
+- Bản này dùng mật khẩu truyền/nhận riêng, độc lập mật khẩu CMMS.
+- Lần đầu: chọn máy đã lưu → Truyền trên web → nhập mật khẩu riêng
+  trong ô thiết lập → Lưu mật khẩu riêng. Nhập mật khẩu do anh chọn;
+  gói công khai không có mật khẩu mặc định hoặc verifier dùng chung.
+- Chỉ thiết lập một lần trên laptop. Cấu hình kiểm tra mật khẩu lưu tại
+  %LOCALAPPDATA%\LTD\CncBridgeManager\machines\transfer-auth.json,
+  dạng PBKDF2-SHA256 có salt ngẫu nhiên; không lưu mật khẩu dạng rõ.
+- Khi đã đặt mật khẩu, chọn máy đã lưu sẽ tự bật truy cập web nếu chưa
+  có máy khác đang bật. Nếu chưa bật, bấm Bật cho máy đang chọn.
+- Trên chính laptop này: mở web → chi tiết máy → Truyền chương trình →
+  nhập mật khẩu truyền/nhận riêng → Đăng nhập truyền/nhận.
+- Không nhập mật khẩu đăng nhập web vào ô này. Không cần chép mã ghép.
+- Đổi mật khẩu: dừng truy cập truyền trước, nhập mật khẩu mới rồi lưu.
+  Các phiên cũ mất hiệu lực sau khi dừng/đổi mật khẩu.
+- Đóng/mở khung truyền trong cùng tab giữ phiên đăng nhập tối đa 30 phút.
+  Không lưu mật khẩu hay phiên vào localStorage/sessionStorage/file web.
+- Đăng xuất truyền/nhận để kết thúc phiên; đăng xuất/đổi tài khoản web
+  cũng xóa phiên đã nhớ và gửi yêu cầu thu hồi phiên cục bộ.
+- Nhập sai 5 lần bị chặn đăng nhập 60 giây. Không có chức năng bỏ qua
+  mật khẩu, force bit, đổi mode hoặc chạy chương trình từ xa.
 
-GIỚI HẠN TRUYỀN
-- Truyền vào bộ nhớ CNC để chọn/chạy tại máy; không chạy DNC.
-- Một file ASCII, một chương trình O0001–O7999, % đầu/cuối, tối đa 2 MiB.
-  Gửi cần M02/M30, CNC dừng trong EDIT, không alarm/emergency, một path.
-- Không ghi đè số O đã có, không xóa/chọn/chạy chương trình từ xa.
-- Có danh sách bộ nhớ, xem chương trình và nhận về file .nc trên trình duyệt.
-- Xác nhận gửi gồm máy/IP, số O và SHA256; ticket dùng một lần, hết hạn
-  sau 2 phút. Kiểm tra lại nội dung, trạng thái và số O trước khi ghi.
-- Nếu mất mạng khi truyền, có thể còn chương trình chưa hoàn chỉnh.
-  Kiểm tra tại máy; không tự gửi lại hoặc xóa chương trình.
-- Xác nhận CNC nhận xong không xác nhận gia công an toàn. Người vận hành
-  kiểm tra toàn bộ mã, dao, gốc tọa độ, offset và quy trình chạy thử.
-- Không truyền đồng thời từ công cụ khác vào cùng CNC.
+TRUYỀN CHƯƠNG TRÌNH
+- Chọn file, kiểm tra đúng máy/IP và số O trong nội dung.
+- Kiểm tra đạt → bấm Truyền để gửi ngay, không gõ câu xác nhận.
+- CNC phải dừng ở EDIT, không alarm/emergency; chỉ máy một path.
+- Một file ASCII, % đầu/cuối, một chương trình O0001–O7999, M02/M30,
+  tối đa 2 MiB. Không ghi đè số O đã có hoặc xóa chương trình trên CNC.
+- Danh sách, xem nội dung và nhận file .nc lấy từ bộ nhớ CNC thực tế.
+- Ticket kiểm tra dùng một lần, hết hạn 2 phút, gắn đúng file và phiên
+  đăng nhập; trạng thái máy, hash và số O được kiểm tra lại trước khi ghi.
+- Truyền vào bộ nhớ, không chạy DNC. Người vận hành kiểm tra toàn bộ mã,
+  dao/gốc/offset và quy trình chạy thử trước khi chọn chạy tại CNC.
+- Nếu mất mạng, có thể còn chương trình chưa hoàn chỉnh. Kiểm tra tại
+  máy; không tự gửi lại/xóa. Không truyền đồng thời bằng công cụ khác.
 
-BẢO MẬT PHIÊN TRUYỀN
-- Chỉ lắng nghe ở 127.0.0.1:8766, không trên LAN/Internet.
-- Chỉ nhận nguồn https://storageltd.github.io, đúng mã phiên và IP/cổng
-  đã ghim. Không mở cổng router; không đưa file NC lên Firebase.
-- Mã phiên chỉ trong bộ nhớ/clipboard, không ghi vào cấu hình hay nhật ký.
-- Giữ Manager chạy và laptop không Sleep. Cho phép quyền mạng cục bộ
-  trong trình duyệt nếu được hỏi. Nếu IT chặn, cần IT cho phép.
-- Không dùng mã ghép để điều khiển từ điện thoại/laptop khác trong bản này.
+KẾT NỐI VÀ BẢO MẬT
+- Dùng chung lib và cấu hình máy đã lưu; không cần mở ứng dụng truyền riêng.
+- Một phiên truy cập cho một máy tại một thời điểm. Muốn đổi máy, dừng
+  truy cập máy cũ rồi chọn máy khác. Giám sát nhiều máy vẫn hoạt động.
+- Chỉ lắng nghe 127.0.0.1:8766, chỉ nhận nguồn web công ty và IP/cổng
+  đã ghim. Không mở cổng router, không gửi file NC/mật khẩu lên Firebase.
+- Mật khẩu chỉ gửi tới tiện ích localhost trên chính laptop. Phiên ngẫu
+  nhiên chỉ trong RAM và được thu hồi khi dừng Manager hoặc hết hạn.
+- Nút X thu nhỏ vào khay: giám sát và truyền vẫn tiếp tục. Thoát Manager
+  dừng truy cập truyền; các cầu nối giám sát con vẫn chạy. Chờ thao tác
+  CNC hoàn tất mới được dừng/thoát. Laptop phải bật, không Sleep.
+- Nếu trình duyệt hỏi quyền mạng cục bộ, cho phép. Nếu IT chặn, cần IT
+  cho phép; không tắt bảo vệ trình duyệt.
+- Cầu nối giám sát vẫn chỉ đọc; mô-đun ghi chương trình là phần riêng.
 
-LỖI KHỞI ĐỘNG
-- Đã bổ sung System.Xml.dll khi biên dịch mô-đun truyền trên Windows
-  PowerShell 5.1/.NET Framework; đây là một lỗi ở gói truyền trước.
-- Mô-đun truyền chỉ nạp khi bật tính năng. Nếu lỗi, chi tiết giữ trong
-  tab Truyền chương trình; không làm tắt giám sát.
-- Nếu Manager không khởi động, cửa sổ lỗi hiển thị nội dung có thể sao chép.
-  Nhật ký lưu tại %LOCALAPPDATA%\LTD\CncBridgeManager\manager-startup-error.log.
-  Giữ lại nội dung lỗi, không gửi mật khẩu hoặc mã ghép.
-
-KIỂM CHỨNG BẢN TÍCH HỢP
-- Tái hiện lỗi thiếu System.Xml bằng bộ tham chiếu .NET Framework 4.8.
-- Mã truyền đã biên dịch/emit bằng C# 5 và bộ tham chiếu .NET Framework
-  đúng danh sách DLL của bản phát hành; chưa chạy WinForms trên Windows.
-- Đã kiểm tra tích hợp chọn máy đã lưu, hash, DLL chung, bật/tắt tự nguyện,
-  chặn dừng khi bận, không sửa cấu hình hoặc lưu mã phiên; native/API và
-  trình duyệt dùng máy CNC mô phỏng. Chưa truyền vào CNC thật.
+LỖI VÀ KIỂM CHỨNG
+- Truyền chỉ nạp khi dùng; nếu lỗi, chi tiết giữ trong tab Truyền.
+- Lỗi khởi động Manager hiển thị cửa sổ có thể sao chép và lưu tại
+  %LOCALAPPDATA%\LTD\CncBridgeManager\manager-startup-error.log.
+  Không gửi mật khẩu hoặc token khi báo lỗi.
+- Đã kiểm tra C# 5/.NET Framework 4.8, lưu/kiểm tra mật khẩu, phiên,
+  chặn thử sai, native/API và trình duyệt bằng máy CNC mô phỏng.
+  Chưa chạy WinForms trên Windows hoặc truyền vào CNC thật.
 
 THÊM / SỬA / GỠ MÁY
 - + Thêm máy → chọn mẫu Vertical Mill, Horizontal Mill, Lathe hoặc Custom.

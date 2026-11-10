@@ -3,9 +3,15 @@ $script:ManagerTransferServer=$null;$script:ManagerTransferTarget=$null;$script:
 function Initialize-ManagerTransfer {
  if($script:ManagerTransferReady){return}
  if(-not ('LtdWebTransferServer' -as [type])){
-  Add-Type -Path @((Join-Path $PSScriptRoot 'transfer/ProgramTransfer.cs'),(Join-Path $PSScriptRoot 'transfer/WebTransferServer.cs')) -ReferencedAssemblies @('System.dll','System.Core.dll','System.Runtime.Serialization.dll','System.Xml.dll')
+  Add-Type -Path @((Join-Path $PSScriptRoot 'transfer/ProgramTransfer.cs'),(Join-Path $PSScriptRoot 'transfer/WebTransferServer.cs'),(Join-Path $PSScriptRoot 'transfer/TransferPasswordStore.cs')) -ReferencedAssemblies @('System.dll','System.Core.dll','System.Runtime.Serialization.dll','System.Xml.dll')
  }
  $script:ManagerTransferReady=$true
+}
+function Get-ManagerTransferPasswordPath {return Join-Path $script:ManagerHome 'transfer-auth.json'}
+function Set-ManagerTransferPassword([string]$Password){
+ if($script:ManagerTransferServer){throw 'Dừng truy cập truyền trên web trước khi đổi mật khẩu.'}
+ Initialize-ManagerTransfer
+ [TransferPasswordStore]::Save((Get-ManagerTransferPasswordPath),$Password)
 }
 function Start-ManagerTransfer([string]$Id,[string]$ExpectedHash){
  if($script:ManagerTransferServer){throw 'Đang bật truyền cho một máy. Dừng phiên cũ trước khi chọn máy khác.'}
@@ -15,7 +21,7 @@ function Start-ManagerTransfer([string]$Id,[string]$ExpectedHash){
  $saved=Get-Content -LiteralPath $path -Raw -Encoding UTF8|ConvertFrom-Json
  Initialize-ManagerTransfer
  [FanucProgramTransfer]::LoadLibrary((Join-Path $script:ManagerPackage 'lib'))
- $server=New-Object LtdWebTransferServer([string]$saved.cncIp,[uint16]$saved.port,(Join-Path $script:ManagerPackage 'lib'),8766)
+ $server=New-Object LtdWebTransferServer([string]$saved.cncIp,[uint16]$saved.port,(Join-Path $script:ManagerPackage 'lib'),8766,(Get-ManagerTransferPasswordPath))
  try{$server.Start()}catch{$server.Dispose();throw}
  $script:ManagerTransferServer=$server
  $script:ManagerTransferTarget=[pscustomobject]@{id=$saved.machineId;name=$saved.machineName;ip=$saved.cncIp;port=$saved.port}

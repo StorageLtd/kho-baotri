@@ -8,9 +8,10 @@ function Assert($ok,[string]$Message){if(-not $ok){throw $Message}}
 Add-Type -TypeDefinition @'
 using System;
 public static class FanucProgramTransfer {public static int Loads;public static string Library;public static void LoadLibrary(string library){Loads++;Library=library;}}
+public static class TransferPasswordStore {public static string SavedPath;public static void Save(string path,string password){SavedPath=path;}}
 public sealed class LtdWebTransferServer:IDisposable {
- public string Ip,Library,SessionCode=new string('A',64);public ushort Port;public bool Busy,Started,Disposed;public int WebPort;
- public LtdWebTransferServer(string ip,ushort port,string library,int webPort){Ip=ip;Port=port;Library=library;WebPort=webPort;}
+ public string Ip,Library,PasswordPath;public ushort Port;public bool Busy,Started,Disposed;public int WebPort;
+ public LtdWebTransferServer(string ip,ushort port,string library,int webPort,string passwordPath){Ip=ip;Port=port;Library=library;WebPort=webPort;PasswordPath=passwordPath;}
  public void Start(){Started=true;}public bool TryStop(){return !Busy;}public void Dispose(){Disposed=true;}
 }
 '@
@@ -21,10 +22,11 @@ try{
  $machine=[pscustomobject]@{machineId='test';machineName='Máy thử';cncIp='192.168.1.11';port=8193;intervalSeconds=5;model='0i-MF';machineKind='unknown';orientation='unknown';machineTemplate='custom';axisNames='X,Y,Z';spindleCount=1;offsetTable='unverified';offsetProfileConfirmed=$false;partsPerCount=1;partCounterVerified=$false}
  $saved=Save-MachineConfig $machine;$path=Get-MachineConfigPath 'test';$before=[IO.File]::ReadAllText($path);$hash=(Get-FileHash $path).Hash
  foreach($case in @(@('',''),@('test','stale'))){$failed=$false;try{$null=Start-ManagerTransfer $case[0] $case[1]}catch{$failed=$true};Assert ($failed -and [FanucProgramTransfer]::Loads -eq 0) 'Missing/stale configuration reached transfer loader'}
+ Set-ManagerTransferPassword 'fixture-transfer-pass';Assert ([TransferPasswordStore]::SavedPath -eq (Get-ManagerTransferPasswordPath)) 'Password configuration outside Manager data folder'
  $server=Start-ManagerTransfer 'test' $hash
  Assert ($server.Started -and $server.Ip -eq $saved.cncIp -and $server.Port -eq 8193 -and $server.WebPort -eq 8766) 'Transfer did not use stored selected machine'
  Assert ($server.Library -eq (Join-Path $script:ManagerPackage 'lib')) 'Separate DLL folder incorrectly required'
- Assert ($script:ManagerTransferTarget.id -eq 'test' -and $script:ManagerTransferServer.SessionCode.Length -eq 64) 'Selected target or pairing code lost'
+ Assert ($script:ManagerTransferTarget.id -eq 'test' -and $script:ManagerTransferServer.PasswordPath -eq (Get-ManagerTransferPasswordPath)) 'Selected target or pairing code lost'
  $failed=$false;try{$null=Start-ManagerTransfer 'test' $hash}catch{$failed=$true};Assert ($failed -and [FanucProgramTransfer]::Loads -eq 1) 'Active companion retargeted or duplicated'
  $server.Busy=$true;Assert (-not (Stop-ManagerTransfer) -and -not $server.Disposed -and $null -ne $script:ManagerTransferTarget) 'Active CNC transfer interrupted'
  $server.Busy=$false;Assert ((Stop-ManagerTransfer) -and $server.Disposed -and $null -eq $script:ManagerTransferServer -and $null -eq $script:ManagerTransferTarget) 'Stop did not revoke companion'

@@ -1,6 +1,6 @@
 ﻿$ErrorActionPreference='Stop'
 $root=Split-Path $PSScriptRoot -Parent
-Add-Type -Path @((Join-Path $root 'tools/fanuc-program-transfer/ProgramTransfer.cs'),(Join-Path $root 'tools/fanuc-program-transfer/WebTransferServer.cs'))
+Add-Type -Path @((Join-Path $root 'tools/fanuc-program-transfer/ProgramTransfer.cs'),(Join-Path $root 'tools/fanuc-program-transfer/WebTransferServer.cs'),(Join-Path $root 'tools/fanuc-program-transfer/TransferPasswordStore.cs'))
 function Assert($Value,[string]$Message){if(-not $Value){throw $Message}}
 $flags=[Reflection.BindingFlags]'NonPublic,Static'
 [FanucProgramTransfer].GetField('loadedDirectory',$flags).SetValue($null,'fixture')
@@ -31,7 +31,7 @@ try{
  }
  foreach($script in @('Start-WebTransfer.ps1','Start-Transfer.ps1')){$errors=$null;$tokens=$null;$null=[Management.Automation.Language.Parser]::ParseFile((Join-Path $root "tools/fanuc-program-transfer/$script"),[ref]$tokens,[ref]$errors);Assert ($errors.Count -eq 0) ('GUI syntax: '+$script)}
  $socket=New-Object Net.Sockets.TcpListener([Net.IPAddress]::Loopback,0);$socket.Start();$localPort=([Net.IPEndPoint]$socket.LocalEndpoint).Port;$socket.Stop()
- $server=New-Object LtdWebTransferServer('192.168.1.1',8193,'fixture',$localPort);$server.Start();$token=$server.SessionCode
+ $passwordPath=Join-Path $folder 'transfer-auth.json';[TransferPasswordStore]::Save($passwordPath,'fixture-transfer-pass');$passwords=New-Object TransferPasswordStore($passwordPath);Assert ($passwords.Verify('fixture-transfer-pass') -and -not $passwords.Verify('wrong-password')) 'Password verification failed';Assert (-not [IO.File]::ReadAllText($passwordPath).Contains('fixture-transfer-pass')) 'Plaintext password saved';$server=New-Object LtdWebTransferServer('192.168.1.1',8193,'fixture',$localPort,$passwordPath);$server.Start();$token=''
  $client=New-Object Net.Http.HttpClient;$client.Timeout=[TimeSpan]::FromSeconds(10)
  function Request([string]$Action,[hashtable]$Extra=@{},[string]$Origin='https://storageltd.github.io',[string]$Token=$token){
   $request=New-Object Net.Http.HttpRequestMessage([Net.Http.HttpMethod]::Post,"http://127.0.0.1:$localPort/transfer");$null=$request.Headers.TryAddWithoutValidation('Origin',$Origin);$null=$request.Headers.TryAddWithoutValidation('X-LTD-Token',$Token)
@@ -39,9 +39,9 @@ try{
   $request.Content=New-Object Net.Http.StringContent(($body|ConvertTo-Json -Compress),[Text.Encoding]::UTF8,'application/json')
   try{$r=$client.SendAsync($request).GetAwaiter().GetResult();$json=$r.Content.ReadAsStringAsync().GetAwaiter().GetResult();return @{code=[int]$r.StatusCode;data=($json|ConvertFrom-Json);cors=$r.Headers.Contains('Access-Control-Allow-Origin')}}finally{$request.Dispose()}
  }
- [TxFixture]::tx_reset(0);$r=Request connect;Assert ($r.code -eq 200 -and $r.data.ok -and $r.data.ip -eq '192.168.1.1') 'Pairing or serialization'
+ [TxFixture]::tx_reset(0);$r=Request connect;Assert ($r.code -eq 401 -and [TxFixture]::tx_opened() -eq 0) 'Unauthenticated request reached CNC';$r=Request login @{password='wrong-password'};Assert ($r.code -eq 401 -and [TxFixture]::tx_opened() -eq 0) 'Wrong password reached CNC';$r=Request login @{password='fixture-transfer-pass'};Assert ($r.code -eq 200 -and $r.data.token.Length -eq 64) 'Password login failed';$token=$r.data.token;$r=Request connect;Assert ($r.code -eq 200 -and $r.data.ok -and $r.data.ip -eq '192.168.1.1') 'Pairing or serialization'
  $r=Request list @{} 'https://evil.example';Assert ($r.code -eq 403 -and -not $r.cors -and [TxFixture]::tx_opened() -eq 0) 'Untrusted origin reached CNC'
- $r=Request list @{} 'https://storageltd.github.io' 'bad';Assert ($r.code -eq 403 -and [TxFixture]::tx_opened() -eq 0) 'Invalid token reached CNC'
+ $r=Request list @{} 'https://storageltd.github.io' 'bad';Assert ($r.code -eq 401 -and [TxFixture]::tx_opened() -eq 0) 'Invalid token reached CNC'
  $r=Request list @{ip='192.168.1.2'};Assert ($r.code -eq 400 -and [TxFixture]::tx_opened() -eq 0) 'Different CNC reached'
  $r=Request list;Assert ($r.code -eq 200 -and $r.data.programs.Count -eq 2) 'Web list ABI'
  $r=Request send @{content=$content;hash=$selected.Hash;confirmation='TRUYEN O2000'};Assert ($r.code -eq 400 -and [TxFixture]::tx_starts() -eq 0) 'No-ticket send reached CNC'
@@ -53,6 +53,12 @@ try{
  [TxFixture]::tx_reset(0);$check=Request inspect @{content=$content};[LtdWebTransferServer].GetField('ticketExpiry',[Reflection.BindingFlags]'NonPublic,Instance').SetValue($server,[DateTime]::UtcNow.AddMinutes(-1));$r=Request send @{content=$content;hash=$check.data.hash;ticket=$check.data.ticket;confirmation='TRUYEN O2000'};Assert ($r.code -eq 400 -and [TxFixture]::tx_starts() -eq 0) 'Expired inspection accepted'
  $preflight=New-Object Net.Http.HttpRequestMessage([Net.Http.HttpMethod]::Options,"http://127.0.0.1:$localPort/transfer");$null=$preflight.Headers.TryAddWithoutValidation('Origin','https://storageltd.github.io');$null=$preflight.Headers.TryAddWithoutValidation('Access-Control-Request-Private-Network','true');$r=$client.SendAsync($preflight).GetAwaiter().GetResult();Assert ([int]$r.StatusCode -eq 200 -and $r.Headers.Contains('Access-Control-Allow-Private-Network')) 'Loopback preflight failed';$preflight.Dispose()
  [TxFixture]::tx_reset(0);$r=Request receive @{number=1234};Assert ($r.code -eq 200 -and $r.data.text -match 'O1234' -and [TxFixture]::tx_starts() -eq 0) 'Receive triggered download'
+ [TxFixture]::tx_reset(0);$other=Request login @{password='fixture-transfer-pass'};$otherToken=$other.data.token;$r=Request logout @{} 'https://storageltd.github.io' $otherToken;Assert ($r.code -eq 200) 'Logout failed';$r=Request connect @{} 'https://storageltd.github.io' $otherToken;Assert ($r.code -eq 401 -and [TxFixture]::tx_opened() -eq 0) 'Revoked session reached CNC'
+ $oldHash=[IO.File]::ReadAllText($passwordPath);[TransferPasswordStore]::Save($passwordPath,'fixture-transfer-pass');Assert ([IO.File]::ReadAllText($passwordPath) -cne $oldHash) 'Password salt was reused'
+ $r=Request connect;Assert ($r.code -eq 401 -and [TxFixture]::tx_opened() -eq 0) 'Password change did not revoke existing sessions'
+ $r=Request login @{password='fixture-transfer-pass'};Assert ($r.code -eq 200) 'Login after password rotation failed';$token=$r.data.token
+ for($i=0;$i -lt 5;$i++){$r=Request login @{password='wrong-password'};Assert ($r.code -eq 401) 'Wrong password accepted'}
+ $r=Request login @{password='fixture-transfer-pass'};Assert ($r.code -eq 429 -and [TxFixture]::tx_opened() -eq 0) 'Login throttling failed'
  [TxFixture]::tx_reset(11)
  $pendingRequest=New-Object Net.Http.HttpRequestMessage([Net.Http.HttpMethod]::Post,"http://127.0.0.1:$localPort/transfer");$null=$pendingRequest.Headers.TryAddWithoutValidation('Origin','https://storageltd.github.io');$null=$pendingRequest.Headers.TryAddWithoutValidation('X-LTD-Token',$token);$pendingRequest.Content=New-Object Net.Http.StringContent((@{action='inspect';ip='192.168.1.1';port=8193;content=$content}|ConvertTo-Json -Compress),[Text.Encoding]::UTF8,'application/json')
  $pending=$client.SendAsync($pendingRequest);$wait=[Diagnostics.Stopwatch]::StartNew();while(-not $server.Busy -and -not $pending.IsCompleted -and $wait.ElapsedMilliseconds -lt 3000){Start-Sleep -Milliseconds 5}

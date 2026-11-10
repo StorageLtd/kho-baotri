@@ -12,7 +12,7 @@ using System.Security.Cryptography;
 // Loopback companion for the company's website. No Firebase queue or internet listener.
 public sealed class LtdWebTransferServer : IDisposable {
  [DataContract] public sealed class Request {
-  [DataMember] public string action,ip,content,hash,confirmation,ticket;
+  [DataMember] public string action,ip,content,hash,confirmation,ticket,password;
   [DataMember] public int port,number;
  }
  [DataContract] public sealed class Entry {
@@ -21,23 +21,28 @@ public sealed class LtdWebTransferServer : IDisposable {
  }
  [DataContract] public sealed class Response {
   [DataMember] public bool ok;
-  [DataMember] public string message,ip,program,hash,ticket,text;
+  [DataMember] public string message,ip,program,hash,ticket,text,token;
   [DataMember] public int port;
   [DataMember] public Entry[] programs;
  }
  private readonly TcpListener listener;private readonly string target,library,origin;private readonly ushort cncPort;private readonly int webPort;
  private volatile bool running,busy;private Thread worker;private readonly object gate=new object();private string log="Sẵn sàng.";
- private string ticket,ticketHash;private DateTime ticketExpiry;private string sessionCode;
- public string SessionCode {get{return sessionCode;}}public bool Busy {get{return busy;}}public string LastMessage {get{lock(gate){return log;}}}
- public LtdWebTransferServer(string ip,ushort port,string lib,int localPort){
+ private string ticket,ticketHash,ticketSession;private DateTime ticketExpiry;
+ private readonly TransferPasswordStore passwords;
+ private readonly Dictionary<string,DateTime> sessions=new Dictionary<string,DateTime>();
+ private int failedLogins;private DateTime blockedUntil;
+ private string currentSession,authRevision;
+ public bool Busy {get{return busy;}}public string LastMessage {get{lock(gate){return log;}}}
+ public LtdWebTransferServer(string ip,ushort port,string lib,int localPort):this(ip,port,lib,localPort,TransferPasswordStore.DefaultPath){}
+ public LtdWebTransferServer(string ip,ushort port,string lib,int localPort,string passwordPath){
   FanucProgramTransfer.ValidateTarget(ip,port);if(localPort<1024||localPort>65535)throw new ArgumentException("Invalid local port.");
   target=ip;cncPort=port;library=lib;webPort=localPort;origin="https://storageltd.github.io";
   listener=new TcpListener(IPAddress.Loopback,localPort);listener.ExclusiveAddressUse=true;
-  sessionCode=RandomCode();
+  passwords=new TransferPasswordStore(passwordPath);authRevision=passwords.Revision;
  }
  private static string RandomCode(){byte[] bytes=new byte[32];using(RandomNumberGenerator rng=RandomNumberGenerator.Create()){rng.GetBytes(bytes);}return BitConverter.ToString(bytes).Replace("-","");}
  public void Start(){listener.Start(4);running=true;worker=new Thread(Serve);worker.IsBackground=true;worker.Start();}
- public bool TryStop(){lock(gate){if(busy)return false;running=false;ticket=null;}listener.Stop();return true;}
+ public bool TryStop(){lock(gate){if(busy)return false;running=false;ticket=null;sessions.Clear();}listener.Stop();return true;}
  public void Stop(){if(!TryStop())throw new InvalidOperationException("CNC operation is active; wait before closing.");}
  public void Dispose(){Stop();if(worker!=null)worker.Join(250);}
  private void Note(string message){lock(gate){log=DateTime.Now.ToString("HH:mm:ss")+" · "+message;}}
@@ -56,7 +61,8 @@ public sealed class LtdWebTransferServer : IDisposable {
    if(first.Length!=3||first[1]!="/transfer"){Reply(stream,404,new Response{message="Unknown endpoint."},true);return;}
    if(first[0]=="OPTIONS"){Reply(stream,200,new Response{ok=true},true);return;}
    string code,contentType,lengthText;int length;
-   if(first[0]!="POST"||map.ContainsKey("Transfer-Encoding")||!map.TryGetValue("X-LTD-Token",out code)||!SameCode(code,sessionCode)){Reply(stream,403,new Response{message="Invalid session code."},true);return;}
+   if(first[0]!="POST"||map.ContainsKey("Transfer-Encoding")){Reply(stream,403,new Response{message="POST JSON only."},true);return;}
+   map.TryGetValue("X-LTD-Token",out code);
    if(!map.TryGetValue("Content-Type",out contentType)||!contentType.StartsWith("application/json",StringComparison.OrdinalIgnoreCase)||!map.TryGetValue("Content-Length",out lengthText)||!int.TryParse(lengthText,out length)||length<2||length>5*1024*1024){Reply(stream,400,new Response{message="Invalid JSON body size/type."},true);return;}
    byte[] bytes=new byte[length];int read=0;while(read<length){int count=stream.Read(bytes,read,length-read);if(count==0)return;read+=count;}
    bool accepted;lock(gate){accepted=running;if(accepted)busy=true;}
@@ -64,7 +70,19 @@ public sealed class LtdWebTransferServer : IDisposable {
    try{
     Request request;using(MemoryStream data=new MemoryStream(bytes)){request=(Request)new DataContractJsonSerializer(typeof(Request)).ReadObject(data);}
     if(!running)throw new InvalidOperationException("Tiện ích đã dừng.");
-    Response result=Execute(request);Reply(stream,200,result,true);
+    if(request==null||request.ip!=target||request.port!=cncPort)throw new InvalidOperationException("Máy trên web khác máy đã chọn trong Manager. Kiểm tra IP/cổng.");
+    string revision=passwords.Revision;if(revision!=authRevision){sessions.Clear();ticket=null;authRevision=revision;}
+    if(request.action=="login"){
+     if(DateTime.UtcNow<blockedUntil){Reply(stream,429,new Response{message="Nhập sai nhiều lần. Chờ 60 giây rồi đăng nhập lại."},true);return;}
+     bool valid;try{valid=passwords.Verify(request.password);}finally{request.password=null;}
+     if(!valid){failedLogins++;if(failedLogins>=5){blockedUntil=DateTime.UtcNow.AddSeconds(60);failedLogins=0;}Reply(stream,401,new Response{message="Mật khẩu truyền/nhận không đúng."},true);return;}
+     failedLogins=0;DateTime now=DateTime.UtcNow;List<string> expired=new List<string>();foreach(KeyValuePair<string,DateTime> entry in sessions)if(entry.Value<=now)expired.Add(entry.Key);foreach(string old in expired)sessions.Remove(old);
+     if(sessions.Count>=8)sessions.Clear();string token=RandomCode();sessions[token]=now.AddMinutes(30);
+     Reply(stream,200,new Response{ok=true,token=token,ip=target,port=cncPort,message="Đăng nhập truyền/nhận thành công."},true);return;
+    }
+    DateTime expires;if(code==null||!sessions.TryGetValue(code,out expires)||DateTime.UtcNow>=expires){if(code!=null)sessions.Remove(code);Reply(stream,401,new Response{message="Phiên truyền đã hết hạn. Đăng nhập bằng mật khẩu truyền/nhận."},true);return;}
+    if(request.action=="logout"){sessions.Remove(code);if(ticketSession==code)ticket=null;Reply(stream,200,new Response{ok=true,message="Đã đăng xuất truyền/nhận."},true);return;}
+    currentSession=code;Response result=Execute(request);Reply(stream,200,result,true);
    }catch(Exception e){Note("Lỗi: "+e.Message);Reply(stream,400,new Response{message=e.Message,ip=target,port=cncPort},true);}
    finally{busy=false;}
   }
@@ -72,7 +90,7 @@ public sealed class LtdWebTransferServer : IDisposable {
  private Response Execute(Request request){
   if(request==null||request.ip!=target||request.port!=cncPort)throw new InvalidOperationException("Máy trên web khác máy đã chọn tại tiện ích laptop. Kiểm tra IP/cổng.");
   Response result=new Response{ok=true,ip=target,port=cncPort};
-  if(request.action=="connect"){result.message="Đã ghép tiện ích laptop. Chưa kiểm tra kết nối CNC.";return result;}
+  if(request.action=="connect"){result.message="Đã xác thực phiên truyền/nhận. Chưa kiểm tra kết nối CNC.";return result;}
   if(request.action=="list"){
    FanucProgramTransfer.ProgramEntry[] list=FanucProgramTransfer.ListPrograms(target,cncPort,library);List<Entry> rows=new List<Entry>();
    foreach(FanucProgramTransfer.ProgramEntry p in list)rows.Add(new Entry{number=p.Number,length=p.Length,program=p.Program,comment=p.Comment,modified=p.Modified});result.programs=rows.ToArray();result.message="Đã đọc "+rows.Count+" chương trình trong bộ nhớ CNC.";
@@ -87,9 +105,9 @@ public sealed class LtdWebTransferServer : IDisposable {
     FanucProgramTransfer.SelectedProgram selected=FanucProgramTransfer.ValidateFile(path);
     result.hash=selected.Hash;result.program=selected.Program;
     if(request.action=="inspect"){
-     ticket=null;result.message=FanucProgramTransfer.Inspect(target,cncPort,library,path);ticket=RandomCode();ticketHash=selected.Hash;ticketExpiry=DateTime.UtcNow.AddMinutes(2);result.ticket=ticket;
+     ticket=null;result.message=FanucProgramTransfer.Inspect(target,cncPort,library,path);ticket=RandomCode();ticketHash=selected.Hash;ticketSession=currentSession;ticketExpiry=DateTime.UtcNow.AddMinutes(2);result.ticket=ticket;
     }else{
-     bool valid=SameCode(request.ticket,ticket)&&request.hash==ticketHash&&selected.Hash==ticketHash&&DateTime.UtcNow<ticketExpiry;
+     bool valid=ticketSession==currentSession&&SameCode(request.ticket,ticket)&&request.hash==ticketHash&&selected.Hash==ticketHash&&DateTime.UtcNow<ticketExpiry;
      ticket=null;
      if(!valid)throw new InvalidOperationException("Kiểm tra trước truyền đã hết hạn hoặc file thay đổi. Kiểm tra lại.");
      result.message=FanucProgramTransfer.Send(target,cncPort,library,path,request.hash,request.confirmation);

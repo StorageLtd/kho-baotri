@@ -17,7 +17,7 @@ try {
  $form=New-Object Windows.Forms.Form;$form.Text='LTD CNC Bridge Manager';$form.Size=New-Object Drawing.Size(1260,720);$form.MinimumSize=New-Object Drawing.Size(1120,680);$form.StartPosition='CenterScreen';$form.Font=New-Object Drawing.Font('Segoe UI',10);$form.BackColor=[Drawing.Color]::FromArgb(237,242,248);$form.AutoScaleMode='Dpi'
  $header=New-Object Windows.Forms.Panel;$header.Dock='Top';$header.Height=85;$header.BackColor=[Drawing.Color]::FromArgb(16,42,64);$form.Controls.Add($header)
  $brand=New-Object Windows.Forms.Label;$brand.Text='LTD  |  CNC BRIDGE MANAGER';$brand.ForeColor=[Drawing.Color]::White;$brand.Font=New-Object Drawing.Font('Segoe UI',18,[Drawing.FontStyle]::Bold);$brand.SetBounds(145,14,850,32);$header.Controls.Add($brand)
- $sub=New-Object Windows.Forms.Label;$sub.Text='Thư viện máy · Cấu hình kết nối · Build 20261110-manager-transfer';$sub.ForeColor=[Drawing.Color]::FromArgb(165,205,224);$sub.SetBounds(148,50,900,22);$header.Controls.Add($sub)
+ $sub=New-Object Windows.Forms.Label;$sub.Text='Thư viện máy · Cấu hình kết nối · Build 20261110-transfer-password';$sub.ForeColor=[Drawing.Color]::FromArgb(165,205,224);$sub.SetBounds(148,50,900,22);$header.Controls.Add($sub)
  $logo=New-Object Windows.Forms.PictureBox;$logo.SetBounds(18,15,108,55);$logo.SizeMode='Zoom';$logo.Image=[Drawing.Image]::FromFile((Join-Path $PSScriptRoot 'logo.jpg'));$header.Controls.Add($logo)
  $bar=New-Object Windows.Forms.FlowLayoutPanel;$bar.Dock='Top';$bar.Height=88;$bar.WrapContents=$true;$bar.Padding=New-Object Windows.Forms.Padding(10,7,10,3);$bar.BackColor=[Drawing.Color]::White;$form.Controls.Add($bar);$bar.BringToFront()
  function New-ToolbarButton([string]$Text,[int]$Width=125){$b=New-Object Windows.Forms.Button;$b.Text=$Text;$b.Width=$Width;$b.Height=33;$b.FlatStyle='Flat';$b.BackColor=[Drawing.Color]::White;$b.FlatAppearance.BorderColor=[Drawing.Color]::FromArgb(193,209,224);[void]$bar.Controls.Add($b);return $b}
@@ -89,6 +89,7 @@ try {
   $index=0;for($i=0;$i -lt $templates.Count;$i++){if($templates[$i].id -eq $c.machineTemplate){$index=$i;break}};$preset.SelectedIndex=$index
   $script:Loading=$false;Update-Hint
   $script:InitialFormState=Get-FormFingerprint
+  if($Saved){Try-AutoStartManagerTransfer}
   $loginPassword.Clear();$script:LoginMachineId=if($Saved){$c.machineId}else{''};$loginMachine.Text=if($Saved){$c.machineName+'  |  '+$c.cncIp+':'+$c.port}else{'Lưu cấu hình máy trước khi đăng nhập.'}
   $running=$Saved -and ($null -ne (Get-ManagerProcess $c.machineId));$run.Enabled=$Saved -and -not $running;$stop.Enabled=$running;$save.Enabled=-not $running;$remove.Enabled=$Saved -and -not $running;$loginSubmit.Enabled=$Saved -and -not $running
   $connectionInfo.Text="Cấu hình: $($c.machineName)`r`nCNC: $($c.cncIp):$($c.port)`r`n`r`nKiểm tra FOCAS: chỉ đọc, không gửi Firebase.`r`nChạy cầu nối: nhập tài khoản trong tab Đăng nhập CMMS; sau đó chạy nền và gửi dữ liệu về web công ty.`r`nDừng cầu nối không dừng máy CNC.`r`n`r`nThư mục dữ liệu: $script:ManagerHome`r`nNút X thu nhỏ vào khay hệ thống. Laptop phải bật và không Sleep. Dừng cầu nối chỉ ngắt thu thập."
@@ -129,6 +130,7 @@ try {
    $credential=New-Object Management.Automation.PSCredential($loginEmail.Text.Trim(),$secret)
    $loginPassword.Clear();$loginSubmit.Enabled=$false
    $null=Start-ManagerBridge $script:SelectedId $credential
+   Try-AutoStartManagerTransfer
    $statusLabel.Text='Đã chuyển tài khoản trong bộ nhớ. Đang xác thực CMMS rồi kết nối CNC.'
    $tabs.SelectedTab=$connectionTab;Refresh-Tree
   }catch{[void][Windows.Forms.MessageBox]::Show($_.Exception.Message,'Chưa khởi động được cầu nối');$loginSubmit.Enabled=$true}
@@ -146,22 +148,27 @@ try {
  $transferTarget=New-Object Windows.Forms.Label;$transferTarget.SetBounds(24,66,760,45);$transferTarget.Font=New-Object Drawing.Font('Segoe UI',11,[Drawing.FontStyle]::Bold);$transferTarget.Text='Chọn máy đã lưu ở danh sách bên trái.';$transferTab.Controls.Add($transferTarget)
  $transferEnable=New-Object Windows.Forms.Button;$transferEnable.Text='Bật cho máy đang chọn';$transferEnable.SetBounds(24,120,240,38);$transferEnable.BackColor=[Drawing.Color]::FromArgb(10,126,111);$transferEnable.ForeColor=[Drawing.Color]::White;$transferEnable.FlatStyle='Flat';$transferTab.Controls.Add($transferEnable)
  $transferDisable=New-Object Windows.Forms.Button;$transferDisable.Text='Dừng phiên truyền';$transferDisable.SetBounds(280,120,180,38);$transferDisable.Enabled=$false;$transferTab.Controls.Add($transferDisable)
- $transferCodeLabel=New-Object Windows.Forms.Label;$transferCodeLabel.Text='Mã ghép phiên — dán vào mục Truyền chương trình trên web';$transferCodeLabel.SetBounds(24,185,740,27);$transferTab.Controls.Add($transferCodeLabel)
- $transferCode=New-Object Windows.Forms.TextBox;$transferCode.ReadOnly=$true;$transferCode.UseSystemPasswordChar=$true;$transferCode.Font=New-Object Drawing.Font('Consolas',11);$transferCode.SetBounds(24,218,740,30);$transferTab.Controls.Add($transferCode)
- $transferCopy=New-Object Windows.Forms.Button;$transferCopy.Text='Sao chép mã';$transferCopy.SetBounds(24,265,180,35);$transferCopy.Enabled=$false;$transferTab.Controls.Add($transferCopy)
- $transferOpen=New-Object Windows.Forms.Button;$transferOpen.Text='Mở web công ty';$transferOpen.SetBounds(220,265,180,35);$transferTab.Controls.Add($transferOpen)
- $transferInfo=New-Object Windows.Forms.TextBox;$transferInfo.Multiline=$true;$transferInfo.ReadOnly=$true;$transferInfo.ScrollBars='Vertical';$transferInfo.SetBounds(24,320,740,170);$transferInfo.BackColor=[Drawing.Color]::FromArgb(240,247,251);$transferInfo.Text="Chưa bật truyền chương trình.`r`n`r`nDùng chung bộ DLL và cấu hình máy trong Manager. Không mở START-WEB-TRANSFER riêng.`r`nMở web trên laptop này → chọn đúng máy → Truyền chương trình → dán mã ghép.`r`nTruyền vào bộ nhớ CNC cần máy dừng ở EDIT và xác nhận trên web. Không tự chạy, không ghi đè.`r`nNút X chỉ thu nhỏ; phiên truyền vẫn hoạt động ở khay hệ thống.";$transferTab.Controls.Add($transferInfo)
+ $transferPasswordLabel=New-Object Windows.Forms.Label;$transferPasswordLabel.Text='Đặt mật khẩu truyền/nhận riêng (thiết lập một lần trên laptop)';$transferPasswordLabel.SetBounds(24,185,740,27);$transferTab.Controls.Add($transferPasswordLabel)
+ $transferPassword=New-Object Windows.Forms.TextBox;$transferPassword.UseSystemPasswordChar=$true;$transferPassword.MaxLength=128;$transferPassword.SetBounds(24,220,420,30);$transferTab.Controls.Add($transferPassword)
+ $transferSavePassword=New-Object Windows.Forms.Button;$transferSavePassword.Text='Lưu mật khẩu riêng';$transferSavePassword.SetBounds(460,216,210,38);$transferTab.Controls.Add($transferSavePassword)
+ $transferOpen=New-Object Windows.Forms.Button;$transferOpen.Text='Mở web công ty';$transferOpen.SetBounds(24,270,180,35);$transferTab.Controls.Add($transferOpen)
+ $transferInfo=New-Object Windows.Forms.TextBox;$transferInfo.Multiline=$true;$transferInfo.ReadOnly=$true;$transferInfo.ScrollBars='Vertical';$transferInfo.SetBounds(24,325,740,170);$transferInfo.BackColor=[Drawing.Color]::FromArgb(240,247,251);$transferInfo.Text="Không dùng mã ghép. Trên web, mở Truyền chương trình và đăng nhập bằng mật khẩu riêng.`r`nThiết lập mật khẩu một lần tại đây; không dùng mật khẩu đăng nhập CMMS.`r`nMật khẩu chỉ lưu dưới dạng PBKDF2 có salt trên laptop, không ghi dạng rõ.`r`nCầu nối giám sát vẫn hoạt động độc lập.";$transferTab.Controls.Add($transferInfo)
  function Refresh-ManagerTransferUi {
-  $enabled=$null -ne $script:ManagerTransferServer;$transferDisable.Enabled=$enabled;$transferEnable.Enabled=-not $enabled -and [bool]$script:SelectedId;$transferCopy.Enabled=$enabled
-  if($enabled){$target=$script:ManagerTransferTarget;$transferTarget.Text='ĐANG BẬT: '+$target.name+' | '+$target.ip+':'+$target.port;$transferCode.Text=$script:ManagerTransferServer.SessionCode;$message=if($script:ManagerTransferServer.Busy){'Đang xử lý yêu cầu với CNC. Không đóng Manager hoặc rút cáp.'}else{$script:ManagerTransferServer.LastMessage};if($transferInfo.Text -ne $message){$transferInfo.Text=$message}}
-  else{$transferCode.Clear();$transferTarget.Text=if($script:SelectedId){$script:CurrentConfig.machineName+' | '+$script:CurrentConfig.cncIp+':'+$script:CurrentConfig.port}else{'Chọn máy đã lưu ở danh sách bên trái.'}}
+  $enabled=$null -ne $script:ManagerTransferServer;$transferDisable.Enabled=$enabled;$transferEnable.Enabled=-not $enabled -and [bool]$script:SelectedId;$transferSavePassword.Enabled=-not $enabled;$transferPassword.Enabled=-not $enabled
+  if($enabled){$target=$script:ManagerTransferTarget;$transferTarget.Text='ĐANG BẬT: '+$target.name+' | '+$target.ip+':'+$target.port;$message=if($script:ManagerTransferServer.Busy){'Đang xử lý yêu cầu với CNC. Không đóng Manager hoặc rút cáp.'}else{$script:ManagerTransferServer.LastMessage};if($transferInfo.Text -ne $message){$transferInfo.Text=$message}}
+  else{$transferTarget.Text=if($script:SelectedId){$script:CurrentConfig.machineName+' | '+$script:CurrentConfig.cncIp+':'+$script:CurrentConfig.port}else{'Chọn máy đã lưu ở danh sách bên trái.'}}
+ }
+ function Try-AutoStartManagerTransfer {
+  if($script:ManagerTransferServer -or -not $script:SelectedId -or -not (Test-Path -LiteralPath (Get-ManagerTransferPasswordPath))){return}
+  if((Get-FormFingerprint) -cne $script:InitialFormState){return}
+  try{$null=Start-ManagerTransfer $script:SelectedId $script:ExpectedHash;Refresh-ManagerTransferUi}catch{$transferInfo.Text=$_.Exception.Message}
  }
  $transferEnable.Add_Click({try{
   if((Get-FormFingerprint) -cne $script:InitialFormState){throw 'Có cấu hình chưa lưu. Lưu hoặc chọn lại máy trước khi bật truyền.'}
-  $null=Start-ManagerTransfer $script:SelectedId $script:ExpectedHash;Refresh-ManagerTransferUi;$transferInfo.Text='Đã bật truyền cho máy đã chọn. Bấm Sao chép mã và dán vào mục Truyền chương trình trên web.'
+  $null=Start-ManagerTransfer $script:SelectedId $script:ExpectedHash;Refresh-ManagerTransferUi;$transferInfo.Text='Đã bật cho máy đã chọn. Trên web, mở Truyền chương trình → nhập mật khẩu truyền/nhận riêng → Đăng nhập.'
  }catch{$transferInfo.Text=$_.Exception.Message+"`r`n`r`nCầu nối giám sát không bị dừng. Nếu cổng 8766 đang được dùng, đóng tiện ích truyền cũ rồi thử lại.";$statusLabel.Text='Chưa bật được truyền chương trình; xem chi tiết trong tab Truyền.'}})
- $transferDisable.Add_Click({if(Stop-ManagerTransfer){Refresh-ManagerTransferUi;$transferInfo.Text='Đã dừng phiên truyền. Mã cũ không còn hiệu lực. Cầu nối giám sát vẫn chạy.'}else{$transferInfo.Text='Có thao tác CNC đang diễn ra. Chờ hoàn tất trước khi dừng phiên.'}})
- $transferCopy.Add_Click({if($script:ManagerTransferServer){[Windows.Forms.Clipboard]::SetText($script:ManagerTransferServer.SessionCode);$transferInfo.Text='Đã sao chép mã. Trên web: mở đúng máy → Truyền chương trình → dán mã và bấm Ghép kết nối.'}})
+ $transferDisable.Add_Click({if(Stop-ManagerTransfer){Refresh-ManagerTransferUi;$transferInfo.Text='Đã dừng truy cập truyền. Các phiên đăng nhập truyền cũ không còn hiệu lực. Giám sát vẫn chạy.'}else{$transferInfo.Text='Có thao tác CNC đang diễn ra. Chờ hoàn tất trước khi dừng phiên.'}})
+ $transferSavePassword.Add_Click({try{Set-ManagerTransferPassword $transferPassword.Text;$transferInfo.Text='Đã lưu mật khẩu riêng trên laptop. Mở giao diện truyền trên web và nhập mật khẩu này.';Try-AutoStartManagerTransfer}catch{$transferInfo.Text=$_.Exception.Message}finally{$transferPassword.Clear()}})
  $transferOpen.Add_Click({Start-Process 'https://storageltd.github.io/kho-baotri/'})
  $transferButton.Add_Click({$tabs.SelectedTab=$transferTab;Refresh-ManagerTransferUi})
  $notify=New-Object Windows.Forms.NotifyIcon;$notify.Icon=[Drawing.SystemIcons]::Application;$form.Icon=$notify.Icon;$notify.Text='LTD CNC Bridge Manager';$notify.Visible=$true
@@ -169,7 +176,7 @@ try {
  $restore=New-Object Windows.Forms.ToolStripMenuItem('Mở LTD Bridge Manager');$restore.Add_Click({$form.Show();$form.WindowState='Normal';$form.Activate()});[void]$trayMenu.Items.Add($restore)
  $exit=New-Object Windows.Forms.ToolStripMenuItem('Thoát quản lý · Dừng tiện ích truyền');$exit.Add_Click({if(Confirm-Discard){$script:ExitManager=$true;$form.Close()}});[void]$trayMenu.Items.Add($exit)
  $notify.ContextMenuStrip=$trayMenu;$notify.Add_DoubleClick({$form.Show();$form.WindowState='Normal';$form.Activate()})
- $trayButton.Add_Click({$loginPassword.Clear();$form.Hide();$notify.ShowBalloonTip(2500,'LTD CNC','Cầu nối tiếp tục chạy. Nhấp biểu tượng ở khay hệ thống để mở lại.','Info')})
+ $trayButton.Add_Click({$loginPassword.Clear();$transferPassword.Clear();$form.Hide();$notify.ShowBalloonTip(2500,'LTD CNC','Cầu nối tiếp tục chạy. Nhấp biểu tượng ở khay hệ thống để mở lại.','Info')})
  $timer=New-Object Windows.Forms.Timer;$timer.Interval=3000;$timer.Add_Tick({
   Refresh-ManagerTransferUi
   if($script:SelectedId){
@@ -180,7 +187,7 @@ try {
    if($tabs.SelectedTab -eq $logTab){$logPaths=Get-ManagerLogPaths $script:SelectedId;$logPath=$logPaths.session;if(Test-Path -LiteralPath $logPath){$content=(Get-Content -LiteralPath $logPath -Tail 120 -Encoding UTF8 -ErrorAction SilentlyContinue) -join "`r`n";if($log.Text -ne $content){$log.Text=$content;$log.SelectionStart=$log.TextLength;$log.ScrollToCaret()}}else{$log.Text='Chưa có nhật ký thu thập. Trạng thái: '+$statusLabel.Text};$bootstrap=$logPaths.startup;if(Test-Path -LiteralPath $bootstrap){$startup=(Get-Content -LiteralPath $bootstrap -Tail 30 -Encoding UTF8 -ErrorAction SilentlyContinue) -join "`r`n";if($startup){$log.Text+="`r`n`r`nLỖI KHỞI ĐỘNG:`r`n"+$startup}}}
   }else{$run.Enabled=$false;$stop.Enabled=$false;$save.Enabled=$true;$remove.Enabled=$false;$loginSubmit.Enabled=$false}
  });$timer.Start()
- $form.Add_FormClosing({param($sender,$eventArgs);if($script:ExitManager -and -not (Stop-ManagerTransfer)){$eventArgs.Cancel=$true;$script:ExitManager=$false;$form.Show();$tabs.SelectedTab=$transferTab;$transferInfo.Text='Đang có thao tác CNC. Chờ hoàn tất trước khi thoát Manager.';return};if(-not $script:ExitManager){$eventArgs.Cancel=$true;$loginPassword.Clear();$form.Hide();$notify.ShowBalloonTip(2000,'LTD CNC','Đã thu nhỏ vào khay hệ thống. Cầu nối tiếp tục chạy.','Info')}})
+ $form.Add_FormClosing({param($sender,$eventArgs);if($script:ExitManager -and -not (Stop-ManagerTransfer)){$eventArgs.Cancel=$true;$script:ExitManager=$false;$form.Show();$tabs.SelectedTab=$transferTab;$transferInfo.Text='Đang có thao tác CNC. Chờ hoàn tất trước khi thoát Manager.';return};if(-not $script:ExitManager){$eventArgs.Cancel=$true;$loginPassword.Clear();$transferPassword.Clear();$form.Hide();$notify.ShowBalloonTip(2000,'LTD CNC','Đã thu nhỏ vào khay hệ thống. Cầu nối tiếp tục chạy.','Info')}})
  Refresh-Tree;New-Form
  [Windows.Forms.Application]::Run($form)
 }catch{Show-ManagerStartupFailure $_}

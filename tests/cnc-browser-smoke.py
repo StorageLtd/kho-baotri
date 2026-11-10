@@ -352,11 +352,17 @@ window.seedDayFixture = () => {cncDayOwner=getUser().uid;cncDayStats.set('neway-
             async def transfer_reply(route):
                 body=json.loads(route.request.post_data)
                 calls.append(body)
-                assert route.request.headers['x-ltd-token']=='A'*64
+                assert route.request.headers.get('x-ltd-token','')==('' if body['action']=='login' else 'A'*64)
+                if body['action']!='login':assert 'password' not in body
                 assert body['ip']=='192.168.1.1' and body['port']==8193
                 reply={'ok':True,'message':'Đã xử lý','ip':body['ip'],'port':8193}
+                if body['action']=='login':
+                    if body.get('password')!='fixture-transfer-pass':
+                        await route.fulfill(status=401,content_type='application/json',body=json.dumps({'ok':False,'message':'Mật khẩu truyền/nhận không đúng.'}),headers={'Access-Control-Allow-Origin':'*'})
+                        return
+                    reply['token']='A'*64
                 if body['action']=='connect' and transfer_state['reject_connect']:
-                    await route.fulfill(status=403,content_type='application/json',body=json.dumps({'ok':False,'message':'Invalid session code.'}),headers={'Access-Control-Allow-Origin':'*'})
+                    await route.fulfill(status=401,content_type='application/json',body=json.dumps({'ok':False,'message':'Phiên truyền đã hết hạn.'}),headers={'Access-Control-Allow-Origin':'*'})
                     return
                 if body['action']=='list':reply['programs']=[{'number':1234,'program':'O1234','length':24,'comment':'<script>unsafe</script>','modified':'10/11/2026'}]
                 if body['action']=='inspect':
@@ -372,8 +378,16 @@ window.seedDayFixture = () => {cncDayOwner=getUser().uid;cncDayStats.set('neway-
             transfer=page.locator('.cnc-transfer-dialog')
             assert await transfer.is_visible()
             assert await transfer.locator('[data-inspect]').is_disabled()
-            await transfer.locator('.ct-pair input').fill('A'*64)
-            await transfer.get_by_role('button',name='Ghép kết nối',exact=True).click()
+            await transfer.locator('.ct-pair input').fill('wrong-password')
+            await transfer.get_by_role('button',name='Đăng nhập truyền/nhận',exact=True).click()
+            await page.locator('.ct-transfer-error').wait_for(state='visible')
+            assert 'Mật khẩu truyền/nhận không đúng' in await page.locator('.ct-transfer-error').inner_text()
+            assert not any(c['action'] in ['list','send','receive'] for c in calls)
+            assert await transfer.locator('.ct-pair input').input_value()==''
+            await page.locator('.ct-transfer-error button').click()
+            await page.locator('.ct-transfer-error').wait_for(state='detached')
+            await transfer.locator('.ct-pair input').fill('fixture-transfer-pass')
+            await transfer.get_by_role('button',name='Đăng nhập truyền/nhận',exact=True).click()
             await page.wait_for_function("document.querySelector('.ct-directory tbody').textContent.includes('O1234')")
             assert await transfer.locator('script').count()==0
             assert '<script>unsafe</script>' in await transfer.locator('tbody').inner_text()
@@ -435,12 +449,12 @@ window.seedDayFixture = () => {cncDayOwner=getUser().uid;cncDayStats.set('neway-
             await page.get_by_role('button',name='Truyền chương trình',exact=True).click()
             transfer=page.locator('.cnc-transfer-dialog')
             await page.wait_for_function("document.querySelector('.ct-directory tbody').textContent.includes('O1234')")
-            assert await transfer.locator('.ct-pair input').input_value()=='A'*64
+            assert await transfer.locator('.ct-pair input').input_value()==''
             assert len([c for c in calls if c['action']=='connect'])==before_connect+1
             assert len([c for c in calls if c['action']=='send'])==1
             assert await transfer.locator('[data-send]').is_disabled()  # File/ticket are never restored.
             assert await page.evaluate("!Object.values(localStorage).some(x=>x.includes('A'.repeat(64))) && !Object.values(sessionStorage).some(x=>x.includes('A'.repeat(64)))")
-            await transfer.get_by_role('button',name='Quên ghép',exact=True).click()
+            await transfer.get_by_role('button',name='Đăng xuất truyền/nhận',exact=True).click()
             await transfer.locator('[data-close]').click()
             await transfer.wait_for(state='detached')
             before_connect=len([c for c in calls if c['action']=='connect'])
@@ -449,15 +463,15 @@ window.seedDayFixture = () => {cncDayOwner=getUser().uid;cncDayStats.set('neway-
             assert await transfer.locator('.ct-pair input').input_value()==''
             assert len([c for c in calls if c['action']=='connect'])==before_connect
             # A Manager session rotation invalidates a cached key, without any CNC write retry.
-            await transfer.locator('.ct-pair input').fill('A'*64)
-            await transfer.get_by_role('button',name='Ghép kết nối',exact=True).click()
+            await transfer.locator('.ct-pair input').fill('fixture-transfer-pass')
+            await transfer.get_by_role('button',name='Đăng nhập truyền/nhận',exact=True).click()
             await page.wait_for_function("document.querySelector('.ct-directory tbody').textContent.includes('O1234')")
             await transfer.locator('[data-close]').click()
             await transfer.wait_for(state='detached')
             transfer_state['reject_connect']=True
             await page.get_by_role('button',name='Truyền chương trình',exact=True).click()
             transfer=page.locator('.cnc-transfer-dialog')
-            await page.wait_for_function("document.querySelector('.cnc-transfer-dialog [role=status]').textContent.includes('Chưa khôi phục')")
+            await page.wait_for_function("document.querySelector('.cnc-transfer-dialog [role=status]').textContent.includes('Đăng nhập lại bằng mật khẩu')")
             assert await transfer.locator('.ct-pair input').input_value()==''
             assert await transfer.locator('[data-send]').is_disabled()
             assert len([c for c in calls if c['action']=='send'])==1
@@ -467,8 +481,8 @@ window.seedDayFixture = () => {cncDayOwner=getUser().uid;cncDayStats.set('neway-
             transfer_state['reject_connect']=False
             await page.get_by_role('button',name='Truyền chương trình',exact=True).click()
             transfer=page.locator('.cnc-transfer-dialog')
-            await transfer.locator('.ct-pair input').fill('A'*64)
-            await transfer.get_by_role('button',name='Ghép kết nối',exact=True).click()
+            await transfer.locator('.ct-pair input').fill('fixture-transfer-pass')
+            await transfer.get_by_role('button',name='Đăng nhập truyền/nhận',exact=True).click()
             await page.wait_for_function("document.querySelector('.ct-directory tbody').textContent.includes('O1234')")
             await transfer.locator('[data-close]').click()
             await transfer.wait_for(state='detached')
