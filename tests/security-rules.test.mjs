@@ -10,13 +10,13 @@ function allows(expression,{role='technician',verified=true,disabled=false,user=
  return vm.runInNewContext(expression,{auth:user?{uid:user,token:{email:'user@example.com',email_verified:verified}}:null,root:snapshot({users:{u1:{role,disabled}}}),data:snapshot(data),newData:snapshot(newData),$uid:uid,$sessionId:'session'});
 }
 test('company data requires verified approved active membership, even for reads',()=>{
- for(const node of ['items','machines','maintenanceJobs','cncs','cncAlarms','repairHistory','activities','stockMovements','deviceHistory','cncReports','online_users']){
+ for(const node of ['items','machines','maintenanceJobs','cncs','cncAlarms','repairHistory','activities','stockMovements','cncReports','online_users']){
   for(const ctx of [{user:null},{role:'pending'},{role:'unknown'},{role:'admin',verified:false},{role:'admin',disabled:true}])assert.equal(allows(rules[node]['.read'],ctx),false,node+JSON.stringify(ctx));
   for(const role of ['viewer','technician','manager','admin'])assert.equal(allows(rules[node]['.read'],{role}),true,node+role);
  }
 });
 test('viewers cannot write operational data; approved verified operators can',()=>{
- for(const node of ['items','machines','maintenanceJobs','cncs','cncAlarms','repairHistory','activities','stockMovements']){
+ for(const node of ['items','machines','maintenanceJobs','cncs','cncAlarms','activities']){
   for(const ctx of [{role:'pending'},{role:'viewer'},{verified:false},{disabled:true},{user:null}])assert.equal(allows(rules[node]['.write'],ctx),false,node);
   for(const role of ['technician','manager','admin'])assert.equal(allows(rules[node]['.write'],{role}),true,node);
  }
@@ -45,4 +45,28 @@ test('UI uses inert data attributes and CSP forbids inline scripts',()=>{
  assert.doesNotMatch(app,/onclick="|onerror="/);assert.doesNotMatch(html,/onsubmit=/);
  assert.match(html,/Content-Security-Policy/);const policy=html.match(/Content-Security-Policy" content="([^"]+)/)[1];assert.doesNotMatch(policy.split('script-src')[1].split(';')[0],/unsafe-inline|unsafe-eval/);
  assert.match(html,/name="referrer" content="no-referrer"/);assert.match(auth,/browserSessionPersistence/);assert.doesNotMatch(auth,/role: "technician"/);assert.match(auth,/currentProfile.disabled === true/);
+});
+
+test('merged deployed rules retain admin-only audit access and per-entry protection',()=>{
+ for(const node of ['accountHistory','deviceHistory']){
+  for(const role of ['viewer','technician','manager','pending'])assert.equal(allows(rules[node]['.read'],{role}),false,node+role);
+  assert.equal(allows(rules[node]['.read'],{role:'admin'}),true);
+  assert.equal(allows(rules[node]['.read'],{role:'admin',verified:false}),false);
+ }
+ assert.equal(rules.stockMovements['.write'],undefined,'Parent write would override append-only children');
+ assert.equal(rules.repairHistory['.write'],undefined,'Parent write would override admin-only changes');
+ for(const role of ['admin','manager','technician']){
+  assert.equal(allows(rules.stockMovements.$entryId['.write'],{role,newData:{id:'new'}}),true);
+  assert.equal(allows(rules.stockMovements.$entryId['.write'],{role,data:{id:'old'},newData:{id:'old'}}),false);
+  assert.equal(allows(rules.stockMovements.$entryId['.write'],{role,data:{id:'old'}}),false);
+  assert.equal(allows(rules.repairHistory.$entryId['.write'],{role,newData:{id:'new'}}),true);
+  assert.equal(allows(rules.repairHistory.$entryId['.write'],{role,data:{id:'old'},newData:{id:'old'}}),role==='admin');
+  assert.equal(allows(rules.repairHistory.$entryId['.write'],{role,data:{id:'old'}}),role==='admin');
+ }
+ for(const node of ['stockMovements','repairHistory']){
+  for(const ctx of [{role:'viewer'},{role:'pending'},{role:'admin',verified:false},{role:'admin',disabled:true},{user:null}])assert.equal(allows(rules[node].$entryId['.write'],{...ctx,newData:{id:'new'}}),false,node);
+ }
+ assert.match(rules.stockMovements.$entryId['.validate'],/afterQuantity/);
+ assert.match(rules.repairHistory.$entryId['.validate'],/faultTime/);
+ assert.equal(readFileSync(new URL('../downloads/LTD-Firebase-Rules-20261111.json',import.meta.url),'utf8'),readFileSync(new URL('../firebase/database.rules.json',import.meta.url),'utf8'));
 });

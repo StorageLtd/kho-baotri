@@ -45,3 +45,18 @@ Rules giữ các vai trò hiện có `admin`, `manager`, `technician`, `viewer`,
 - `python tests/security-browser.py`: Chromium không bypass CSP; dữ liệu giả chứa ký tự chèn mã không thực thi, thao tác sửa qua data attributes vẫn hoạt động, script inline bị chặn.
 - `python tests/cnc-browser-smoke.py`: hồi quy giao diện/telemetry/export/truyền bằng fixtures; CSP bypass chỉ trong test này để Playwright giả lập clock/eval, CSP thực được kiểm riêng ở test trên.
 - Không phát hiện chuỗi mật khẩu truyền mặc định hay khóa riêng/service-account trong các file văn bản đang theo dõi qua lượt quét mẫu. Đây không phải kiểm tra toàn bộ lịch sử Git hoặc xác nhận không có bí mật trong mọi tệp nhị phân.
+
+## Đối chiếu Rules thực tế do chủ hệ thống cung cấp — 11/11/2026
+
+Đã nhận và đối chiếu toàn bộ nội dung Rules hiện hành do chủ hệ thống gửi. Giữ đầy đủ 13 nhánh dữ liệu: `cncReports`, `users`, `online_users`, `accountHistory`, `deviceHistory`, `items`, `stockMovements`, `machines`, `maintenanceJobs`, `cncs`, `cncAlarms`, `repairHistory`, `activities`.
+
+Bản hợp nhất bảo toàn các giới hạn chặt hơn trong Rules thực tế:
+
+- `stockMovements`: chỉ tạo từng bản ghi; không mở quyền ghi ở collection cha, không sửa/xóa phiếu đã có; giữ kiểm tra các trường bắt buộc.
+- `repairHistory`: technician/manager/admin được tạo, chỉ admin được sửa/xóa; giữ kiểm tra các trường bắt buộc và không mở quyền ghi ở collection cha.
+- `accountHistory` và `deviceHistory`: đọc toàn bộ lịch sử chỉ dành cho admin đã xác minh, không bị khóa. Người dùng được đọc riêng lịch sử tài khoản của chính mình; nhật ký tài khoản chỉ được tạo mới.
+- `cncReports`: giữ toàn bộ điều kiện schema, nguồn FOCAS, chủ phiên, các khoảng thời gian và tổng thời gian trạng thái của bản Rules do chủ hệ thống gửi.
+
+File sẵn để sao chép vào Firebase: [LTD-Firebase-Rules-20261111.json](../downloads/LTD-Firebase-Rules-20261111.json). File này và `firebase/database.rules.json` có nội dung giống nhau. Đây vẫn là tệp chuẩn bị triển khai; **chưa Publish Firebase thay người dùng**. Cần lưu bản Rules cũ, kiểm tra tài khoản admin, Publish và xác minh quyền trên dự án thật.
+
+Kiểm thử bổ sung mô phỏng xác nhận technician không thể sửa/xóa phiếu kho, không thể sửa/xóa lịch sử sửa chữa; admin cũng không thể sửa/xóa phiếu kho; tài khoản pending/unverified/disabled không được tạo các bản ghi này. Các kiểm thử này không thay thế Firebase Rules Playground hoặc emulator.

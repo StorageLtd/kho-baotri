@@ -1,0 +1,22 @@
+LTD CMMS - AP DUNG FIREBASE RULES - 11/11/2026
+
+1. Firebase Console > du an ltdst-80b3e > Realtime Database > Rules.
+2. Sao luu toan bo Rules cu vao mot file rieng de co the khoi phuc.
+3. Kiem tra trong Data > users > UID cua tai khoan quan tri:
+   role = "admin"; khong co disabled: true.
+   Email tai khoan phai da xac minh trong Authentication.
+4. Mo LTD-Firebase-Rules-20261111.json bang Notepad, copy toan bo noi dung.
+5. Trong tab Rules (KHONG PHAI Data), thay noi dung bang file moi, bam Publish.
+6. Dang nhap lai web, kiem tra kho, CNC va bao cao.
+   Cau noi da duoc cap quyen van phai co FIREBASE UPDATED / REPORTS UPDATED.
+7. Tai khoan moi tu dang ky co role = "pending". Sau khi kiem tra nhan su va
+   email, quan tri vien doi role trong users/UID thanh "viewer" (chi xem)
+   hoac "technician" (nghiep vu). Khong dung "view" hoac "technical".
+
+Rules giu phieu nhap/xuat chi duoc tao moi; lich su sua may chi admin
+sua/xoa; giu day du cac nhanh trong Rules chu he thong da cung cap.
+Khong import file Rules vao Data. Khong xoa du lieu users hoac CNC.
+File nay khong tu trien khai, khong thay doi du lieu hay tham so CNC.
+Neu Publish bao loi, giu Rules cu va gui nguyen thong bao loi (khong gui
+mat khau/token/khoa quan tri). Sau Publish, neu tai khoan bi chan,
+kiem tra role, disabled va email_verified truoc khi sua Rules.
