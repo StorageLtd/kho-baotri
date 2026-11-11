@@ -1,4 +1,4 @@
-import {openCncTransfer,clearCncTransferSessions} from "./cnc-transfer-ui.js?v=20261111-transfer-labels";
+import {openCncTransfer,clearCncTransferSessions} from "./cnc-transfer-ui.js?v=20261111-security";
 import {buildCncReport,vnDate} from "./cnc-reports.js?v=20261107-tool-context";
 ﻿import { downloadInventoryWorkbook } from "./inventory-xlsx.js?v=20261105-no-prices";
 import { maintenancePlan, repairHistoryForm, alarmHistoryForm, movementVoucherForm, downloadMaintenanceWorkbook } from "./maintenance-xlsx.js?v=20261107-tool-context";
@@ -7,7 +7,7 @@ import {renderCncOperatorScreen} from "./cnc-operator-screen.js?v=20261110-trans
 import { openCncReports } from "./cnc-report-ui.js?v=20261107-tool-context";
 import { cncDisplayState, cncIsFresh, cncMeasurement, cncMode, cncDuration, cncServerNow, setCncClockOffset } from "./cnc-status.js?v=20261029-web-sync";
 
-    import { initializeSession, onSessionChanged, signIn, signOutUser, sendVerification, registerAccount, getToken, getUser, loadProfile, role, canEdit, displayName } from "./auth.js?v=20261026-login";
+    import { initializeSession, onSessionChanged, signIn, signOutUser, sendVerification, registerAccount, getToken, getUser, loadProfile, role, canEdit, displayName } from "./auth.js?v=20261111-security";
     import { firebaseConfig } from "./firebase-config.js";
 
     const DB_URL = firebaseConfig.databaseURL;
@@ -425,7 +425,7 @@ import { cncDisplayState, cncIsFresh, cncMeasurement, cncMode, cncDuration, cncS
           await registerAccount({ displayName: els.fullNameInput.value.trim(), email: userVal, password: passVal });
           await signOutUser();
           setRegistrationMode(false);
-          els.loginError.textContent = "Tài khoản đã tạo. Hãy xác minh email rồi đăng nhập.";
+          els.loginError.textContent = "Tài khoản đã tạo. Hãy xác minh email và chờ quản trị viên cấp quyền.";
           return false;
         }
         const credential = await signIn(userVal, passVal);
@@ -650,7 +650,7 @@ import { cncDisplayState, cncIsFresh, cncMeasurement, cncMode, cncDuration, cncS
       const raw = String(imageSrc || "").trim();
       const isSafeImage = raw && !/[<>"'\s]/.test(raw) && /^(data:image\/|https?:\/\/|\.\/|\.\.\/|[\w\-.\/]+\.(png|jpe?g|gif|webp|svg)(\?.*)?$)/i.test(raw);
       if (!isSafeImage) return "";
-      return `<img src="${escapeHtml(raw)}" class="table-thumb" data-img-entity="${escapeHtml(entityId)}" data-img-type="${escapeHtml(type)}" alt="Ảnh sản phẩm" title="Xem ảnh lớn" loading="lazy" onerror="this.remove()">`;
+      return `<img src="${escapeHtml(raw)}" class="table-thumb" data-img-entity="${escapeHtml(entityId)}" data-img-type="${escapeHtml(type)}" alt="Ảnh sản phẩm" title="Xem ảnh lớn" loading="lazy">`;
     }
 
     function getAlarmKeyword(alarmCode) {
@@ -715,9 +715,9 @@ import { cncDisplayState, cncIsFresh, cncMeasurement, cncMode, cncDuration, cncS
           <td><span class="pill ${cls}">${lbl}</span></td>
           <td>
             <div class="row-actions">
-              <button class="icon-btn" type="button" onclick="openMoveDialog('${item.id}')" title="Nhập / Xuất kho">${plusMinusIcon}</button>
-              <button class="icon-btn" type="button" onclick="openItemDialog('${item.id}')" title="Sửa thông tin">${editIcon}</button>
-              <button class="icon-btn danger" type="button" onclick="deleteItem('${item.id}')" title="Xóa">${deleteIcon}</button>
+              <button class="icon-btn" type="button" data-cmms-action="openMoveDialog" data-cmms-id="${escapeHtml(item.id)}" title="Nhập / Xuất kho">${plusMinusIcon}</button>
+              <button class="icon-btn" type="button" data-cmms-action="openItemDialog" data-cmms-id="${escapeHtml(item.id)}" title="Sửa thông tin">${editIcon}</button>
+              <button class="icon-btn danger" type="button" data-cmms-action="deleteItem" data-cmms-id="${escapeHtml(item.id)}" title="Xóa">${deleteIcon}</button>
             </div>
           </td>
         </tr>`;
@@ -733,7 +733,7 @@ import { cncDisplayState, cncIsFresh, cncMeasurement, cncMode, cncDuration, cncS
       els.movementHistoryList.innerHTML = rows.map(m => {
         const typeLabel = m.type === "in" ? "Nhập kho" : "Xuất kho";
         const typeClass = m.type === "in" ? "ok" : "warn";
-        return `<tr><td><strong>${formatDateDisplay(m.at)}</strong><div class="meta">${new Date(m.at).toLocaleTimeString("vi-VN")}</div></td><td><span class="pill ${typeClass}">${typeLabel}</span></td><td><strong>${escapeHtml(m.itemName || "-")}</strong><div class="meta">${escapeHtml(m.sku || "")}</div></td><td><strong>${m.amount}</strong></td><td>${m.beforeQuantity} / <strong>${m.afterQuantity}</strong></td><td class="col-text-wide">${textEllipsisCell(m.note || "-", "Lý do giao dịch")}</td><td>${escapeHtml(m.actor || "-")}</td><td><button class="btn" type="button" onclick="exportMovementVoucher('${m.id}')">In phiếu</button></td></tr>`;
+        return `<tr><td><strong>${formatDateDisplay(m.at)}</strong><div class="meta">${new Date(m.at).toLocaleTimeString("vi-VN")}</div></td><td><span class="pill ${typeClass}">${typeLabel}</span></td><td><strong>${escapeHtml(m.itemName || "-")}</strong><div class="meta">${escapeHtml(m.sku || "")}</div></td><td><strong>${escapeHtml(m.amount)}</strong></td><td>${escapeHtml(m.beforeQuantity)} / <strong>${escapeHtml(m.afterQuantity)}</strong></td><td class="col-text-wide">${textEllipsisCell(m.note || "-", "Lý do giao dịch")}</td><td>${escapeHtml(m.actor || "-")}</td><td><button class="btn" type="button" data-cmms-action="exportMovementVoucher" data-cmms-id="${escapeHtml(m.id)}">In phiếu</button></td></tr>`;
       }).join("");
     }
 
@@ -758,8 +758,8 @@ import { cncDisplayState, cncIsFresh, cncMeasurement, cncMode, cncDuration, cncS
         <td class="machine-text-cell">${textEllipsisCell(m.phone ? `📞 ${m.phone}` : "", "Số điện thoại", "brand-text-cell")}</td>
         <td>
           <div class="row-actions">
-            <button class="icon-btn" type="button" onclick="openMachineDialog('${m.id}')" title="Chỉnh sửa">${editIcon}</button>
-            <button class="icon-btn danger" type="button" onclick="deleteMachine('${m.id}')" title="Xóa hồ sơ máy">${deleteIcon}</button>
+            <button class="icon-btn" type="button" data-cmms-action="openMachineDialog" data-cmms-id="${escapeHtml(m.id)}" title="Chỉnh sửa">${editIcon}</button>
+            <button class="icon-btn danger" type="button" data-cmms-action="deleteMachine" data-cmms-id="${escapeHtml(m.id)}" title="Xóa hồ sơ máy">${deleteIcon}</button>
           </div>
         </td>
       </tr>`).join("");
@@ -916,7 +916,7 @@ import { cncDisplayState, cncIsFresh, cncMeasurement, cncMode, cncDuration, cncS
             <td class="cnc-alarm-description">${escapeHtml(a.description || "—")}${a.machiningContext?`<div class="cnc-alarm-context">${escapeHtml(a.activeProgram||a.mainProgram||"—")} · ${Number.isInteger(a.machiningContext.toolNumber)?"T"+a.machiningContext.toolNumber:"T—"} · ${escapeHtml(a.machiningContext.workCoordinate||"G—")}</div>`:""}</td>
             <td>
               <div class="row-actions">
-                <button class="btn" style="min-height:28px; font-size:11px; padding:0 8px; background:var(--brand); color:#fff; border:0" onclick="autoCreateRepairHistoryFromCncAlarm('${a.id}')">Nhật ký sửa máy</button>
+                <button class="btn" style="min-height:28px; font-size:11px; padding:0 8px; background:var(--brand); color:#fff; border:0" data-cmms-action="autoCreateRepairHistoryFromCncAlarm" data-cmms-id="${escapeHtml(a.id)}">Nhật ký sửa máy</button>
               </div>
             </td>
           </tr>
@@ -1107,12 +1107,12 @@ import { cncDisplayState, cncIsFresh, cncMeasurement, cncMode, cncDuration, cncS
         const machineIdentity = [machine.model && `Model: ${machine.model}`, machine.serial && `S/N: ${machine.serial}`].filter(Boolean).join(" · ") || "Chưa cập nhật Model / Serial";
         return `<article class="maintenance-machine ${dueCount ? "has-due" : ""} ${isExpanded ? "is-expanded" : ""}">
           <div class="maintenance-machine-head">
-            <button class="maintenance-machine-summary" type="button" onclick="toggleMaintenanceMachine('${machine.id}')" aria-expanded="${isExpanded}">
+            <button class="maintenance-machine-summary" type="button" data-cmms-action="toggleMaintenanceMachine" data-cmms-id="${escapeHtml(machine.id)}" aria-expanded="${isExpanded}">
               <span class="maintenance-machine-name"><strong>${escapeHtml(machine.name)}</strong><small>${escapeHtml(machineIdentity)} · ${jobs.length} hạng mục</small></span>
               <span class="maintenance-machine-state ${dueCount ? "due" : "ok"}">${dueCount ? `Cần bảo trì: ${dueCount}` : "Đúng lịch"}</span>
               <span class="maintenance-machine-chevron" aria-hidden="true">${isExpanded ? "⌃" : "⌄"}</span>
             </button>
-            <button class="btn primary maintenance-machine-add" type="button" onclick="openJobDialog('', '${machine.id}')">Thêm hạng mục</button>
+            <button class="btn primary maintenance-machine-add" type="button" data-cmms-action="addMachineJob" data-cmms-id="${escapeHtml(machine.id)}">Thêm hạng mục</button>
           </div>
           <div class="maintenance-machine-jobs" ${isExpanded ? "" : "hidden"}>
           ${jobs.length ? `<div class="maintenance-task-head" aria-hidden="true"><span>Hạng mục / Công việc</span><span>Chu kỳ</span><span>Kỳ kế tiếp</span><span>Phụ trách</span><span>Thao tác</span></div>` : ""}
@@ -1124,9 +1124,9 @@ import { cncDisplayState, cncIsFresh, cncMeasurement, cncMode, cncDuration, cncS
               <div data-label="Kỳ kế tiếp"><strong style="color:${due ? "var(--danger)" : "var(--ok)"}">${formatDateDisplay(job.nextDate)}</strong></div>
               <div data-label="Phụ trách"><strong>${escapeHtml(job.owner || "Chưa phân công")}</strong>${job.estimatedTime || job.createdBy ? `<small>${escapeHtml([job.estimatedTime, job.createdBy && `Lập: ${job.createdBy}`].filter(Boolean).join(" · "))}</small>` : ""}</div>
               <div class="maintenance-task-actions">
-                <button class="icon-btn" type="button" title="Hoàn tất kỳ này" onclick="completeAndRenewJob('${job.id}')">${checkIcon}</button>
-                <button class="icon-btn" type="button" title="Sửa lịch" onclick="openJobDialog('${job.id}')">${editIcon}</button>
-                <button class="icon-btn danger" type="button" title="Xóa lịch" onclick="deleteJob('${job.id}')">${deleteIcon}</button>
+                <button class="icon-btn" type="button" title="Hoàn tất kỳ này" data-cmms-action="completeAndRenewJob" data-cmms-id="${escapeHtml(job.id)}">${checkIcon}</button>
+                <button class="icon-btn" type="button" title="Sửa lịch" data-cmms-action="openJobDialog" data-cmms-id="${escapeHtml(job.id)}">${editIcon}</button>
+                <button class="icon-btn danger" type="button" title="Xóa lịch" data-cmms-action="deleteJob" data-cmms-id="${escapeHtml(job.id)}">${deleteIcon}</button>
               </div>
             </div>`;
           }).join("") : `<div class="maintenance-empty">Máy này chưa có lịch bảo trì. Chọn “Thêm hạng mục” để tạo kế hoạch đầu tiên.</div>`}
@@ -1166,7 +1166,7 @@ import { cncDisplayState, cncIsFresh, cncMeasurement, cncMode, cncDuration, cncS
           <td class="col-text-wide">${textEllipsisCell(`👷 ${h.staff}`, "Kỹ sư xử lý", "brand-text-cell")}</td>
           <td class="col-text-wide">${textEllipsisCell(h.fault, "Mô tả lỗi sự cố", "muted-text-cell")}</td>
           <td class="col-text-wide">${textEllipsisCell(h.fix, "Phương án khắc phục", "muted-text-cell")}</td>
-          <td class="col-img">${imageThumbCell(displayImage, h.id, "history")}</td>${role() === "admin" ? `<td><div class="row-actions"><button class="icon-btn" type="button" onclick="openHistoryDialog('${h.id}')" title="Sửa nhật ký sự cố">${editIcon}</button><button class="icon-btn danger" type="button" onclick="deleteHistory('${h.id}')" title="Xóa nhật ký sự cố">${deleteIcon}</button></div></td>` : ""}
+          <td class="col-img">${imageThumbCell(displayImage, h.id, "history")}</td>${role() === "admin" ? `<td><div class="row-actions"><button class="icon-btn" type="button" data-cmms-action="openHistoryDialog" data-cmms-id="${escapeHtml(h.id)}" title="Sửa nhật ký sự cố">${editIcon}</button><button class="icon-btn danger" type="button" data-cmms-action="deleteHistory" data-cmms-id="${escapeHtml(h.id)}" title="Xóa nhật ký sự cố">${deleteIcon}</button></div></td>` : ""}
         </tr>`;
       }).join("");
     }
@@ -1274,7 +1274,7 @@ import { cncDisplayState, cncIsFresh, cncMeasurement, cncMode, cncDuration, cncS
           <div class="alert-item" style="border-left: 4px solid ${currentStat === 'low' ? 'var(--warn)' : 'var(--danger)'};">
             <strong style="color: #0f241d;">${escapeHtml(i.name)}</strong>
             <div><span class="pill ${badgeCls}">${badgeText}</span></div>
-            <div class="meta">Kho thực tế: <strong>${i.quantity}</strong> / Tối thiểu: ${i.min}. Kệ: <strong>${escapeHtml(i.location || "-")}</strong></div>
+            <div class="meta">Kho thực tế: <strong>${escapeHtml(i.quantity)}</strong> / Tối thiểu: ${escapeHtml(i.min)}. Kệ: <strong>${escapeHtml(i.location || "-")}</strong></div>
           </div>
         `;
       });
@@ -1584,12 +1584,24 @@ import { cncDisplayState, cncIsFresh, cncMeasurement, cncMode, cncDuration, cncS
     function formatDateDisplay(val) {
       if(!val) return "-";
       const d = new Date(val);
-      return isNaN(d.getTime()) ? val : `${String(d.getDate()).padStart(2,'0')}/${String(d.getMonth()+1).padStart(2,'0')}/${d.getFullYear()}`;
+      return isNaN(d.getTime()) ? "—" : `${String(d.getDate()).padStart(2,'0')}/${String(d.getMonth()+1).padStart(2,'0')}/${d.getFullYear()}`;
     }
     
     function escapeHtml(v) {
       return String(v??'').replaceAll("&","&amp;").replaceAll("<","&lt;").replaceAll(">","&gt;").replaceAll('"',"&quot;").replaceAll("'","&#039;");
     }
+
+    // Data from Firebase is never interpreted as JavaScript event-handler source.
+    const rowActions = Object.freeze({openMoveDialog,openItemDialog,deleteItem,exportMovementVoucher,openMachineDialog,deleteMachine,autoCreateRepairHistoryFromCncAlarm,toggleMaintenanceMachine,completeAndRenewJob,openJobDialog,deleteJob,openHistoryDialog,deleteHistory,addMachineJob:id=>openJobDialog('',id)});
+    document.addEventListener('click',event=>{
+      const target=event.target.closest('[data-cmms-action]');
+      if(!target || !appStarted || !Object.hasOwn(rowActions,target.dataset.cmmsAction))return;
+      if(target.disabled)return;
+      rowActions[target.dataset.cmmsAction](target.dataset.cmmsId);
+    });
+    document.addEventListener('error',event=>{
+      if(event.target instanceof HTMLImageElement && event.target.classList.contains('table-thumb'))event.target.remove();
+    },true);
 
     //ẨN/HIỆN PASSWORD
     const togglePasswordBtn = document.querySelector("#togglePasswordBtn");

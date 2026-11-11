@@ -1,5 +1,9 @@
 # LTD CMMS
 
+## Bảo mật
+
+Xem [báo cáo rà soát và hướng dẫn áp dụng Rules ngày 11/11/2026](docs/SECURITY-REVIEW-2026-11-11.md). Web đã bổ sung tài khoản chờ duyệt và chống chèn mã; cần quản trị viên Publish Rules Firebase đã đối chiếu để bảo vệ dữ liệu trên máy chủ.
+
 ## Cài đặt bảo mật bắt buộc
 
 1. Trong Firebase Console, bật **Authentication > Sign-in method > Email/Password**.

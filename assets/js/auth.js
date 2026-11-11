@@ -1,6 +1,6 @@
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
 import {
-  createUserWithEmailAndPassword, getAuth, onAuthStateChanged, sendEmailVerification,
+  createUserWithEmailAndPassword, getAuth, onAuthStateChanged, sendEmailVerification, setPersistence, browserSessionPersistence,
   signInWithEmailAndPassword, signOut, updateProfile
 } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
 import { firebaseConfig } from "./firebase-config.js";
@@ -12,6 +12,7 @@ let currentProfile = null;
 // Finish restoring/closing the previous session before accepting a new login.
 export async function initializeSession() {
   await auth.authStateReady();
+  await setPersistence(auth, browserSessionPersistence);
   if (auth.currentUser && sessionStorage.getItem("ltd_explicit_cmms_login") !== "1") {
     await signOut(auth);
   }
@@ -19,7 +20,7 @@ export async function initializeSession() {
 
 export const onSessionChanged = (callback) => onAuthStateChanged(auth, callback);
 export const signIn = (email, password) => signInWithEmailAndPassword(auth, email, password);
-export const signOutUser = () => signOut(auth);
+export const signOutUser = () => { currentProfile = null; return signOut(auth); };
 export const sendVerification = (user) => sendEmailVerification(user);
 export const getUser = () => auth.currentUser;
 export const getToken = () => auth.currentUser?.getIdToken();
@@ -33,7 +34,7 @@ async function createDefaultProfile() {
     body: JSON.stringify({
       displayName: user.displayName || user.email.split("@")[0],
       email: user.email,
-      role: "technician",
+      role: "pending",
       createdAt: new Date().toISOString()
     })
   });
@@ -51,7 +52,7 @@ export async function registerAccount({ displayName, email, password }) {
     body: JSON.stringify({
       displayName,
       email: credential.user.email,
-      role: "technician",
+      role: "pending",
       createdAt: new Date().toISOString()
     })
   });
@@ -80,6 +81,10 @@ export async function loadProfile() {
   if (!response.ok) throw new Error("Không thể tải quyền người dùng.");
   currentProfile = await response.json();
   if (!currentProfile) currentProfile = await createDefaultProfile();
+  if (!auth.currentUser.emailVerified || currentProfile.disabled === true || !["viewer", "technician", "manager", "admin"].includes(currentProfile.role)) {
+    currentProfile = null;
+    throw new Error("account-not-approved");
+  }
   return currentProfile;
 }
 

@@ -32,7 +32,9 @@ async def run():
     try:
         async with async_playwright() as p:
             browser = await p.chromium.launch(executable_path='/usr/bin/chromium', args=['--no-sandbox'])
-            page = await browser.new_page()
+            # Functional regression uses Playwright clock/eval instrumentation.
+            # CSP enforcement is tested separately without bypass in security-browser.py.
+            page = await browser.new_page(bypass_csp=True)
             errors = []
             page.on('pageerror', lambda e: errors.append(str(e)))
             await page.clock.install()
@@ -430,7 +432,7 @@ window.seedDayFixture = () => {cncDayOwner=getUser().uid;cncDayStats.set('neway-
             await page.locator('.ct-program-view [data-close-view]').click()
             await page.locator('.ct-program-view').wait_for(state='detached')
             async with page.expect_download() as nc_info:
-                await transfer.get_by_role('button',name='← Nhận về máy tính',exact=True).click()
+                await transfer.get_by_role('button',name='Tải chương trình',exact=True).click()
             nc_download=await nc_info.value
             assert nc_download.suggested_filename=='O1234.nc'
             await nc_download.save_as('/tmp/received-program.nc')
@@ -526,4 +528,5 @@ window.seedDayFixture = () => {cncDayOwner=getUser().uid;cncDayStats.set('neway-
         server.shutdown()
         server.server_close()
 
-asyncio.run(run())
+if __name__ == '__main__':
+    asyncio.run(run())
