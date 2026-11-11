@@ -1,13 +1,13 @@
-import {openCncTransfer,clearCncTransferSessions} from "./cnc-transfer-ui.js?v=20261111-security";
-import {buildCncReport,vnDate} from "./cnc-reports.js?v=20261107-tool-context";
+import {openCncTransfer,clearCncTransferSessions} from "./cnc-transfer-ui.js?v=20261111-machine-alarms";
+import {buildCncReport,vnDate} from "./cnc-reports.js?v=20261111-machine-alarms";
 ﻿import { downloadInventoryWorkbook } from "./inventory-xlsx.js?v=20261105-no-prices";
-import { maintenancePlan, repairHistoryForm, alarmHistoryForm, movementVoucherForm, downloadMaintenanceWorkbook } from "./maintenance-xlsx.js?v=20261107-tool-context";
+import { maintenancePlan, repairHistoryForm, alarmHistoryForm, movementVoucherForm, downloadMaintenanceWorkbook } from "./maintenance-xlsx.js?v=20261111-machine-alarms";
 import {renderMachineModel} from "./cnc-machine-shop.js?v=20261109-work-offset-tray";
 import {renderCncOperatorScreen} from "./cnc-operator-screen.js?v=20261110-transfer-tool";
-import { openCncReports } from "./cnc-report-ui.js?v=20261107-tool-context";
+import { openCncReports } from "./cnc-report-ui.js?v=20261111-machine-alarms";
 import { cncDisplayState, cncIsFresh, cncMeasurement, cncMode, cncDuration, cncServerNow, setCncClockOffset } from "./cnc-status.js?v=20261029-web-sync";
 
-    import { initializeSession, onSessionChanged, signIn, signOutUser, sendVerification, registerAccount, getToken, getUser, loadProfile, role, canEdit, displayName } from "./auth.js?v=20261111-security";
+    import { initializeSession, onSessionChanged, signIn, signOutUser, sendVerification, registerAccount, getToken, getUser, loadProfile, role, canEdit, displayName } from "./auth.js?v=20261111-machine-alarms";
     import { firebaseConfig } from "./firebase-config.js";
 
     const DB_URL = firebaseConfig.databaseURL;
@@ -319,7 +319,7 @@ import { cncDisplayState, cncIsFresh, cncMeasurement, cncMode, cncDuration, cncS
           const data = await fbFetch("cncAlarms", "GET", null, true);
           if (getUser()?.uid !== uid) return;
           cncAlarmHistory = data ? Object.values(data) : [];
-          if (!els.cncMonitoringPage.hidden) renderCncAlarmsOnly();
+
           if (cncAlarmHistoryViewId && els.cncAlarmHistoryDialog.open) renderCncMachineAlarmHistory(cncAlarmHistoryViewId);
         } catch (error) { /* History failure must never suppress live machine data. */ }
         finally { readingAlarms = false; }
@@ -770,7 +770,7 @@ import { cncDisplayState, cncIsFresh, cncMeasurement, cncMode, cncDuration, cncS
       document.querySelector(".cnc-plant-header")?.classList.toggle("has-live", cncs.some(c => cncIsFresh(c)));
       if (els.cncConnectionReady) els.cncConnectionReady.textContent = `${cncs.filter(c => cncIsFresh(c)).length} / ${cncs.length}`;
       renderCncGridOnly(); void refreshCncDayStats();
-      renderCncAlarmsOnly();
+
     }
 
     const cncDayStats = new Map();
@@ -898,32 +898,6 @@ import { cncDisplayState, cncIsFresh, cncMeasurement, cncMode, cncDuration, cncS
       }
     }
 
-    function renderCncAlarmsOnly() {
-      const alarmList = cncAlarmHistory.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
-      document.querySelector("#cncAlarmCount").textContent = `${alarmList.length} sự cố`;
-
-      if (alarmList.length === 0) {
-        document.querySelector("#cncAlarmHistoryBody").innerHTML = `<tr><td colspan="5" class="empty">Chưa có lịch sử Alarm được lưu. Sự cố sẽ xuất hiện khi cầu nối đọc được mã lỗi và gửi lên hệ thống.</td></tr>`;
-        return;
-      }
-
-      document.querySelector("#cncAlarmHistoryBody").innerHTML = alarmList.map(a => {
-        return `
-          <tr>
-            <td><strong>${formatDateDisplay(a.timestamp)}</strong><div style="font-size:11px; color:var(--muted)">${new Date(a.timestamp).toLocaleTimeString("vi-VN")}</div></td>
-            <td><strong>${escapeHtml(a.cncName)}</strong></td>
-            <td><span class="pill danger" style="font-size:11px; font-family:monospace">${escapeHtml(a.alarmCode)}</span></td>
-            <td class="cnc-alarm-description">${escapeHtml(a.description || "—")}${a.machiningContext?`<div class="cnc-alarm-context">${escapeHtml(a.activeProgram||a.mainProgram||"—")} · ${Number.isInteger(a.machiningContext.toolNumber)?"T"+a.machiningContext.toolNumber:"T—"} · ${escapeHtml(a.machiningContext.workCoordinate||"G—")}</div>`:""}</td>
-            <td>
-              <div class="row-actions">
-                <button class="btn" style="min-height:28px; font-size:11px; padding:0 8px; background:var(--brand); color:#fff; border:0" data-cmms-action="autoCreateRepairHistoryFromCncAlarm" data-cmms-id="${escapeHtml(a.id)}">Nhật ký sửa máy</button>
-              </div>
-            </td>
-          </tr>
-        `;
-      }).join("");
-    }
-
     function openCncMachineAlarmHistory(cncId) {
       const c = cncs.find(x => x.id === cncId);
       if (!c) return;
@@ -944,6 +918,8 @@ import { cncDisplayState, cncIsFresh, cncMeasurement, cncMode, cncDuration, cncS
         .filter(a => a.cncId === cncId)
         .sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
 
+      document.querySelector("#exportCncMachineAlarmBtn").disabled = !c || !rows.length;
+      document.querySelector("#cncAlarmHistoryLiveLabel").textContent = `${rows.length} sự cố`;
       if (!rows.length) {
         els.cncMachineAlarmHistoryBody.innerHTML = `<tr><td colspan="4" class="empty">Chưa ghi nhận lỗi nào cho máy CNC này.</td></tr>`;
         return;
@@ -1726,7 +1702,13 @@ import { cncDisplayState, cncIsFresh, cncMeasurement, cncMode, cncDuration, cncS
       openCncReports({ getMachines: () => cncs, getToken, databaseUrl: DB_URL });
     });
 
-    document.querySelector("#exportCncAlarmSectionBtn").addEventListener("click", event => exportMaintenanceForm(event.currentTarget, () => alarmHistoryForm(cncAlarmHistory)));
+    document.querySelector("#exportCncMachineAlarmBtn").addEventListener("click", event => {
+      const machine = cncs.find(c => c.id === cncAlarmHistoryViewId);
+      if (!machine) return;
+      const rows = cncAlarmHistory.filter(a => a.cncId === machine.id);
+      if (!rows.length) return;
+      exportMaintenanceForm(event.currentTarget, () => alarmHistoryForm(rows, {machine}));
+    });
     async function exportMaintenanceForm(button, build) {
       button.disabled = true;
       try { await downloadMaintenanceWorkbook(build(), {actor: displayName()}); showToast("Đã xuất Excel theo mẫu LTD."); }

@@ -55,3 +55,10 @@ test('in/out stock vouchers preserve document number, SKU, quantities and four s
   await writeFile(`/tmp/ltd-voucher-${type}.xlsx`,new Uint8Array(await createMaintenanceWorkbook(layout,{logoBytes,generatedAt}).arrayBuffer()));
  }
 });
+
+test('machine alarm export isolates exact machine ID, labels the report and handles empty history',()=>{
+ const records=[{cncId:'one',cncName:'Same name',alarmCode:'0500',timestamp:'2026-11-05T02:00:00Z'},{cncId:'two',cncName:'Same name',alarmCode:'SP9999',timestamp:'2026-11-05T03:00:00Z'}];
+ const result=alarmHistoryForm(records,{machine:{id:'one',name:'Neway / 1260S'}});
+ assert.equal(result.data.length,1);assert.equal(result.data[0][3],'0500');assert.match(result.title,/Neway \/ 1260S/);assert.equal(result.filename.includes('/'),false);assert.deepEqual(result.summary.map(r=>r[1]),[1,1,'Neway / 1260S']);
+ const empty=alarmHistoryForm(records,{machine:{id:'missing',name:'No alarms'}});assert.equal(empty.data.length,0);assert.equal(empty.summary[0][1],0);assert.match(empty.title,/No alarms/);
+});

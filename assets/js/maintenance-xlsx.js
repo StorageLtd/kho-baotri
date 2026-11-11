@@ -30,11 +30,14 @@ export function repairHistoryForm(records){
   data:ordered.map(({record:r},i)=>[i+1,displayDay(r.faultTime),r.machine||'',r.staff||'',r.fault||'',r.fix||''])};
 }
 const displayTimestamp=value=>{const date=dateValue(value);return date?new Intl.DateTimeFormat('vi-VN',{timeZone:'Asia/Ho_Chi_Minh',day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit',second:'2-digit',hourCycle:'h23'}).format(date):'Chưa có thời gian'};
-export function alarmHistoryForm(records){
+export function alarmHistoryForm(records,{machine}={}){
+ if(machine)records=records.filter(r=>r.cncId===machine.id);
+ const machineLabel=String(machine?.name||machine?.id||'').trim();
+ const suffix=machineLabel.replace(/[\\/:*?"<>|\x00-\x1f]/g,'-').replace(/\s+/g,'-').slice(0,80);
  const ordered=records.map(record=>({record,date:dateValue(record.timestamp)})).sort((a,b)=>(b.date?+b.date:-Infinity)-(a.date?+a.date:-Infinity)||compareText(a.record.cncName,b.record.cncName));
- return {title:'LỊCH SỬ ALARM MÁY CNC',sheetName:'Lịch sử Alarm CNC',tableName:'LTDCncAlarmHistory',filename:'LTD-Lich-su-Alarm-CNC',
+ return {title:'LỊCH SỬ ALARM MÁY CNC'+(machineLabel?' — '+machineLabel:''),sheetName:'Lịch sử Alarm CNC',tableName:'LTDCncAlarmHistory',filename:'LTD-Lich-su-Alarm-CNC'+(suffix?'-'+suffix:''),
   headings:['STT','Thời gian phát hiện','Tên máy CNC','Mã Alarm','Loại','Trục','Mô tả chi tiết lỗi','Trạng thái','Thời gian kết thúc','Chương trình','Dao T','Gốc làm việc'],widths:[6,24,26,16,10,10,70,26,24,18,12,18],statusColumn:7,
-  summary:[['TỔNG SỰ CỐ',records.length],['CHƯA GHI NHẬN KẾT THÚC',records.filter(r=>!r.resolvedAt).length],['THIẾT BỊ',new Set(records.map(r=>r.cncId||r.cncName).filter(Boolean)).size]],
+  summary:[['TỔNG SỰ CỐ',records.length],['CHƯA GHI NHẬN KẾT THÚC',records.filter(r=>!r.resolvedAt).length],machine?['MÁY CNC',machineLabel]:['THIẾT BỊ',new Set(records.map(r=>r.cncId||r.cncName).filter(Boolean)).size]],
   data:ordered.map(({record:r},i)=>[i+1,displayTimestamp(r.timestamp),r.cncName||'',String(r.alarmCode??''),r.alarmType??'',r.axis??'',r.description||'',r.resolvedAt?(r.source==='focas'?'Hết tín hiệu lỗi':'Đã xử lý'):'Chưa ghi nhận kết thúc',r.resolvedAt?displayTimestamp(r.resolvedAt):'',r.activeProgram||r.mainProgram||'',Number.isInteger(r.machiningContext?.toolNumber)?'T'+r.machiningContext.toolNumber:'',r.machiningContext?.workCoordinate||''])};
 }
 export function movementVoucherForm(movement,documentNo){

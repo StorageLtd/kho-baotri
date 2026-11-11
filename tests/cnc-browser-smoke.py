@@ -46,7 +46,7 @@ async def run():
 window.renderInventoryFixture = records => {items=records;render();switchPage('inventoryPage');document.body.classList.remove('locked')};
 window.renderMaintenanceFixture = pageId => {machines=[{id:'fixture-machine',name:'Neway 1260S',model:'VMC',serial:'000123'}];maintenanceJobs=[{id:'fixture-job',machineId:'fixture-machine',machineName:'Neway 1260S',jobName:'Tra dầu',recurrence:'weekly',nextDate:'2026-11-05',owner:'Fixture',desc:'Kiểm tra dầu'}];repairHistory=[{id:'fixture-history',machine:'Neway 1260S',faultTime:'2026-11-05',staff:'Fixture',fault:'Dầu thấp',fix:'Đã bổ sung dầu'}];render();switchPage(pageId);document.body.classList.remove('locked')};
 window.exportVoucherFixture = type => {stockMovements=[{id:'voucher-fixture',type,at:'2026-11-05T02:30:00Z',sku:'000123',itemName:'Cảm biến',amount:3,beforeQuantity:10,afterQuantity:type==='in'?13:7,actor:'Fixture',note:'Sửa máy'}];return exportMovementVoucher('voucher-fixture')};
-window.renderAlarmFixture = records => {cncAlarmHistory=records;renderCncAlarmsOnly()};
+window.renderAlarmFixture = records => {cncAlarmHistory=records;if(cncAlarmHistoryViewId)renderCncMachineAlarmHistory(cncAlarmHistoryViewId)};
 window.renderFixture = (records) => {
   cncs=records; render(); switchPage('cncMonitoringPage');
   document.body.classList.remove('locked');
@@ -198,17 +198,30 @@ window.seedDayFixture = () => {cncDayOwner=getUser().uid;cncDayStats.set('neway-
             await page.locator('#cncAlarmHistoryDialog').evaluate('e=>e.close()')
             assert 'CHƯA CÓ TÍN HIỆU THẬT' in await page.locator('#model-old').inner_text()
             await page.locator('#cncMachineDetailsDialog [data-close-details]').click()
-            await page.evaluate("""renderAlarmFixture([{id:'alarm-fixture',cncId:'neway-1260s',cncName:'Neway 1260S',timestamp:'2026-11-05T02:00:00Z',alarmCode:'0500',alarmType:4,axis:1,description:'(X)+ OVERTRAVEL (SOFT 1). Kiểm tra hành trình trục X theo thông báo của CNC. Nội dung mô tả được hiển thị đầy đủ, không rút gọn bằng dấu ba chấm.',source:'focas'}])""")
+            await page.evaluate("""renderAlarmFixture([{id:'alarm-fixture',cncId:'neway-1260s',cncName:'Neway 1260S',timestamp:'2026-11-05T02:00:00Z',alarmCode:'0500',alarmType:4,axis:1,description:'(X)+ OVERTRAVEL (SOFT 1). Kiểm tra hành trình trục X theo thông báo của CNC. Nội dung mô tả được hiển thị đầy đủ, không rút gọn bằng dấu ba chấm.',source:'focas'},{id:'other-alarm',cncId:'old',cncName:'Other machine',timestamp:'2026-11-05T03:00:00Z',alarmCode:'SP9999',description:'OTHER MACHINE ONLY'}])""")
             assert await page.locator('#cncSearchInput').count()==0
             assert 'Bảng điều khiển & Giám sát CNC (Thời gian thực)' not in await page.locator('#cncMonitoringPage').inner_text()
-            description=page.locator('#cncAlarmHistoryBody .cnc-alarm-description')
+            assert await page.locator('#cncAlarmHistoryBody,.cnc-alarm-section,#exportCncAlarmSectionBtn').count()==0
+            await page.evaluate("openCncMachineAlarmHistory('neway-1260s')")
+            assert await page.locator('#cncMachineAlarmHistoryBody tr').count()==1
+            assert 'OTHER MACHINE ONLY' not in await page.locator('#cncAlarmHistoryDialog').inner_text()
+            description=page.locator('#cncMachineAlarmHistoryBody .cnc-alarm-description')
             assert 'không rút gọn bằng dấu ba chấm' in await description.inner_text()
             assert await description.evaluate("e=>getComputedStyle(e).whiteSpace")=='pre-wrap'
             async with page.expect_download() as alarm_info:
                 await page.get_by_role('button',name='Xuất Excel Alarm',exact=True).click()
             alarm_download=await alarm_info.value
             assert alarm_download.suggested_filename.endswith('.xlsx')
+            assert 'Neway-1260S' in alarm_download.suggested_filename
             await alarm_download.save_as('/tmp/alarm-browser.xlsx')
+            import zipfile
+            with zipfile.ZipFile('/tmp/alarm-browser.xlsx') as workbook:
+                xml=''.join(workbook.read(name).decode() for name in workbook.namelist() if name.endswith('.xml'))
+                assert '0500' in xml and 'SP9999' not in xml and 'OTHER MACHINE ONLY' not in xml
+            await page.locator('#closeCncAlarmHistoryFootBtn').click()
+            await page.evaluate("openCncMachineAlarmHistory('old')")
+            assert 'OTHER MACHINE ONLY' in await page.locator('#cncMachineAlarmHistoryBody').inner_text()
+            await page.locator('#closeCncAlarmHistoryFootBtn').click()
             await page.evaluate('''renderFixture([{id:'neway-1260s',name:'Neway 1260S',source:'focas',connected:true,lastSeen:Date.now(),rawStatus:{run:3,alarm:0,emergency:0,aut:1},ip:'192.168.1.1',port:8193,model:'FANUC 0i-MF Plus',spindleSpeed:1800,feedrate:12.5,feedrateUnit:'inch/min',activeProgram:'O12345678',mainProgram:'O0001'}])''')
             await page.get_by_role('button',name='Xem máy Neway 1260S',exact=True).click()
             await page.get_by_role('button',name='THỐNG KÊ',exact=True).click()

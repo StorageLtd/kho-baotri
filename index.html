@@ -8,7 +8,7 @@
   <title>LTD VIET NAM - Cloud Maintenance System</title>
   <link rel="stylesheet" href="assets/css/app.css?v=20261105-compact-alarm">
   <link rel="stylesheet" href="assets/css/cnc-report.css?v=20261107-tool-context">
-  <link rel="stylesheet" href="assets/css/cnc-transfer.css?v=20261111-security">
+  <link rel="stylesheet" href="assets/css/cnc-transfer.css?v=20261111-machine-alarms">
   <link rel="stylesheet" href="assets/css/cnc-dashboard.css?v=20261109-productivity">
 </head>
 <body class="locked">
@@ -268,32 +268,7 @@
               </div>
             </section>
 
-            <!-- Lịch sử lỗi của máy CNC liên kết kho -->
-            <section class="section cnc-alarm-section">
-              <div class="section-head">
-                <h3>Lịch sử Alarm CNC</h3>
-                <div class="row-actions">
-                  <button class="btn" id="exportCncAlarmSectionBtn" type="button">Xuất Excel Alarm</button>
-                  <span class="meta" id="cncAlarmCount">0 sự cố</span>
-                </div>
-              </div>
-              <div class="table-wrap">
-                <table class="data-table cnc-alarm-table">
-                  <thead>
-                    <tr>
-                      <th>Thời gian phát hiện</th>
-                      <th>Tên máy CNC</th>
-                      <th>Mã Alarm</th>
-                      <th class="col-text-wide">Mô tả chi tiết lỗi</th>
-                      <th class="col-actions" style="text-align: right;">Thao tác xử lý</th>
-                    </tr>
-                  </thead>
-                  <tbody id="cncAlarmHistoryBody">
-                    <!-- Danh sách tải động -->
-                  </tbody>
-                </table>
-              </div>
-            </section>
+
           </div>
 
 
@@ -723,7 +698,8 @@
       </table>
     </div>
     <div class="modal-foot">
-      <span class="cnc-alarm-history-live" id="cncAlarmHistoryLiveLabel">Cùng dữ liệu với bảng Lịch sử Alarm CNC</span>
+      <span class="cnc-alarm-history-live" id="cncAlarmHistoryLiveLabel">Alarm của máy đang chọn</span>
+      <button class="btn primary" type="button" id="exportCncMachineAlarmBtn">Xuất Excel Alarm</button>
       <button class="btn" type="button" id="closeCncAlarmHistoryFootBtn">Đóng</button>
     </div>
   </dialog>
@@ -756,6 +732,6 @@
 
   <div class="toast" id="toast" role="status" aria-live="polite"></div>
 
-  <script type="module" src="assets/js/app.js?v=20261111-security"></script>
+  <script type="module" src="assets/js/app.js?v=20261111-machine-alarms"></script>
 </body>
 </html>
