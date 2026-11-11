@@ -17,8 +17,8 @@ export const registerAccount = async () => {};
 export const getToken = async () => 'fixture-token';
 export const getUser = () => ({uid:globalThis.fixtureUserId||'fixture',emailVerified:true});
 export const loadProfile = async () => ({});
-export const role = () => 'admin';
-export const canEdit = () => true;
+export const role = () => globalThis.fixtureRole||'admin';
+export const canEdit = () => ['admin','manager','technician'].includes(role());
 export const displayName = () => 'Fixture';
 '''
 class QuietHandler(http.server.SimpleHTTPRequestHandler):

@@ -17,6 +17,8 @@ async def run():
    source=(ROOT/'assets/js/app.js').read_text(encoding='utf-8-sig')
    hook="""
    globalThis.securityFixture=record=>{appStarted=true;items=[record];render();switchPage('inventoryPage');document.body.classList.remove('locked');};
+   globalThis.securitySaveFixture=()=>saveItem({preventDefault(){}});
+   globalThis.securityInventorySnapshot=()=>JSON.stringify(items);
    document.body.dataset.testReady='1';
    """
    await page.route('**/assets/js/app.js*',lambda r:r.fulfill(content_type='text/javascript',body=source+hook))
@@ -30,6 +32,19 @@ async def run():
    assert await page.locator('#inventoryBody img').count()==0
    await button.click();assert await page.locator('#itemDialog').is_visible();assert await page.locator('#nameInput').input_value()==badname
    assert await page.evaluate('()=>globalThis.injected===undefined')
+   # A viewer cannot open edit forms or mutate the local model via a forced submit.
+   await page.locator('#itemDialog').evaluate('e=>e.close()')
+   await page.evaluate("()=>{globalThis.fixtureRole='viewer';securityFixture({id:'viewer-item',name:'Read only',sku:'V1',category:'test',quantity:1,min:0})}")
+   assert await page.locator('#addBtn').is_disabled()
+   assert await page.locator('[data-cmms-action="openItemDialog"]').is_disabled()
+   assert await page.locator('[data-cmms-action="openMoveDialog"]').is_disabled()
+   assert await page.locator('[data-cmms-action="deleteItem"]').is_disabled()
+   assert await page.locator('#exportBtn').is_enabled()
+   before=await page.evaluate('()=>securityInventorySnapshot()')
+   await page.evaluate("()=>openItemDialog('viewer-item')")
+   assert not await page.locator('#itemDialog').is_visible()
+   await page.evaluate('()=>securitySaveFixture()')
+   assert await page.evaluate('()=>securityInventorySnapshot()')==before
    # Dynamically inserted inline scripts must be blocked by the real shipped CSP.
    await page.evaluate("()=>{let s=document.createElement('script');s.textContent='globalThis.inlineExecuted=true';document.head.append(s)}")
    assert await page.evaluate('()=>globalThis.inlineExecuted===undefined')

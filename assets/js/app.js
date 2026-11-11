@@ -1,13 +1,13 @@
-import {openCncTransfer,clearCncTransferSessions} from "./cnc-transfer-ui.js?v=20261111-machine-alarms";
-import {buildCncReport,vnDate} from "./cnc-reports.js?v=20261111-machine-alarms";
+import {openCncTransfer,clearCncTransferSessions} from "./cnc-transfer-ui.js?v=20261111-viewer-controls";
+import {buildCncReport,vnDate} from "./cnc-reports.js?v=20261111-viewer-controls";
 ﻿import { downloadInventoryWorkbook } from "./inventory-xlsx.js?v=20261105-no-prices";
-import { maintenancePlan, repairHistoryForm, alarmHistoryForm, movementVoucherForm, downloadMaintenanceWorkbook } from "./maintenance-xlsx.js?v=20261111-machine-alarms";
+import { maintenancePlan, repairHistoryForm, alarmHistoryForm, movementVoucherForm, downloadMaintenanceWorkbook } from "./maintenance-xlsx.js?v=20261111-viewer-controls";
 import {renderMachineModel} from "./cnc-machine-shop.js?v=20261109-work-offset-tray";
 import {renderCncOperatorScreen} from "./cnc-operator-screen.js?v=20261110-transfer-tool";
-import { openCncReports } from "./cnc-report-ui.js?v=20261111-machine-alarms";
+import { openCncReports } from "./cnc-report-ui.js?v=20261111-viewer-controls";
 import { cncDisplayState, cncIsFresh, cncMeasurement, cncMode, cncDuration, cncServerNow, setCncClockOffset } from "./cnc-status.js?v=20261029-web-sync";
 
-    import { initializeSession, onSessionChanged, signIn, signOutUser, sendVerification, registerAccount, getToken, getUser, loadProfile, role, canEdit, displayName } from "./auth.js?v=20261111-machine-alarms";
+    import { initializeSession, onSessionChanged, signIn, signOutUser, sendVerification, registerAccount, getToken, getUser, loadProfile, role, canEdit, displayName } from "./auth.js?v=20261111-viewer-controls";
     import { firebaseConfig } from "./firebase-config.js";
 
     const DB_URL = firebaseConfig.databaseURL;
@@ -511,17 +511,22 @@ import { cncDisplayState, cncIsFresh, cncMeasurement, cncMode, cncDuration, cncS
         adminAuditOpen = false;
         els.adminAuditPanel.hidden = true;
       }
-      document.querySelectorAll("button.primary, button.danger, #addMachineBtn, #addCncBtn, #addMaintenanceMachineBtn").forEach(button => {
-        if (button.closest(".login-screen")) return;
-        button.disabled = true;
-        button.title = "Tài khoản chỉ có quyền xem. Liên hệ quản lý để được cấp quyền chỉnh sửa.";
-        button.disabled = !allowedToEdit;
-        button.title = allowedToEdit
-          ? ""
-          : "Tài khoản chỉ có quyền xem. Liên hệ quản lý để được cấp quyền chỉnh sửa.";
+      const selector = '#addBtn,#addMachineMainBtn,#addCncMainBtn,#addJobMainBtn,#addMachineBtn,#addCncBtn,#addMaintenanceMachineBtn,#removeItemImageBtn,#itemForm [type="submit"],#moveForm [type="submit"],#cncForm [type="submit"],#machineForm [type="submit"],#jobForm [type="submit"],#historyForm [type="submit"],[data-cmms-action],[data-cnc-action="edit"],[data-cnc-action="delete"],[data-cnc-action="transfer"]';
+      const readActions = new Set(['exportMovementVoucher','toggleMaintenanceMachine']);
+      document.querySelectorAll(selector).forEach(button => {
+        if(readActions.has(button.dataset.cmmsAction))return;
+        const historyAdmin = ['openHistoryDialog','deleteHistory'].includes(button.dataset.cmmsAction) || button.closest('#historyForm');
+        button.disabled = !allowedToEdit || (historyAdmin && !isAdmin);
+        button.title = button.disabled ? 'Tài khoản chỉ có quyền xem. Liên hệ quản lý để được cấp quyền chỉnh sửa.' : '';
       });
     }
 
+
+    function requireEditPermission() {
+      if (canEdit()) return true;
+      showToast('Tài khoản chỉ có quyền xem, không được thêm, sửa, xóa hoặc nhập/xuất kho.');
+      return false;
+    }
 
     function switchPage(pageId) {
       document.body.dataset.page = pageId;
@@ -599,6 +604,7 @@ import { cncDisplayState, cncIsFresh, cncMeasurement, cncMode, cncDuration, cncS
       renderAuditHistory();
       renderAlertsAndActivities();
       updateMachineSelectOptions();
+      applyAuthorization();
     }
 
     function renderAuditHistory() {
@@ -834,6 +840,7 @@ import { cncDisplayState, cncIsFresh, cncMeasurement, cncMode, cncDuration, cncS
       document.querySelector('#cncDetailsTitle').textContent=c.name;
       cncDetailsDialog.classList.toggle('has-operator-screen',cncSelectedDetailView!=='statistics');
       content.innerHTML=renderCncOperatorScreen(c,{view:cncSelectedDetailView,offsetPage:cncOffsetPage,errorsOpen,daily:cncDayOwner===getUser()?.uid&&cncDayStats.get(c.id)?.date===vnDate(cncServerNow())?cncDayStats.get(c.id):null});
+      applyAuthorization();
       cncRenderedDetailView=cncSelectedDetailView;cncDetailsDialog.scrollTop=scroll;[...content.querySelectorAll('.operator-program pre,.operator-table-scroll')].forEach((el,i)=>{if(innerScroll[i]){el.scrollTop=innerScroll[i].top;el.scrollLeft=innerScroll[i].left}});if(focus)[...content.querySelectorAll('[data-cnc-action]')].find(el=>el.dataset.cncAction===focus&&(!focusedView||el.dataset.view===focusedView))?.focus({preventScroll:true});
     }
     function handleCncAction(event){
@@ -959,6 +966,7 @@ import { cncDisplayState, cncIsFresh, cncMeasurement, cncMode, cncDuration, cncS
 
     // Xóa máy CNC
     async function deleteCnc(id) {
+      if (!requireEditPermission()) return;
       if (!confirm("Bạn chắc chắn muốn xóa máy CNC này? Hãy dừng cầu nối trước, nếu không bản ghi có thể được tạo lại.")) return;
       try {
         await fbFetch(`cncs/${id}`, "DELETE");
@@ -972,6 +980,7 @@ import { cncDisplayState, cncIsFresh, cncMeasurement, cncMode, cncDuration, cncS
     // Cập nhật hoặc lưu thông tin CNC
     async function saveCnc(e) {
       e.preventDefault();
+      if (!requireEditPermission()) return;
       const id = els.cncId.value || crypto.randomUUID();
       const payload = {
         id,
@@ -1007,6 +1016,7 @@ import { cncDisplayState, cncIsFresh, cncMeasurement, cncMode, cncDuration, cncS
       document.querySelector('#cncProfileHelp').textContent=supported?'Đối chiếu bộ điều khiển, bảng offset và đơn vị trước khi bật. Cầu nối mới cập nhật lựa chọn trong tối đa 60 giây.':'Giám sát trạng thái và HD.T / NX.T nếu CNC hỗ trợ. Offset hiện hỗ trợ phay XYZ 3 trục với Memory A, B hoặc C đã đối chiếu.';
     }
     function openCncDialog(id = "") {
+      if (!requireEditPermission()) return;
       const c = cncs.find(x => x.id === id);
       els.cncTitle.textContent = c ? "Cài đặt máy CNC" : "Thêm máy CNC mới";
       els.cncId.value = c?.id || "";
@@ -1267,6 +1277,7 @@ import { cncDisplayState, cncIsFresh, cncMeasurement, cncMode, cncDuration, cncS
 
     // HỘP THOẠI LINH KIỆN
     function openItemDialog(id = "") {
+      if (!requireEditPermission()) return;
       itemImageRevision++;
       const item = items.find(i => i.id === id);
       els.dialogTitle.textContent = item ? "Sửa thông tin linh kiện" : "Thêm linh kiện mới";
@@ -1298,6 +1309,7 @@ import { cncDisplayState, cncIsFresh, cncMeasurement, cncMode, cncDuration, cncS
     
     async function saveItem(e) {
       e.preventDefault();
+      if (!requireEditPermission()) return;
       const id = els.itemId.value || crypto.randomUUID();
       const payload = {
         ...items.find(item => item.id === id),
@@ -1316,6 +1328,7 @@ import { cncDisplayState, cncIsFresh, cncMeasurement, cncMode, cncDuration, cncS
     }
 
     async function deleteItem(id) {
+      if (!requireEditPermission()) return;
       if(!confirm("Hệ thống sẽ xóa mã linh kiện này khỏi cơ sở dữ liệu vĩnh viễn. Bạn chắc chắn muốn xóa?")) return;
       const iName = items.find(i => i.id === id)?.name || "Linh kiện";
       items = items.filter(i => i.id !== id);
@@ -1325,6 +1338,7 @@ import { cncDisplayState, cncIsFresh, cncMeasurement, cncMode, cncDuration, cncS
 
     // NHẬP XUẤT KHO NHANH
     function openMoveDialog(id) {
+      if (!requireEditPermission()) return;
       const item = items.find(i => i.id === id); if(!item) return;
       els.moveItemId.value = id; els.moveTitle.textContent = `Nhập / Xuất kho nhanh: ${item.name}`;
       els.moveDialog.showModal();
@@ -1333,6 +1347,7 @@ import { cncDisplayState, cncIsFresh, cncMeasurement, cncMode, cncDuration, cncS
     
     async function saveMovement(e) {
       e.preventDefault();
+      if (!requireEditPermission()) return;
       const item = items.find(i => i.id === els.moveItemId.value); if(!item) return;
       const amt = Number(els.moveAmount.value);
       if(els.moveType.value === "out" && amt > item.quantity) { 
@@ -1355,6 +1370,7 @@ import { cncDisplayState, cncIsFresh, cncMeasurement, cncMode, cncDuration, cncS
 
     // MÁY MÓC NHÀ XƯỞNG
     function openMachineDialog(id = "") {
+      if (!requireEditPermission()) return;
       const m = machines.find(x => x.id === id);
       els.machineTitle.textContent = m ? "Sửa thông tin máy móc" : "Thêm máy thiết bị mới";
       els.mId.value = m?.id || "";
@@ -1371,6 +1387,7 @@ import { cncDisplayState, cncIsFresh, cncMeasurement, cncMode, cncDuration, cncS
     
     async function saveMachine(e) {
       e.preventDefault();
+      if (!requireEditPermission()) return;
       const id = els.mId.value || crypto.randomUUID();
       const payload = {
         id, name: els.mName.value.trim(), model: els.mModel.value.trim(), serial: els.mSerial.value.trim(), setupDate: els.mSetupDate.value,
@@ -1390,6 +1407,7 @@ import { cncDisplayState, cncIsFresh, cncMeasurement, cncMode, cncDuration, cncS
     }
 
     async function deleteMachine(id) {
+      if (!requireEditPermission()) return;
       if(!confirm("Cảnh báo: Hành động xóa máy này sẽ đồng thời xóa vĩnh viễn tất cả các lịch bảo trì (Job) liên quan của máy đó. Bạn vẫn muốn tiếp tục?")) return;
       const mName = machines.find(x => x.id === id)?.name || "thiết bị";
       machines = machines.filter(x => x.id !== id);
@@ -1401,6 +1419,7 @@ import { cncDisplayState, cncIsFresh, cncMeasurement, cncMode, cncDuration, cncS
 
     // JOB BẢO TRÌ
     function openJobDialog(id = "", selectedMachineId = "") {
+      if (!requireEditPermission()) return;
       if (machines.length === 0) {
         alert("Lỗi: Bạn cần tạo dữ liệu thông tin Máy móc nhà xưởng trước khi lập kế hoạch Job bảo trì!");
         return;
@@ -1422,6 +1441,7 @@ import { cncDisplayState, cncIsFresh, cncMeasurement, cncMode, cncDuration, cncS
 
     async function saveJob(e) {
       e.preventDefault();
+      if (!requireEditPermission()) return;
       const mId = els.jMachineSelect.value;
       const targetMachine = machines.find(x => x.id === mId);
       if(!targetMachine) return;
@@ -1455,6 +1475,7 @@ import { cncDisplayState, cncIsFresh, cncMeasurement, cncMode, cncDuration, cncS
     }
 
     async function deleteJob(id) {
+      if (!requireEditPermission()) return;
       if(!confirm("Bạn thực sự muốn xóa bỏ kế hoạch bảo trì này?")) return;
       const jName = maintenanceJobs.find(x => x.id === id)?.jobName || "Job";
       maintenanceJobs = maintenanceJobs.filter(x => x.id !== id);
@@ -1464,6 +1485,7 @@ import { cncDisplayState, cncIsFresh, cncMeasurement, cncMode, cncDuration, cncS
 
     // Hoàn thành Job bảo trì định kỳ -> Chuyển chu kỳ tiếp theo
     async function completeAndRenewJob(id) {
+      if (!requireEditPermission()) return;
       const j = maintenanceJobs.find(x => x.id === id);
       if(!j) return;
       
@@ -1520,6 +1542,7 @@ import { cncDisplayState, cncIsFresh, cncMeasurement, cncMode, cncDuration, cncS
     
     async function saveRepairHistory(e) {
       e.preventDefault();
+      if (!requireEditPermission()) return;
       if (role() !== "admin") { closeHistoryDialog(); showToast("Chỉ Quản trị viên được chỉnh sửa nhật ký sự cố."); return; }
       const id = els.historyId.value;
       const idx = repairHistory.findIndex(x => x.id === id);
