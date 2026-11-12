@@ -25,9 +25,26 @@ function Initialize-OfflineStore([string]$Folder){
  foreach($node in @('items','machines','maintenanceJobs','stockMovements','repairHistory','activities','cncs','cncAlarms','cncReports','accountHistory','deviceHistory','online_users')){if(-not $script:Database.ContainsKey($node)){$script:Database[$node]=@{}}}
  foreach($machine in $script:Database.cncs.Values){$machine.connected=$false}
 }
+function Get-OfflineAccountError($ErrorRecord,[string]$Password=''){
+ $code=$ErrorRecord.Exception.GetBaseException().Message
+ switch($code){
+  'INVALID_EMAIL' {return 'Tên đăng nhập không phải địa chỉ email hợp lệ.'}
+  'INVALID_PASSWORD' {return 'Mật khẩu phải từ 12 đến 128 ký tự.'}
+  'INVALID_ACCOUNT' {return 'Tên hoặc quyền tài khoản không hợp lệ.'}
+  'ACCOUNT_EXISTS' {return 'Tài khoản đã tồn tại. Đóng hộp này rồi mở chương trình để đăng nhập, không xóa dữ liệu.'}
+ }
+ # Never include a password/hash in startup diagnostics, even if a runtime error echoes an argument.
+ if($Password){$code=$code.Replace($Password,'[redacted]')}
+ $safe=($ErrorRecord.Exception.GetType().FullName+': '+$code)
+ if($safe.Length -gt 1500){$safe=$safe.Substring(0,1500)}
+ try{[IO.File]::WriteAllText((Join-Path $script:OfflineFolder 'account-setup-error.log'),([DateTime]::UtcNow.ToString('o')+"`r`n"+$safe),[Text.UTF8Encoding]::new($false))}catch{}
+ return 'Không lưu được tài khoản nội bộ. Xem account-setup-error.log trong thư mục dữ liệu; lỗi này không nhất thiết do mật khẩu.'
+}
 function New-OfflineAccount([string]$Email,[string]$Name,[string]$Password,[string]$Role='pending'){
  $Email=$Email.Trim().ToLowerInvariant()
- if($Email -notmatch '^[^\s@,;<>]+@[^\s@,;<>]+\.[^\s@,;<>]+$' -or $Email.Length -gt 254 -or -not $Name.Trim() -or $Name.Length -gt 120 -or $Password.Length -lt 12 -or $Password.Length -gt 128 -or $Role -notin @('pending','viewer','technician','manager','admin')){throw 'INVALID_ACCOUNT'}
+ if($Email -notmatch '^[^\s@,;<>]+@[^\s@,;<>]+\.[^\s@,;<>]+$' -or $Email.Length -gt 254){throw 'INVALID_EMAIL'}
+ if($Password.Length -lt 12 -or $Password.Length -gt 128){throw 'INVALID_PASSWORD'}
+ if(-not $Name.Trim() -or $Name.Length -gt 120 -or $Role -notin @('pending','viewer','technician','manager','admin')){throw 'INVALID_ACCOUNT'}
  foreach($a in $script:Accounts.Values){if($a.email -eq $Email){throw 'ACCOUNT_EXISTS'}}
  $id=[Guid]::NewGuid().ToString('N');$candidate=Convert-OfflineValue $script:Accounts;$candidate[$id]=@{uid=$id;email=$Email;displayName=$Name;role=$Role;passwordHash=[OfflineCrypto]::Hash($Password);disabled=$false}
  Write-OfflineJson $script:AccountsPath $candidate;$script:Accounts=$candidate;return $script:Accounts[$id]

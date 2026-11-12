@@ -98,3 +98,11 @@ Muốn sao lưu cả tài khoản/thiết lập worker bằng cách chép toàn 
 Đã chạy máy chủ/API và giao diện thật trong Chromium trên Linux với dữ liệu giả: đăng nhập nội bộ, sửa/lưu kho và job, quyền viewer, xuất XLSX, backup/import và giữ dữ liệu sau khởi động lại. Kiểm tra source C# với bộ reference .NET Framework 4.8/C# 5 và cú pháp PowerShell 5-compatible. Bộ thu thập báo cáo/alarm được kiểm tra với mẫu giả và giữ nguyên native Reader chỉ đọc.
 
 **Chưa chạy trực tiếp WinForms/khay hệ thống trên Windows của anh hoặc kết nối CNC thật.** Cần thử trên máy tính thu thập trước khi coi là đã xác nhận tại xưởng. Không có dữ liệu demo giả được đóng gói vào cơ sở dữ liệu sản xuất mặc định.
+
+### Bản sửa tạo tài khoản — 20261112-account-setup
+
+Hộp tạo admin có ô nhập lại mật khẩu và phân biệt lỗi email, độ dài, nhập lại không khớp và lỗi ghi tài khoản. Mật khẩu cho phép **12–128 ký tự**, không phải tối đa 12. Có thể dùng địa chỉ Gmail làm tên đăng nhập nội bộ nhưng **không dùng mật khẩu Gmail**.
+
+Đóng bản cũ hoàn toàn rồi giải nén bản mới. Không xóa `%LOCALAPPDATA%\LTD\CmmsOffline`. Nếu chưa có tài khoản, hộp tạo admin tự xuất hiện. Nếu tài khoản đã được lưu từ lần trước, chương trình đi thẳng đến màn hình đăng nhập.
+
+Nếu lỗi lưu vẫn xuất hiện, xem `%LOCALAPPDATA%\LTD\CmmsOffline\account-setup-error.log` và gửi nội dung lỗi để kiểm tra. Log đã che mật khẩu và không chứa hash tài khoản; không gửi `accounts.json` hoặc mật khẩu. Bản sửa đã kiểm tra logic tạo tài khoản và giới hạn mật khẩu; chưa chạy trực tiếp hộp thoại WinForms trên Windows của người dùng.
