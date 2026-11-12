@@ -8,7 +8,7 @@
   <title>LTD VIET NAM - Cloud Maintenance System</title>
   <link rel="stylesheet" href="assets/css/app.css?v=20261105-compact-alarm">
   <link rel="stylesheet" href="assets/css/cnc-report.css?v=20261107-tool-context">
-  <link rel="stylesheet" href="assets/css/cnc-transfer.css?v=20261111-viewer-controls">
+  <link rel="stylesheet" href="assets/css/cnc-transfer.css?v=20261112-email-reminders">
   <link rel="stylesheet" href="assets/css/cnc-dashboard.css?v=20261109-productivity">
 </head>
 <body class="locked">
@@ -612,6 +612,17 @@
           <label for="jOwnerInput">Người phụ trách bảo trì</label>
           <input class="input" id="jOwnerInput" required placeholder="Ví dụ: Nguyễn Văn A - Bảo trì cơ khí">
         </div>
+        <div class="field wide">
+          <label><input type="checkbox" id="jEmailReminderEnabled"> Nhắc qua email khi đến hạn</label>
+        </div>
+        <div class="field">
+          <label for="jOwnerEmailInput">Email người phụ trách</label>
+          <input class="input" id="jOwnerEmailInput" type="email" maxlength="254" placeholder="baotri@congty.com" autocomplete="email">
+        </div>
+        <div class="field">
+          <label for="jReminderCcInput">Email quản lý nhận CC (tùy chọn)</label>
+          <input class="input" id="jReminderCcInput" type="email" maxlength="254" placeholder="quanly@congty.com">
+        </div>
         <div class="field">
           <label for="jEstimatedTimeInput">Thời lượng dự kiến</label>
           <input class="input" id="jEstimatedTimeInput" placeholder="Ví dụ: 45 phút">
@@ -732,6 +743,6 @@
 
   <div class="toast" id="toast" role="status" aria-live="polite"></div>
 
-  <script type="module" src="assets/js/app.js?v=20261111-viewer-controls"></script>
+  <script type="module" src="assets/js/app.js?v=20261112-email-reminders"></script>
 </body>
 </html>

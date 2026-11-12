@@ -64,3 +64,13 @@ Kiểm thử: `pwsh -NoProfile -File tests/fanuc-access.Tests.ps1` xác nhận a
 Telemetry CNC được đọc ngay sau đăng nhập, độc lập với kho, presence và lịch sử alarm. GET không dùng cache, có timeout và chặn yêu cầu chồng. Mỗi nhánh lỗi không ngăn hiển thị nhánh khác. Dòng trạng thái đồng bộ trên trang CNC phân biệt lỗi đọc Firebase với tín hiệu quá hạn.
 
 Độ mới tín hiệu dùng độ lệch thời gian đo từ server timestamp trên presence của chính phiên đăng nhập; không sửa đồng hồ Windows. Khi máy tính lệch hơn một phút, web hiển thị cảnh báo để sửa giờ thiết bị (nhật ký do cầu nối vẫn dùng giờ Windows). Không thay đổi API CNC/cầu nối/PMC. Kiểm thử trình duyệt tái hiện alarm endpoint lỗi và đồng hồ lệch 11 phút.
+
+## Nhắc bảo trì qua email (12/11/2026)
+
+Trong form job, bật **Nhắc qua email khi đến hạn**, khai báo email người phụ trách và CC tùy chọn. Gửi một lần cho mỗi job/kỳ hạn, không gửi bản tổng hợp hằng ngày. Link email mở đúng job sau khi đăng nhập. Job chỉ được cập nhật trên giao diện sau khi Firebase chấp nhận lưu.
+
+Bộ Google Apps Script chạy theo giờ Việt Nam, có khóa đồng thời và nhật ký đặt chỗ bằng Firebase ETag. Tài khoản `notifier` riêng chỉ đọc lịch và ghi trạng thái gửi, không sửa job/kho/CNC. Hết quota sẽ chờ; kết quả gửi không rõ không tự gửi lại. Đây không phải dịch vụ bảo đảm giao thư tuyệt đối.
+
+Cần chủ tài khoản thực hiện cài đặt một lần: [hướng dẫn](tools/maintenance-email/HUONG-DAN.md), [gói tải](downloads/LTD-Maintenance-Email-20261112.zip), [Rules bổ sung email](downloads/LTD-Firebase-Rules-20261112-Email.json). Chưa cài trigger hoặc gửi email thật thay người dùng; không có thông tin đăng nhập trong gói. Không cần triển khai web app công khai, bật laptop hoặc mở quyền Firebase công khai.
+
+Kiểm thử: `node --test tests/maintenance-email.test.mjs tests/security-rules.test.mjs`, `python tests/cnc-browser-smoke.py`; Firebase, Google Mail và trigger được giả lập, không liên hệ dịch vụ thật.

@@ -1,13 +1,13 @@
-import {openCncTransfer,clearCncTransferSessions} from "./cnc-transfer-ui.js?v=20261111-viewer-controls";
-import {buildCncReport,vnDate} from "./cnc-reports.js?v=20261111-viewer-controls";
+import {openCncTransfer,clearCncTransferSessions} from "./cnc-transfer-ui.js?v=20261112-email-reminders";
+import {buildCncReport,vnDate} from "./cnc-reports.js?v=20261112-email-reminders";
 ﻿import { downloadInventoryWorkbook } from "./inventory-xlsx.js?v=20261105-no-prices";
-import { maintenancePlan, repairHistoryForm, alarmHistoryForm, movementVoucherForm, downloadMaintenanceWorkbook } from "./maintenance-xlsx.js?v=20261111-viewer-controls";
+import { maintenancePlan, repairHistoryForm, alarmHistoryForm, movementVoucherForm, downloadMaintenanceWorkbook } from "./maintenance-xlsx.js?v=20261112-email-reminders";
 import {renderMachineModel} from "./cnc-machine-shop.js?v=20261109-work-offset-tray";
 import {renderCncOperatorScreen} from "./cnc-operator-screen.js?v=20261110-transfer-tool";
-import { openCncReports } from "./cnc-report-ui.js?v=20261111-viewer-controls";
+import { openCncReports } from "./cnc-report-ui.js?v=20261112-email-reminders";
 import { cncDisplayState, cncIsFresh, cncMeasurement, cncMode, cncDuration, cncServerNow, setCncClockOffset } from "./cnc-status.js?v=20261029-web-sync";
 
-    import { initializeSession, onSessionChanged, signIn, signOutUser, sendVerification, registerAccount, getToken, getUser, loadProfile, role, canEdit, displayName } from "./auth.js?v=20261111-viewer-controls";
+    import { initializeSession, onSessionChanged, signIn, signOutUser, sendVerification, registerAccount, getToken, getUser, loadProfile, role, canEdit, displayName } from "./auth.js?v=20261112-email-reminders";
     import { firebaseConfig } from "./firebase-config.js";
 
     const DB_URL = firebaseConfig.databaseURL;
@@ -177,6 +177,9 @@ import { cncDisplayState, cncIsFresh, cncMeasurement, cncMode, cncDuration, cncS
       jFrequency: document.querySelector("#jFrequencyInput"),
       jNextDate: document.querySelector("#jNextDateInput"),
       jOwner: document.querySelector("#jOwnerInput"),
+      jEmailReminderEnabled: document.querySelector("#jEmailReminderEnabled"),
+      jOwnerEmail: document.querySelector("#jOwnerEmailInput"),
+      jReminderCc: document.querySelector("#jReminderCcInput"),
       jEstimatedTime: document.querySelector("#jEstimatedTimeInput"),
       jDesc: document.querySelector("#jDescInput"),
 
@@ -245,6 +248,23 @@ import { cncDisplayState, cncIsFresh, cncMeasurement, cncMode, cncDuration, cncS
       try { await writeAudit("deviceHistory", { device, action }); } catch (error) { console.warn(error); }
     }
 
+    let maintenanceDeepLinkHandled = false;
+    function focusMaintenanceJobFromLink() {
+      if (maintenanceDeepLinkHandled) return;
+      const id = new URLSearchParams(location.hash.slice(1)).get('maintenanceJob');
+      if (!id) return;
+      const job = maintenanceJobs.find(j => j.id === id);
+      if (!job) return;
+      maintenanceDeepLinkHandled = true;
+      expandedMaintenanceMachineIds.add(job.machineId);
+      els.jobSearchInput.value = job.jobName || '';
+      switchPage('maintenanceJobsPage');
+      renderMaintenanceJobsTable();
+      document.querySelectorAll('.nav button').forEach(button => button.classList.toggle('active',button.dataset.page==='maintenanceJobsPage'));
+      const row = [...document.querySelectorAll('[data-maintenance-job]')].find(row=>row.dataset.maintenanceJob===id);
+      row?.scrollIntoView({block:'center'});row?.focus({preventScroll:true});
+    }
+
     async function loadCloudData() {
       if(els.resultCount) els.resultCount.textContent = "Đang đồng bộ dữ liệu đám mây...";
       try {
@@ -264,6 +284,7 @@ import { cncDisplayState, cncIsFresh, cncMeasurement, cncMode, cncDuration, cncS
         machines = cloudMachines ? Object.values(cloudMachines) : [];
         maintenanceJobs = cloudJobs ? Object.values(cloudJobs) : [];
         render();
+        focusMaintenanceJobFromLink();
         showToast("Đã cập nhật dữ liệu trực tuyến mới nhất.");
 
         // Presence is written with server timestamps by the independent clock synchronizer.
@@ -1104,7 +1125,7 @@ import { cncDisplayState, cncIsFresh, cncMeasurement, cncMode, cncDuration, cncS
           ${jobs.length ? `<div class="maintenance-task-head" aria-hidden="true"><span>Hạng mục / Công việc</span><span>Chu kỳ</span><span>Kỳ kế tiếp</span><span>Phụ trách</span><span>Thao tác</span></div>` : ""}
           ${jobs.length ? jobs.map(job => {
             const due = job.nextDate <= todayStr;
-            return `<div class="maintenance-task">
+            return `<div class="maintenance-task" tabindex="-1" data-maintenance-job="${escapeHtml(job.id)}">
               <div><strong>${escapeHtml(job.jobName)}</strong><small>${escapeHtml(job.desc || "Chưa có checklist kỹ thuật")}</small></div>
               <div data-label="Chu kỳ"><strong>${escapeHtml(recurrenceLabel(job))}</strong></div>
               <div data-label="Kỳ kế tiếp"><strong style="color:${due ? "var(--danger)" : "var(--ok)"}">${formatDateDisplay(job.nextDate)}</strong></div>
@@ -1433,15 +1454,28 @@ import { cncDisplayState, cncIsFresh, cncMeasurement, cncMode, cncDuration, cncS
       els.jFrequency.value = recurrenceForJob(j || { recurrence: "monthly" });
       els.jNextDate.value = j?.nextDate || new Date().toISOString().slice(0,10);
       els.jOwner.value = j?.owner || "";
+      els.jEmailReminderEnabled.checked = j?.emailReminderEnabled === true;
+      els.jOwnerEmail.value = j?.ownerEmail || "";
+      els.jReminderCc.value = j?.reminderCc || "";
+      updateJobEmailFields();
       els.jEstimatedTime.value = j?.estimatedTime || "";
       els.jDesc.value = j?.desc || "";
       els.jobDialog.showModal();
     }
     function closeJobDialog() { els.jobDialog.close(); els.jobForm.reset(); }
 
+    function updateJobEmailFields() {
+      els.jOwnerEmail.required = els.jEmailReminderEnabled.checked;
+      els.jOwnerEmail.disabled = !els.jEmailReminderEnabled.checked;
+      els.jReminderCc.disabled = !els.jEmailReminderEnabled.checked;
+    }
+    els.jEmailReminderEnabled.addEventListener('change', updateJobEmailFields);
+
     async function saveJob(e) {
       e.preventDefault();
       if (!requireEditPermission()) return;
+      updateJobEmailFields();
+      if (!els.jobForm.reportValidity()) return;
       const mId = els.jMachineSelect.value;
       const targetMachine = machines.find(x => x.id === mId);
       if(!targetMachine) return;
@@ -1457,11 +1491,16 @@ import { cncDisplayState, cncIsFresh, cncMeasurement, cncMode, cncDuration, cncS
         period: frequencyDetails[recurrence].months || 0,
         nextDate: els.jNextDate.value,
         owner: els.jOwner.value.trim(),
+        emailReminderEnabled: els.jEmailReminderEnabled.checked,
+        ownerEmail: els.jOwnerEmail.value.trim().toLowerCase(),
+        reminderCc: els.jReminderCc.value.trim().toLowerCase(),
         estimatedTime: els.jEstimatedTime.value.trim(),
         createdBy: maintenanceJobs.find(x => x.id === id)?.createdBy || displayName(),
         desc: els.jDesc.value.trim()
       };
 
+      try { await fbFetch(`maintenanceJobs/${id}`, 'PUT', payload, true); }
+      catch (error) { showToast('Chưa lưu được lịch bảo trì: ' + error.message); return; }
       const idx = maintenanceJobs.findIndex(x => x.id === id);
       if (idx >= 0) {
         maintenanceJobs[idx] = payload;
@@ -1471,7 +1510,7 @@ import { cncDisplayState, cncIsFresh, cncMeasurement, cncMode, cncDuration, cncS
         addAct(`Lập lịch Job mới [${payload.jobName}] cho Máy ${payload.machineName}`);
       }
       closeJobDialog(); render();
-      await Promise.all([syncNode("maintenanceJobs", maintenanceJobs), syncNode("activities", activities)]);
+      await syncNode("activities", activities);
     }
 
     async function deleteJob(id) {

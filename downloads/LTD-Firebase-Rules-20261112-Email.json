@@ -1,0 +1,120 @@
+{
+  "rules": {
+    ".read": false,
+    ".write": false,
+    "cncReports": {
+      ".read": "auth != null && auth.token.email_verified === true && root.child('users').child(auth.uid).child('disabled').val() !== true && (root.child('users').child(auth.uid).child('role').val() === 'admin' || root.child('users').child(auth.uid).child('role').val() === 'manager' || root.child('users').child(auth.uid).child('role').val() === 'technician' || root.child('users').child(auth.uid).child('role').val() === 'viewer')",
+      "$machineId": {
+        "$day": {
+          "$sessionId": {
+            ".write": "auth != null && auth.token.email_verified === true && root.child('users').child(auth.uid).child('disabled').val() !== true && (root.child('users').child(auth.uid).child('role').val() === 'admin' || root.child('users').child(auth.uid).child('role').val() === 'manager' || root.child('users').child(auth.uid).child('role').val() === 'technician' || root.child('users').child(auth.uid).child('role').val() === 'viewer') && root.child('users').child(auth.uid).child('role').val() !== 'viewer' && newData.exists() && (!data.exists() || data.child('ownerUid').val() === auth.uid)",
+            ".validate": "newData.child('schemaVersion').val() === 1 && newData.child('source').val() === 'focas' && newData.child('machineId').val() === $machineId && newData.child('date').val() === $day && newData.child('sessionId').val() === $sessionId && newData.child('ownerUid').val() === auth.uid && newData.child('firstMs').isNumber() && newData.child('lastMs').isNumber() && newData.child('firstMs').val() <= newData.child('lastMs').val() && newData.child('observedMs').isNumber() && newData.child('observedMs').val() >= 0 && newData.child('observedMs').val() <= 86400000 && newData.child('observedMs').val() <= newData.child('lastMs').val() - newData.child('firstMs').val() && newData.child('observedMs').val() === newData.child('runningMs').val() + newData.child('idleMs').val() + newData.child('holdMs').val() + newData.child('alarmMs').val() + newData.child('unknownStateMs').val() && (!data.exists() || newData.child('observedMs').val() >= data.child('observedMs').val())",
+            "runningMs": {
+              ".validate": "newData.isNumber() && newData.val() >= 0"
+            },
+            "idleMs": {
+              ".validate": "newData.isNumber() && newData.val() >= 0"
+            },
+            "holdMs": {
+              ".validate": "newData.isNumber() && newData.val() >= 0"
+            },
+            "alarmMs": {
+              ".validate": "newData.isNumber() && newData.val() >= 0"
+            },
+            "unknownStateMs": {
+              ".validate": "newData.isNumber() && newData.val() >= 0"
+            },
+            "counterDelta": {
+              ".validate": "newData.isNumber() && newData.val() >= 0"
+            },
+            "counterObservedMs": {
+              ".validate": "newData.isNumber() && newData.val() >= 0"
+            },
+            "counterResets": {
+              ".validate": "newData.isNumber() && newData.val() >= 0"
+            }
+          }
+        }
+      }
+    },
+    "users": {
+      "$uid": {
+        ".read": "auth != null && (auth.uid === $uid || (auth != null && auth.token.email_verified === true && root.child('users').child(auth.uid).child('disabled').val() !== true && root.child('users').child(auth.uid).child('role').val() === 'admin'))",
+        ".write": "auth != null && ((auth != null && auth.token.email_verified === true && root.child('users').child(auth.uid).child('disabled').val() !== true && root.child('users').child(auth.uid).child('role').val() === 'admin') || (auth.uid === $uid && !data.exists() && newData.child('role').val() === 'pending' && newData.child('email').val() === auth.token.email && !newData.child('disabled').exists()))",
+        ".validate": "newData.hasChildren(['displayName','role']) && newData.child('displayName').isString() && newData.child('displayName').val().length <= 120 && (newData.child('role').val() === 'pending' || newData.child('role').val() === 'notifier' || newData.child('role').val() === 'viewer' || newData.child('role').val() === 'technician' || newData.child('role').val() === 'manager' || newData.child('role').val() === 'admin') && (!newData.child('disabled').exists() || newData.child('disabled').isBoolean())"
+      }
+    },
+    "online_users": {
+      ".read": "auth != null && auth.token.email_verified === true && root.child('users').child(auth.uid).child('disabled').val() !== true && (root.child('users').child(auth.uid).child('role').val() === 'admin' || root.child('users').child(auth.uid).child('role').val() === 'manager' || root.child('users').child(auth.uid).child('role').val() === 'technician' || root.child('users').child(auth.uid).child('role').val() === 'viewer')",
+      "$sessionId": {
+        ".write": "auth != null && auth.token.email_verified === true && root.child('users').child(auth.uid).child('disabled').val() !== true && (root.child('users').child(auth.uid).child('role').val() === 'admin' || root.child('users').child(auth.uid).child('role').val() === 'manager' || root.child('users').child(auth.uid).child('role').val() === 'technician' || root.child('users').child(auth.uid).child('role').val() === 'viewer') && (!data.exists() || data.child('uid').val() === auth.uid)",
+        ".validate": "newData.hasChildren(['uid','timestamp']) && newData.child('uid').val() === auth.uid"
+      }
+    },
+    "accountHistory": {
+      ".read": "auth != null && auth.token.email_verified === true && root.child('users').child(auth.uid).child('disabled').val() !== true && root.child('users').child(auth.uid).child('role').val() === 'admin'",
+      "$uid": {
+        "$entryId": {
+          ".write": "auth != null && auth.uid === $uid && !data.exists() && newData.exists() && newData.child('uid').val() === auth.uid",
+          ".validate": "newData.hasChildren(['id','uid','at','action','email'])"
+        },
+        ".read": "auth != null && (auth.uid === $uid || (auth != null && auth.token.email_verified === true && root.child('users').child(auth.uid).child('disabled').val() !== true && root.child('users').child(auth.uid).child('role').val() === 'admin'))"
+      }
+    },
+    "deviceHistory": {
+      ".read": "auth != null && auth.token.email_verified === true && root.child('users').child(auth.uid).child('disabled').val() !== true && root.child('users').child(auth.uid).child('role').val() === 'admin'",
+      "$entryId": {
+        ".write": "auth != null && auth.token.email_verified === true && root.child('users').child(auth.uid).child('disabled').val() !== true && (root.child('users').child(auth.uid).child('role').val() === 'admin' || root.child('users').child(auth.uid).child('role').val() === 'manager' || root.child('users').child(auth.uid).child('role').val() === 'technician' || root.child('users').child(auth.uid).child('role').val() === 'viewer') && root.child('users').child(auth.uid).child('role').val() !== 'viewer'",
+        ".validate": "newData.hasChildren(['id','uid','actor','at','device','action']) && newData.child('uid').val() === auth.uid"
+      }
+    },
+    "items": {
+      ".read": "auth != null && auth.token.email_verified === true && root.child('users').child(auth.uid).child('disabled').val() !== true && (root.child('users').child(auth.uid).child('role').val() === 'admin' || root.child('users').child(auth.uid).child('role').val() === 'manager' || root.child('users').child(auth.uid).child('role').val() === 'technician' || root.child('users').child(auth.uid).child('role').val() === 'viewer')",
+      ".write": "auth != null && auth.token.email_verified === true && root.child('users').child(auth.uid).child('disabled').val() !== true && (root.child('users').child(auth.uid).child('role').val() === 'admin' || root.child('users').child(auth.uid).child('role').val() === 'manager' || root.child('users').child(auth.uid).child('role').val() === 'technician' || root.child('users').child(auth.uid).child('role').val() === 'viewer') && root.child('users').child(auth.uid).child('role').val() !== 'viewer'"
+    },
+    "stockMovements": {
+      ".read": "auth != null && auth.token.email_verified === true && root.child('users').child(auth.uid).child('disabled').val() !== true && (root.child('users').child(auth.uid).child('role').val() === 'admin' || root.child('users').child(auth.uid).child('role').val() === 'manager' || root.child('users').child(auth.uid).child('role').val() === 'technician' || root.child('users').child(auth.uid).child('role').val() === 'viewer')",
+      "$entryId": {
+        ".write": "(auth != null && auth.token.email_verified === true && root.child('users').child(auth.uid).child('disabled').val() !== true && (root.child('users').child(auth.uid).child('role').val() === 'admin' || root.child('users').child(auth.uid).child('role').val() === 'manager' || root.child('users').child(auth.uid).child('role').val() === 'technician' || root.child('users').child(auth.uid).child('role').val() === 'viewer') && root.child('users').child(auth.uid).child('role').val() !== 'viewer') && (auth != null && !data.exists() && (root.child('users').child(auth.uid).child('role').val() === 'admin' || root.child('users').child(auth.uid).child('role').val() === 'manager' || root.child('users').child(auth.uid).child('role').val() === 'technician'))",
+        ".validate": "newData.hasChildren(['id','itemId','itemName','type','amount','beforeQuantity','afterQuantity','actor','at'])"
+      }
+    },
+    "machines": {
+      ".read": "auth != null && auth.token.email_verified === true && root.child('users').child(auth.uid).child('disabled').val() !== true && (root.child('users').child(auth.uid).child('role').val() === 'admin' || root.child('users').child(auth.uid).child('role').val() === 'manager' || root.child('users').child(auth.uid).child('role').val() === 'technician' || root.child('users').child(auth.uid).child('role').val() === 'viewer')",
+      ".write": "auth != null && auth.token.email_verified === true && root.child('users').child(auth.uid).child('disabled').val() !== true && (root.child('users').child(auth.uid).child('role').val() === 'admin' || root.child('users').child(auth.uid).child('role').val() === 'manager' || root.child('users').child(auth.uid).child('role').val() === 'technician' || root.child('users').child(auth.uid).child('role').val() === 'viewer') && root.child('users').child(auth.uid).child('role').val() !== 'viewer'"
+    },
+    "maintenanceJobs": {
+      ".read": "(auth != null && auth.token.email_verified === true && root.child('users').child(auth.uid).child('disabled').val() !== true && (root.child('users').child(auth.uid).child('role').val() === 'admin' || root.child('users').child(auth.uid).child('role').val() === 'manager' || root.child('users').child(auth.uid).child('role').val() === 'technician' || root.child('users').child(auth.uid).child('role').val() === 'viewer')) || (auth != null && auth.token.email_verified === true && root.child('users').child(auth.uid).child('disabled').val() !== true && root.child('users').child(auth.uid).child('role').val() === 'notifier')",
+      ".write": "auth != null && auth.token.email_verified === true && root.child('users').child(auth.uid).child('disabled').val() !== true && (root.child('users').child(auth.uid).child('role').val() === 'admin' || root.child('users').child(auth.uid).child('role').val() === 'manager' || root.child('users').child(auth.uid).child('role').val() === 'technician' || root.child('users').child(auth.uid).child('role').val() === 'viewer') && root.child('users').child(auth.uid).child('role').val() !== 'viewer'"
+    },
+    "cncs": {
+      ".read": "auth != null && auth.token.email_verified === true && root.child('users').child(auth.uid).child('disabled').val() !== true && (root.child('users').child(auth.uid).child('role').val() === 'admin' || root.child('users').child(auth.uid).child('role').val() === 'manager' || root.child('users').child(auth.uid).child('role').val() === 'technician' || root.child('users').child(auth.uid).child('role').val() === 'viewer')",
+      ".write": "auth != null && auth.token.email_verified === true && root.child('users').child(auth.uid).child('disabled').val() !== true && (root.child('users').child(auth.uid).child('role').val() === 'admin' || root.child('users').child(auth.uid).child('role').val() === 'manager' || root.child('users').child(auth.uid).child('role').val() === 'technician' || root.child('users').child(auth.uid).child('role').val() === 'viewer') && root.child('users').child(auth.uid).child('role').val() !== 'viewer'"
+    },
+    "cncAlarms": {
+      ".read": "auth != null && auth.token.email_verified === true && root.child('users').child(auth.uid).child('disabled').val() !== true && (root.child('users').child(auth.uid).child('role').val() === 'admin' || root.child('users').child(auth.uid).child('role').val() === 'manager' || root.child('users').child(auth.uid).child('role').val() === 'technician' || root.child('users').child(auth.uid).child('role').val() === 'viewer')",
+      ".write": "auth != null && auth.token.email_verified === true && root.child('users').child(auth.uid).child('disabled').val() !== true && (root.child('users').child(auth.uid).child('role').val() === 'admin' || root.child('users').child(auth.uid).child('role').val() === 'manager' || root.child('users').child(auth.uid).child('role').val() === 'technician' || root.child('users').child(auth.uid).child('role').val() === 'viewer') && root.child('users').child(auth.uid).child('role').val() !== 'viewer'"
+    },
+    "repairHistory": {
+      ".read": "auth != null && auth.token.email_verified === true && root.child('users').child(auth.uid).child('disabled').val() !== true && (root.child('users').child(auth.uid).child('role').val() === 'admin' || root.child('users').child(auth.uid).child('role').val() === 'manager' || root.child('users').child(auth.uid).child('role').val() === 'technician' || root.child('users').child(auth.uid).child('role').val() === 'viewer')",
+      "$entryId": {
+        ".write": "(auth != null && auth.token.email_verified === true && root.child('users').child(auth.uid).child('disabled').val() !== true && (root.child('users').child(auth.uid).child('role').val() === 'admin' || root.child('users').child(auth.uid).child('role').val() === 'manager' || root.child('users').child(auth.uid).child('role').val() === 'technician' || root.child('users').child(auth.uid).child('role').val() === 'viewer') && root.child('users').child(auth.uid).child('role').val() !== 'viewer') && (auth != null && ((!data.exists() && newData.exists() && (root.child('users').child(auth.uid).child('role').val() === 'admin' || root.child('users').child(auth.uid).child('role').val() === 'manager' || root.child('users').child(auth.uid).child('role').val() === 'technician')) || (data.exists() && root.child('users').child(auth.uid).child('role').val() === 'admin')))",
+        ".validate": "newData.hasChildren(['id','machine','faultTime','staff','fault','fix'])"
+      }
+    },
+    "activities": {
+      ".read": "auth != null && auth.token.email_verified === true && root.child('users').child(auth.uid).child('disabled').val() !== true && (root.child('users').child(auth.uid).child('role').val() === 'admin' || root.child('users').child(auth.uid).child('role').val() === 'manager' || root.child('users').child(auth.uid).child('role').val() === 'technician' || root.child('users').child(auth.uid).child('role').val() === 'viewer')",
+      ".write": "auth != null && auth.token.email_verified === true && root.child('users').child(auth.uid).child('disabled').val() !== true && (root.child('users').child(auth.uid).child('role').val() === 'admin' || root.child('users').child(auth.uid).child('role').val() === 'manager' || root.child('users').child(auth.uid).child('role').val() === 'technician' || root.child('users').child(auth.uid).child('role').val() === 'viewer') && root.child('users').child(auth.uid).child('role').val() !== 'viewer'"
+    },
+    "maintenanceMailDeliveries": {
+      ".read": "auth != null && auth.token.email_verified === true && root.child('users').child(auth.uid).child('disabled').val() !== true && root.child('users').child(auth.uid).child('role').val() === 'admin'",
+      "$jobId": {
+        "$dueDate": {
+          ".read": "auth != null && auth.token.email_verified === true && root.child('users').child(auth.uid).child('disabled').val() !== true && root.child('users').child(auth.uid).child('role').val() === 'notifier'",
+          ".write": "(auth != null && auth.token.email_verified === true && root.child('users').child(auth.uid).child('disabled').val() !== true && root.child('users').child(auth.uid).child('role').val() === 'notifier') && newData.exists() && newData.child('ownerUid').val() === auth.uid && ((!data.exists() && (newData.child('status').val() === 'reserved' && root.child('maintenanceJobs').child($jobId).child('emailReminderEnabled').val() === true && root.child('maintenanceJobs').child($jobId).child('nextDate').val() === $dueDate)) || (data.child('ownerUid').val() === auth.uid && ((data.child('status').val() === 'reserved' && (newData.child('status').val() === 'sent' || newData.child('status').val() === 'uncertain' || newData.child('status').val() === 'cancelled') && newData.child('claimId').val() === data.child('claimId').val() && newData.child('claimedAt').val() === data.child('claimedAt').val() && newData.child('to').val() === data.child('to').val() && newData.child('cc').val() === data.child('cc').val() && newData.child('finishedAt').isString()) || (data.child('status').val() === 'cancelled' && (newData.child('status').val() === 'reserved' && root.child('maintenanceJobs').child($jobId).child('emailReminderEnabled').val() === true && root.child('maintenanceJobs').child($jobId).child('nextDate').val() === $dueDate) && newData.child('claimId').val() !== data.child('claimId').val()))))",
+          ".validate": "newData.hasChildren(['jobId','dueDate','ownerUid','status','claimId','claimedAt','to','cc']) && newData.child('jobId').val() === $jobId && newData.child('dueDate').val() === $dueDate && newData.child('claimId').isString() && newData.child('claimId').val().length > 0 && newData.child('claimId').val().length <= 100 && newData.child('claimedAt').isString() && newData.child('claimedAt').val().length <= 40 && newData.child('to').isString() && newData.child('to').val().length > 0 && newData.child('to').val().length <= 254 && newData.child('cc').isString() && newData.child('cc').val().length <= 254"
+        }
+      }
+    }
+  }
+}
