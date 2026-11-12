@@ -64,3 +64,11 @@ Kiểm thử: `pwsh -NoProfile -File tests/fanuc-access.Tests.ps1` xác nhận a
 Telemetry CNC được đọc ngay sau đăng nhập, độc lập với kho, presence và lịch sử alarm. GET không dùng cache, có timeout và chặn yêu cầu chồng. Mỗi nhánh lỗi không ngăn hiển thị nhánh khác. Dòng trạng thái đồng bộ trên trang CNC phân biệt lỗi đọc Firebase với tín hiệu quá hạn.
 
 Độ mới tín hiệu dùng độ lệch thời gian đo từ server timestamp trên presence của chính phiên đăng nhập; không sửa đồng hồ Windows. Khi máy tính lệch hơn một phút, web hiển thị cảnh báo để sửa giờ thiết bị (nhật ký do cầu nối vẫn dùng giờ Windows). Không thay đổi API CNC/cầu nối/PMC. Kiểm thử trình duyệt tái hiện alarm endpoint lỗi và đồng hồ lệch 11 phút.
+
+## Bản CMMS nội bộ offline (12/11/2026)
+
+[Tải LTD-CMMS-Offline](downloads/LTD-CMMS-Offline-20261112.zip) · [Hướng dẫn](tools/ltd-cmms-offline/HUONG-DAN.md).
+
+Bản tách riêng dùng đầy đủ giao diện kho/máy/bảo trì/sửa chữa/báo cáo và giám sát FANUC chỉ đọc. Máy chủ, tài khoản và dữ liệu lưu trên máy tính thu thập, chỉ phục vụ loopback; không Firebase/Internet, không sửa website online. Có tạo admin lần đầu, quản lý tài khoản nội bộ, sao lưu/nhập JSON và thu thập nhiều CNC bằng tiến trình riêng. Chưa bật truyền chương trình CNC hoặc chia sẻ LAN trong bản này.
+
+Build tự chứa từ nguồn giao diện: `python tools/ltd-cmms-offline/build.py`. Không tải thư viện ngoài, không đóng gói DLL có bản quyền hoặc dữ liệu công ty. Kiểm thử API/storage/browser: `python tests/offline-cmms.test.py`; collector: `pwsh -File tests/offline-collector.Tests.ps1`; compile .NET 4.8: `pwsh -File tests/offline-netframework.Tests.ps1 -ReferenceDirectory <net48-refs>`. Chưa kiểm chứng WinForms và CNC thật trên Windows người dùng.

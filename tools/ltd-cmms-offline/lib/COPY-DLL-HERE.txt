@@ -1,0 +1,7 @@
+Copy your licensed 64-bit FOCAS DLLs here:
+Fwlib64.dll
+fwlibe64.dll
+fwlib30i64.dll
+
+No DLL is needed to use inventory, maintenance, reports or machine records.
+DLLs are required only when collecting data from a FANUC CNC.
