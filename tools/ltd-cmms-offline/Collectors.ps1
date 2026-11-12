@@ -23,6 +23,7 @@ function Sync-OfflineCollectors {
   if(-not $entry){
    $null=New-Item -ItemType Directory -Path $folder -Force;Write-OfflineJson (Join-Path $folder 'machine.json') $config
    if(Test-Path -LiteralPath (Join-Path $folder 'stop')){Remove-Item -LiteralPath (Join-Path $folder 'stop') -Force}
+   Write-OfflineJson (Join-Path $folder 'latest.json') @{source='focas';connected=$false;readErrors=@{connection='Đang chờ lần đọc mới từ CNC.'}}
    $exe=Join-Path $PSHOME 'powershell.exe';$workerArguments='-NoProfile -NonInteractive -ExecutionPolicy RemoteSigned -File "'+(Join-Path $PSScriptRoot 'Worker.ps1')+'" -Folder "'+$folder+'" -Library "'+(Join-Path $PSScriptRoot 'lib')+'" -ParentPid '+$PID+' -ParentStartTicks '+([Diagnostics.Process]::GetCurrentProcess().StartTime.ToUniversalTime().Ticks)
    $process=Start-Process -FilePath $exe -ArgumentList $workerArguments -WindowStyle Hidden -PassThru
    $entry=@{process=$process;folder=$folder;signature=$signature;started=[DateTime]::UtcNow};$script:Workers[$id]=$entry

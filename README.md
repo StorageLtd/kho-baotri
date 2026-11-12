@@ -72,3 +72,11 @@ Telemetry CNC được đọc ngay sau đăng nhập, độc lập với kho, pr
 Bản tách riêng dùng đầy đủ giao diện kho/máy/bảo trì/sửa chữa/báo cáo và giám sát FANUC chỉ đọc. Máy chủ, tài khoản và dữ liệu lưu trên máy tính thu thập, chỉ phục vụ loopback; không Firebase/Internet, không sửa website online. Có tạo admin lần đầu, quản lý tài khoản nội bộ, sao lưu/nhập JSON và thu thập nhiều CNC bằng tiến trình riêng. Chưa bật truyền chương trình CNC hoặc chia sẻ LAN trong bản này.
 
 Build tự chứa từ nguồn giao diện: `python tools/ltd-cmms-offline/build.py`. Không tải thư viện ngoài, không đóng gói DLL có bản quyền hoặc dữ liệu công ty. Kiểm thử API/storage/browser: `python tests/offline-cmms.test.py`; collector: `pwsh -File tests/offline-collector.Tests.ps1`; compile .NET 4.8: `pwsh -File tests/offline-netframework.Tests.ps1 -ReferenceDirectory <net48-refs>`. Chưa kiểm chứng WinForms và CNC thật trên Windows người dùng.
+
+## CMMS Desktop native (12/11/2026)
+
+[Tải LTD-CMMS-Desktop](downloads/LTD-CMMS-Desktop-20261112.zip) · [Hướng dẫn Desktop](tools/ltd-cmms-offline/desktop/HUONG-DAN-DESKTOP.md).
+
+Giao diện Windows WPF riêng, mở bằng `LTD-CMMS.exe`, không dùng trình duyệt/WebView hoặc mở cổng localhost. Dùng chung dữ liệu và tài khoản offline hiện có; không thay giao diện website online. Có bảng và cửa sổ nghiệp vụ native, nhập/xuất và hoàn tất bảo trì nguyên tử, giám sát CNC chỉ đọc, alarm riêng máy, XLSX native có logo LTD. Bản đầu chưa chuyển tất cả biểu đồ web hoặc truyền chương trình CNC.
+
+Kiểm thử phần xử lý: `pwsh -File tests/desktop-cmms.Tests.ps1`; build: `python tools/ltd-cmms-offline/desktop/build-desktop.py` (cần PowerShell/Roslyn và bộ reference .NET Framework 4.8 tại môi trường build). Bản phát hành không yêu cầu những công cụ build này. Chưa xác nhận chạy WPF trên Windows/CNC thật.

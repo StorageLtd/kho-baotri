@@ -6,7 +6,7 @@ SRC=Path(__file__).resolve().parent
 parser=argparse.ArgumentParser();parser.add_argument('--output',default='/tmp/ltd-cmms-offline-build');parser.add_argument('--zip',default=str(ROOT/'downloads/LTD-CMMS-Offline-20261112.zip'));args=parser.parse_args()
 package=Path(args.output)/'LTD-CMMS-Offline';package.mkdir(parents=True,exist_ok=True)
 for p in SRC.rglob('*'):
- if p.is_file() and '__pycache__' not in p.parts and p.name!='build.py':
+ if p.is_file() and '__pycache__' not in p.parts and 'desktop' not in p.relative_to(SRC).parts and p.name!='build.py':
   dest=package/p.relative_to(SRC);dest.parent.mkdir(parents=True,exist_ok=True);shutil.copyfile(p,dest)
 web=package/'web';web.mkdir(exist_ok=True);shutil.copytree(ROOT/'assets',web/'assets',dirs_exist_ok=True);shutil.copyfile(ROOT/'logo.jpg',web/'logo.jpg')
 for name in ['auth.js','offline-tools.js'] :shutil.copyfile(SRC/name,web/'assets/js'/name)
