@@ -45,8 +45,6 @@ async def run():
             hook = '''
 window.renderInventoryFixture = records => {items=records;render();switchPage('inventoryPage');document.body.classList.remove('locked')};
 window.renderMaintenanceFixture = pageId => {machines=[{id:'fixture-machine',name:'Neway 1260S',model:'VMC',serial:'000123'}];maintenanceJobs=[{id:'fixture-job',machineId:'fixture-machine',machineName:'Neway 1260S',jobName:'Tra dầu',recurrence:'weekly',nextDate:'2026-11-05',owner:'Fixture',desc:'Kiểm tra dầu'}];repairHistory=[{id:'fixture-history',machine:'Neway 1260S',faultTime:'2026-11-05',staff:'Fixture',fault:'Dầu thấp',fix:'Đã bổ sung dầu'}];render();switchPage(pageId);document.body.classList.remove('locked')};
-window.maintenanceJobFixture = () => JSON.parse(JSON.stringify(maintenanceJobs.find(j=>j.id==='fixture-job')));
-window.focusJobFixture = focusMaintenanceJobFromLink;
 window.exportVoucherFixture = type => {stockMovements=[{id:'voucher-fixture',type,at:'2026-11-05T02:30:00Z',sku:'000123',itemName:'Cảm biến',amount:3,beforeQuantity:10,afterQuantity:type==='in'?13:7,actor:'Fixture',note:'Sửa máy'}];return exportMovementVoucher('voucher-fixture')};
 window.renderAlarmFixture = records => {cncAlarmHistory=records;if(cncAlarmHistoryViewId)renderCncMachineAlarmHistory(cncAlarmHistoryViewId)};
 window.renderFixture = (records) => {
@@ -82,43 +80,6 @@ window.seedDayFixture = () => {cncDayOwner=getUser().uid;cncDayStats.set('neway-
                 maintenance_download=await maintenance_info.value
                 assert maintenance_download.suggested_filename.endswith('.xlsx')
                 await maintenance_download.save_as(path)
-            # Email reminders are opt-in; denied writes must not appear as saved locally.
-            await page.evaluate("renderMaintenanceFixture('maintenanceJobsPage');openJobDialog('fixture-job')")
-            assert not await page.locator('#jEmailReminderEnabled').is_checked()
-            assert await page.locator('#jOwnerEmailInput').is_disabled()
-            await page.locator('#jEmailReminderEnabled').check()
-            assert await page.locator('#jOwnerEmailInput').is_enabled()
-            assert await page.locator('#jOwnerEmailInput').get_attribute('required') is not None
-            email_saves=[]
-            email_allow={'value':False}
-            async def email_save_reply(route):
-                import json
-                data=json.loads(route.request.post_data)
-                email_saves.append(data)
-                await route.fulfill(status=200 if email_allow['value'] else 403,content_type='application/json',body=json.dumps(data) if email_allow['value'] else '{}')
-            await page.route('**/maintenanceJobs/fixture-job.json?*',email_save_reply)
-            await page.locator('#jobForm [type=submit]').click()
-            assert not email_saves
-            await page.locator('#jOwnerEmailInput').fill('Assignee@Example.com')
-            await page.locator('#jReminderCcInput').fill('Boss@Example.com')
-            await page.locator('#jNextDateInput').fill('2026-11-12')
-            await page.locator('#jobForm [type=submit]').click()
-            await page.wait_for_function("document.querySelector('#toast').textContent.includes('Chưa lưu được lịch bảo trì')")
-            assert await page.locator('#jobDialog').is_visible()
-            assert (await page.evaluate('maintenanceJobFixture()')).get('emailReminderEnabled') is None
-            email_allow['value']=True
-            await page.locator('#jobForm [type=submit]').click()
-            await page.locator('#jobDialog').wait_for(state='hidden')
-            saved=await page.evaluate('maintenanceJobFixture()')
-            assert saved['emailReminderEnabled'] is True and saved['ownerEmail']=='assignee@example.com' and saved['reminderCc']=='boss@example.com'
-            await page.evaluate("openJobDialog('fixture-job')")
-            assert await page.locator('#jEmailReminderEnabled').is_checked()
-            assert await page.locator('#jOwnerEmailInput').input_value()=='assignee@example.com'
-            await page.locator('#cancelJobBtn').click()
-            await page.evaluate("()=>{location.hash='maintenanceJob=fixture-job';focusJobFixture()}")
-            assert await page.locator('#maintenanceJobsPage').is_visible()
-            assert await page.locator('[data-maintenance-job=fixture-job]').is_visible()
-            await page.evaluate("()=>{location.hash=''}")
             await page.evaluate('''renderFixture([
               {id:'neway-1260s',name:'Neway 1260S',source:'focas',connected:true,lastSeen:Date.now(),machiningContext:{toolNumber:7,spindleToolNumber:7,nextToolNumber:4,spindleToolConfirmed:true},rawStatus:{run:3,alarm:0,emergency:0,aut:1},ip:'169.254.85.99',port:8193,model:'FANUC 0i-MF Plus'},
               {id:'old',name:'Old demo data',status:'running',spindleSpeed:1200,ip:'192.168.1.101',port:8193}

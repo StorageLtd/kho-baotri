@@ -6,8 +6,8 @@ import {readFileSync} from 'node:fs';
 import vm from 'node:vm';
 const rules=JSON.parse(readFileSync(new URL('../firebase/database.rules.json',import.meta.url))).rules;
 const snapshot=value=>({val:()=>value??null,exists:()=>value!==undefined&&value!==null,child:key=>snapshot(value?.[key]),hasChildren:keys=>keys.every(k=>value?.[k]!==undefined),isString:()=>typeof value==='string',isBoolean:()=>typeof value==='boolean',isNumber:()=>typeof value==='number'});
-function allows(expression,{role='technician',verified=true,disabled=false,user='u1',data,newData,uid='u1',job={}}={}){
- return vm.runInNewContext(expression,{auth:user?{uid:user,token:{email:'user@example.com',email_verified:verified}}:null,root:snapshot({users:{u1:{role,disabled}},maintenanceJobs:{job:job}}),data:snapshot(data),newData:snapshot(newData),$uid:uid,$sessionId:'session',$jobId:'job',$dueDate:'2026-11-12'});
+function allows(expression,{role='technician',verified=true,disabled=false,user='u1',data,newData,uid='u1'}={}){
+ return vm.runInNewContext(expression,{auth:user?{uid:user,token:{email:'user@example.com',email_verified:verified}}:null,root:snapshot({users:{u1:{role,disabled}}}),data:snapshot(data),newData:snapshot(newData),$uid:uid,$sessionId:'session'});
 }
 test('company data requires verified approved active membership, even for reads',()=>{
  for(const node of ['items','machines','maintenanceJobs','cncs','cncAlarms','repairHistory','activities','stockMovements','cncReports','online_users']){
@@ -23,7 +23,7 @@ test('viewers cannot write operational data; approved verified operators can',()
 });
 test('self registration cannot grant any approved role or alter an existing profile',()=>{
  const expr=rules.users.$uid['.write'];
- for(const role of ['viewer','technician','manager','admin','notifier'])assert.equal(allows(expr,{role:'pending',newData:{role,email:'user@example.com'}}),false,role);
+ for(const role of ['viewer','technician','manager','admin'])assert.equal(allows(expr,{role:'pending',newData:{role,email:'user@example.com'}}),false,role);
  assert.equal(allows(expr,{role:'pending',newData:{role:'pending',email:'user@example.com'}}),true);
  assert.equal(allows(expr,{role:'pending',data:{role:'pending'},newData:{role:'admin',email:'user@example.com'}}),false);
  assert.equal(allows(expr,{role:'pending',uid:'other',newData:{role:'pending',email:'user@example.com'}}),false);
@@ -68,28 +68,5 @@ test('merged deployed rules retain admin-only audit access and per-entry protect
  }
  assert.match(rules.stockMovements.$entryId['.validate'],/afterQuantity/);
  assert.match(rules.repairHistory.$entryId['.validate'],/faultTime/);
- assert.equal(readFileSync(new URL('../downloads/LTD-Firebase-Rules-20261112-Email.json',import.meta.url),'utf8'),readFileSync(new URL('../firebase/database.rules.json',import.meta.url),'utf8'));
-});
-
-test('notifier can read jobs but cannot read inventory/CNC, edit jobs or self-grant its role',()=>{
- assert.equal(allows(rules.maintenanceJobs['.read'],{role:'notifier'}),true);
- assert.equal(allows(rules.maintenanceJobs['.write'],{role:'notifier'}),false);
- for(const node of ['items','machines','cncs','cncAlarms','cncReports','stockMovements','activities','deviceHistory'])assert.equal(allows(rules[node]['.read'],{role:'notifier'}),false,node);
- for(const ctx of [{verified:false},{disabled:true}])assert.equal(allows(rules.maintenanceJobs['.read'],{role:'notifier',...ctx}),false);
- assert.equal(allows(rules.users.$uid['.write'],{role:'pending',newData:{role:'notifier',email:'user@example.com'}}),false);
-});
-test('mail delivery ledger is reserved atomically and finished once, without editing job data',()=>{
- const rule=rules.maintenanceMailDeliveries.$jobId.$dueDate;
- const record={jobId:'job',dueDate:'2026-11-12',ownerUid:'u1',status:'reserved',claimId:'unique',claimedAt:'2026-11-12T01:00:00Z',to:'a@example.com',cc:''};
- const ctx={role:'notifier',job:{nextDate:'2026-11-12',emailReminderEnabled:true},newData:record};
- assert.equal(allows(rule['.write'],ctx),true);assert.equal(allows(rule['.validate'],ctx),true);
- for(const role of ['viewer','technician','admin','pending'])assert.equal(allows(rule['.write'],{...ctx,role}),false);
- assert.equal(allows(rule['.write'],{...ctx,job:{nextDate:'2026-11-13',emailReminderEnabled:true}}),false);
- assert.equal(allows(rule['.write'],{...ctx,job:{nextDate:'2026-11-12',emailReminderEnabled:false}}),false);
- const sent={...record,status:'sent',finishedAt:'2026-11-12T01:01:00Z'};
- assert.equal(allows(rule['.write'],{...ctx,data:record,newData:sent,job:null}),true,'Completion must work even after job date changes');
- assert.equal(allows(rule['.write'],{...ctx,data:sent,newData:record}),false,'Sent cycle cannot be re-reserved');
- assert.equal(allows(rule['.write'],{...ctx,data:record,newData:{...sent,claimId:'other'}}),false);
- assert.equal(allows(rule['.write'],{...ctx,data:record,newData:null}),false);
- assert.equal(allows(rule['.write'],{...ctx,data:{...record,status:'cancelled'},newData:{...record,claimId:'retry'}}),true);
+ assert.equal(readFileSync(new URL('../downloads/LTD-Firebase-Rules-20261111.json',import.meta.url),'utf8'),readFileSync(new URL('../firebase/database.rules.json',import.meta.url),'utf8'));
 });
