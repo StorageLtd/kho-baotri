@@ -1,3 +1,4 @@
+import { mountLatheNc } from "./lathe-nc.mjs?v=1";
 import {openCncTransfer,clearCncTransferSessions} from "./cnc-transfer-ui.js?v=20261111-viewer-controls";
 import {buildCncReport,vnDate} from "./cnc-reports.js?v=20261111-viewer-controls";
 ﻿import { downloadInventoryWorkbook } from "./inventory-xlsx.js?v=20261105-no-prices";
@@ -528,7 +529,11 @@ import { cncDisplayState, cncIsFresh, cncMeasurement, cncMode, cncDuration, cncS
       return false;
     }
 
+    const latheNcPage = document.getElementById("latheNcPage");
+    const resetLatheNc = mountLatheNc(latheNcPage);
+
     function switchPage(pageId) {
+      latheNcPage.hidden = pageId !== "latheNcPage";
       document.body.dataset.page = pageId;
       if(pageId!=="cncMonitoringPage"&&cncDetailsDialog?.open)cncDetailsDialog.close();
       els.overviewPage.hidden = (pageId !== "overviewPage");
@@ -558,6 +563,9 @@ import { cncDisplayState, cncIsFresh, cncMeasurement, cncMode, cncDuration, cncS
       } else if(pageId === "cncMonitoringPage") {
         els.pageHeading.textContent = "";
         els.pageSubtitle.textContent = "";
+      } else if(pageId === "latheNcPage") {
+        els.pageHeading.textContent = "TẠO CHƯƠNG TRÌNH NC TIỆN";
+        els.pageSubtitle.textContent = "Tiện ngoài CNC · FANUC · Hệ mét";
       } else if(pageId === "machinesPage") {
         els.pageHeading.textContent = "HỒ SƠ MÁY XƯỞNG";
         els.pageSubtitle.textContent = "Hệ thống lưu giữ thông tin hồ sơ thiết bị, thời hạn bảo hành của toàn xưởng.";
@@ -1808,6 +1816,7 @@ import { cncDisplayState, cncIsFresh, cncMeasurement, cncMode, cncDuration, cncS
         unlockApp();
         return;
       }
+      resetLatheNc();
       clearCncTransferSessions();
       document.querySelectorAll(".ct-confirm,.ct-program-view,.ct-transfer-error,.cnc-transfer-dialog").forEach(dialog=>dialog.close());
       document.body.classList.add("locked");

@@ -1,0 +1,13 @@
+.lathe-nc-layout { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 16px; align-items: start; }
+.lathe-nc-panel { padding: 20px; min-width: 0; }
+.lathe-nc-panel h3 { margin: 0 0 8px; }
+.lathe-nc-panel .meta { margin: 8px 0 14px; }
+.lathe-nc-fields, .lathe-nc-step { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; margin: 12px 0; }
+.lathe-nc-step { grid-template-columns: repeat(2, minmax(0, 1fr)) auto; align-items: end; }
+.lathe-nc-panel label { display: grid; gap: 5px; font-size: .86rem; font-weight: 600; }
+.lathe-nc-panel input, .lathe-nc-panel select { width: 100%; min-width: 0; padding: 8px; border: 1px solid var(--line); border-radius: 6px; font: inherit; background: white; color: #15231e; }
+.lathe-nc-panel fieldset { min-width: 0; border: 1px solid var(--line); border-radius: 8px; padding: 4px 12px 12px; margin: 16px 0; }
+.lathe-nc-panel canvas { width: 100%; display: block; background: #f1f6f4; border-radius: 8px; }
+.lathe-nc-panel pre { min-height: 140px; max-height: 440px; overflow: auto; background: #182822; color: #e9f9ef; border-radius: 8px; padding: 14px; }
+#latheNcStatus[data-error="true"] { color: #ae2020; }
+@media (max-width: 1120px) { .lathe-nc-layout { grid-template-columns: minmax(0, 1fr); } }
