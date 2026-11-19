@@ -244,3 +244,39 @@ test('editing a dimension moves the snapped endpoint and enforces stock and poin
   assert.throws(() => resizeTurningEndpoint(contour, 1, contour[0], 31, 'axial', setup), /đảo thứ tự/);
   assert.throws(() => resizeTurningEndpoint(contour, 1, contour[0], 70, 'diameter', setup), /ngoài phôi/);
 });
+
+test('G74 and G75 post the correct integer P/Q words and replay their pecks', () => {
+  const common = { ...setup, peckIncrement: 'standard', cycleRetract: 0.5 };
+  const drill = generateTurningProgram({ ...common, operation: 'drillCycle', drillDepth: 10, peck: 4 });
+  assert.match(drill, /G74 R0\.500\nG74 Z-10\.000 Q4000/);
+  assert.deepEqual(readTurningMoves(drill).filter(move => move.mode === 'feed').map(move => [move.to.x, move.to.z]),
+    [[0, -1], [0, -5], [0, -9], [0, -10]]);
+  const groove = generateTurningProgram({ ...common, operation: 'grooveCycle', cutZ: -25, rootDiameter: 48, stepDepth: 2 });
+  assert.match(groove, /G75 R0\.500\nG75 X48\.000 P2000/);
+  assert.equal(readTurningMoves(groove).filter(move => move.mode === 'feed').at(-1).to.x, 48);
+  assert.throws(() => generateTurningProgram({ ...common, operation: 'drillCycle', drillDepth: 10, peck: 1.2345 }), /P\/Q Input Increment/);
+  const inch = generateTurningProgram({ ...common, operation: 'drillCycle', units: 'inch', drillDepth: 10, peck: 2.54 });
+  assert.match(inch, /G74 Z-0\.39370 Q1000/);
+});
+
+test('tool nose compensation uses CNC offset, linear entry and cancellation and floods only when selected', () => {
+  const code = generateTurningProgram({ ...setup, controller: '0i-TF Plus', coolant: 'flood', compensation: 'G42', compLead: 3 });
+  assert.match(code, /FANUC LATHE 0I-TF PLUS/);
+  assert.match(code, /M08 \(COOLANT ON\)[\s\S]*G42 G01 X40\.000 Z0\.000[\s\S]*G40 G01 X66\.000 Z-60\.000[\s\S]*M09 \(COOLANT OFF\)\nM05/);
+  const moves = readTurningMoves(code);
+  assert.equal(moves.filter(move => move.mode === 'event').length, 2);
+  assert.equal(moves.find(move => code.split('\n')[move.line - 1].startsWith('G42')).mode, 'feed');
+  assert.throws(() => generateTurningProgram({ ...setup, operation: 'face', compensation: 'G41' }), /Profile Finishing/);
+});
+
+test('plunge grinding holds Z and records G04 spark-out as an event, not an X move', () => {
+  const code = generateTurningProgram({
+    ...setup, machine: 'pl800gb', operation: 'grindPlunge', grindDiameter: 59.8,
+    grindStart: -25, stepDepth: 0.1, grindFeed: 30, grindOn: '151', grindOff: '152',
+    grindConfirmed: true, grindDwell: 2.5, coolant: 'flood',
+  });
+  assert.match(code, /G01 X59\.800 Z-25\.000 F30\.000000\nG04 X2\.500 \(SPARK-OUT DWELL\)/);
+  const dwell = readTurningMoves(code).find(move => code.split('\n')[move.line - 1].startsWith('G04'));
+  assert.equal(dwell.mode, 'event');
+  assert.deepEqual(dwell.to, { x: 59.8, z: -25 });
+});

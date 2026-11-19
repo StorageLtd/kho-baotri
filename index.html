@@ -7,7 +7,7 @@
   <meta name="referrer" content="no-referrer">
   <title>LTD VIET NAM - Cloud Maintenance System</title>
   <link rel="stylesheet" href="assets/css/app.css?v=20261105-compact-alarm">
-  <link rel="stylesheet" href="assets/css/fanuc-turning.css?v=5">
+  <link rel="stylesheet" href="assets/css/fanuc-turning.css?v=6">
   <link rel="stylesheet" href="assets/css/cnc-report.css?v=20261107-tool-context">
   <link rel="stylesheet" href="assets/css/cnc-transfer.css?v=20261111-viewer-controls">
   <link rel="stylesheet" href="assets/css/cnc-dashboard.css?v=20261109-productivity">
@@ -284,6 +284,7 @@
             </div>
             <div class="turning-grid">
               <section class="turning-drawing" aria-label="Bản vẽ và đường dao X–Z">
+                <div class="turning-graphics">
                 <div class="turning-view-header">
                   <h3>Bản vẽ X–Z</h3>
                   <label>Màu nét <input id="turningStrokeColor" type="color" value="#50efad"></label>
@@ -299,7 +300,7 @@
                   </div>
                   <p class="turning-current"><span>Khối NC đang xem</span><code id="turningCurrentBlock">—</code></p>
                 </div>
-              <canvas id="turningPlot" width="640" height="350" tabindex="0" aria-label="Biểu đồ phôi, biên dạng và đường chạy dao X–Z"></canvas>
+              <canvas id="turningPlot" width="640" height="370" tabindex="0" aria-label="Biểu đồ phôi, biên dạng và đường chạy dao X–Z"></canvas>
               <div class="turning-legend" aria-label="Chú giải và lớp hiển thị">
                 <span><i class="turning-key stock"></i>Phôi</span>
                 <label><input type="checkbox" id="turningShowProfile" checked><i class="turning-key profile"></i>Biên dạng</label>
@@ -326,10 +327,11 @@
                   <button type="button" class="btn" id="turningApplyDimension">Áp dụng kích thước</button>
                   <span id="turningDimensionHelp"></span>
                 </div>
-                <section class="turning-simulation" aria-label="Phát mô phỏng và mã NC">
-              <label class="turning-profile">Mã NC thử nghiệm<textarea class="input turning-code" id="turningCode" rows="9" readonly spellcheck="false"></textarea></label>
-              <div class="turning-actions"><button class="btn" type="button" id="turningDownload" disabled>Tải tệp .nc</button></div>
-
+                </div>
+                <section class="turning-simulation" aria-label="NC Program">
+                  <div class="turning-code-header"><h3>NC Program</h3><button class="btn" type="button" id="turningDownload" disabled>Download .nc</button></div>
+                  <textarea id="turningCode" readonly hidden aria-hidden="true"></textarea>
+                  <div id="turningCodeView" class="turning-code-view" tabindex="0" aria-label="NC blocks"></div>
                 </section>
               </section>
               <aside class="turning-sidebar" aria-label="Nguồn và thiết lập">
@@ -369,45 +371,79 @@
                 <p id="turningImportStatus" role="status"></p>
               </details>
             <form id="turningForm" class="section turning-card">
-              <h3>Thiết lập nguyên công</h3>
+              <h3>Setup</h3>
               <fieldset class="turning-fields turning-parameters">
-                <legend>Cấu hình máy</legend>
-                <label class="turning-wide">Kiểu máy<select class="input" name="machine"><option value="fanuc">Máy tiện FANUC</option><option value="pl800gb">SMEC PL800GB · FANUC có đầu mài</option></select></label>
-                <label class="turning-wide">Series bộ điều khiển<input class="input" name="controller" maxlength="32" placeholder="Ví dụ: 0i-TF Plus"></label>
-                <p class="meta turning-wide turning-machine-note">Xuất theo hệ mã FANUC A, X lập trình theo đường kính.</p>
+                <legend>Machine Configuration</legend>
+                <label class="turning-wide">Machine Type<select class="input" name="machine"><option value="fanuc">Máy tiện FANUC</option><option value="pl800gb">SMEC PL800GB · FANUC có đầu mài</option></select></label>
+                <label class="turning-wide">FANUC Series
+                  <select class="input" name="controller">
+                    <option value="">Unspecified</option><option>0i-TF Plus</option><option>0i-TF</option><option>0i-TD</option><option>0i-TC</option><option>0i-TB</option><option>16i-T</option><option>18i-T</option><option>21i-T</option><option>30i-T</option><option>31i-T</option><option>32i-T</option>
+                  </select>
+                </label>
+                <p class="meta turning-wide turning-machine-note">Series ghi vào đầu tệp NC. Post dùng hệ FANUC A và X theo đường kính. Đối chiếu chu trình và độ phân giải P/Q theo cấu hình máy.</p>
               </fieldset>
               <div class="turning-fields">
-                <label class="turning-wide">Nguyên công<select class="input" name="operation"><option value="profile">Tiện tinh biên dạng ngoài</option><option value="face">Tiện mặt đầu Z0</option><option value="rough">Tiện thô dọc G71</option><option value="roughFace">Tiện thô mặt đầu G72</option><option value="roughLinear">Tiện thô G00/G01</option><option value="grind" hidden disabled>Mài trụ ngoài dọc (PL800GB)</option><option value="groove">Tiện rãnh ngoài</option><option value="part">Cắt đứt</option><option value="drill">Khoan tâm theo nhát</option><option value="thread">Tiện ren ngoài thẳng (G32)</option></select></label>
-                <label>Đơn vị mã NC<select class="input" name="units"><option value="mm">mm (G21)</option><option value="inch">inch (G20)</option></select></label>
-                <label>Đường kính phôi (mm)<input class="input" name="diameter" type="number" value="60" min="0.1" max="10000" step="any" required></label>
-                <label>Chiều dài phôi (mm)<input class="input" name="length" type="number" value="80" min="0.1" max="10000" step="any" required></label>
-                <label>Số dao<input class="input" name="tool" type="number" value="1" min="1" max="99" required></label>
-                <label>Số offset<input class="input" name="offset" type="number" value="1" min="1" max="99" required></label>
-                <label>Tốc độ trục chính (vòng/phút)<input class="input" name="rpm" type="number" value="600" min="1" max="99999" required></label>
-                <label>Lượng chạy dao (mm/vòng)<input class="input" name="feed" type="number" value="0.2" min="0.001" max="100" step="any" required></label>
+                <label class="turning-wide">Operation
+                  <select class="input" name="operation">
+                    <optgroup label="Turning">
+                      <option value="profile">G01 · Profile Finishing</option>
+                      <option value="rough">G71 · OD Roughing, Type I</option>
+                      <option value="roughFace">G72 · Face Roughing</option>
+                      <option value="face">G01 · Face Turning Z0</option>
+                      <option value="roughLinear">G00/G01 · OD Roughing (Linear)</option>
+                    </optgroup>
+                    <optgroup label="Grooving &amp; Parting">
+                      <option value="grooveCycle">G75 · OD Peck Grooving</option>
+                      <option value="groove">G00/G01 · OD Grooving (Linear)</option>
+                      <option value="part">G00/G01 · Parting</option>
+                    </optgroup>
+                    <optgroup label="Drilling">
+                      <option value="drillCycle">G74 · Center Peck Drilling</option>
+                      <option value="drill">G00/G01 · Center Peck Drilling (Linear)</option>
+                    </optgroup>
+                    <optgroup label="Threading"><option value="thread">G32 · OD Straight Threading</option></optgroup>
+                    <optgroup label="Grinding · PL800GB" id="turningGrindingGroup" hidden disabled>
+                      <option value="grind">G01/G04 · OD Traverse Grinding</option>
+                      <option value="grindPlunge">G01/G04 · OD Plunge Grinding</option>
+                    </optgroup>
+                  </select>
+                </label>
+                <label>NC Units<select class="input" name="units"><option value="mm">mm (G21)</option><option value="inch">inch (G20)</option></select></label>
+                <label>Stock Diameter (mm)<input class="input" name="diameter" type="number" value="60" min="0.1" max="10000" step="any" required></label>
+                <label>Stock Length (mm)<input class="input" name="length" type="number" value="80" min="0.1" max="10000" step="any" required></label>
+                <label>Tool Number<input class="input" name="tool" type="number" value="1" min="1" max="99" required></label>
+                <label>Tool Offset<input class="input" name="offset" type="number" value="1" min="1" max="99" required></label>
+                <label>Spindle Speed (rpm)<input class="input" name="rpm" type="number" value="600" min="1" max="99999" required></label>
+                <label>Feed Rate (mm/rev)<input class="input" name="feed" type="number" value="0.2" min="0.001" max="100" step="any" required></label>
+                <label>Coolant<select class="input" name="coolant"><option value="off">Off · M09</option><option value="flood">Flood · M08 / M09</option></select></label>
+                <label id="turningCompensationLabel">Tool Nose Compensation<select class="input" name="compensation"><option value="off">Off · G40</option><option value="G41">Left · G41</option><option value="G42">Right · G42</option></select></label>
+                <label id="turningLeadLabel" hidden>Lead-in / Lead-out (mm)<input class="input" name="compLead" type="number" value="2" min="0.001" max="100" required step="any"></label>
+                <p class="meta turning-wide" id="turningCompensationNote" hidden>R và hướng mũi dao lấy từ bảng Tool Offset của CNC. Preview hiển thị tọa độ lập trình, chưa tính quỹ đạo bù trên máy.</p>
               </div>
               <fieldset class="turning-fields turning-parameters" id="turningParameters" hidden>
-                <legend>Thông số nguyên công</legend>
-                <label data-operations="rough roughLinear groove part thread grind">Bước cắt theo bán kính (mm)<input class="input" name="stepDepth" type="number" value="2" min="0.001" step="any" required></label>
-                <label data-operations="rough roughLinear">Lượng dư theo bán kính (mm)<input class="input" name="allowance" type="number" value="0.3" min="0" step="any" required></label>
-                <label data-operations="groove part">Vị trí Z (mm)<input class="input" name="cutZ" type="number" value="-25" step="any" required></label>
-                <label data-operations="groove thread">Đường kính đáy (mm)<input class="input" name="rootDiameter" type="number" value="48" min="0" step="any" required></label>
-                <label data-operations="drill">Chiều sâu khoan (mm)<input class="input" name="drillDepth" type="number" value="20" min="0.001" step="any" required></label>
-                <label data-operations="drill">Chiều sâu mỗi nhát (mm)<input class="input" name="peck" type="number" value="4" min="0.001" step="any" required></label>
-                <label data-operations="thread">Điểm cuối ren Z (mm)<input class="input" name="threadEndZ" type="number" value="-20" step="any" required></label>
-                <label data-operations="thread">Bước ren (mm/vòng)<input class="input" name="pitch" type="number" value="1.5" min="0.001" step="any" required></label>
-                <label data-operations="rough roughFace">Lùi dao R (mm)<input class="input" name="cycleRetract" type="number" value="0.5" min="0.001" step="any" required></label>
-                <label data-operations="roughFace">Bước cắt dọc Z (mm)<input class="input" name="faceStep" type="number" value="1" min="0.001" step="any" required></label>
-                <label data-operations="roughFace">Mặt phôi thô Z+ (mm)<input class="input" name="faceStock" type="number" value="3" min="0.001" step="any" required></label>
-                <label data-operations="roughFace">Lượng dư dọc Z (mm)<input class="input" name="faceAllowance" type="number" value="0.2" min="0" step="any" required></label>
-                <label data-operations="rough roughFace"><span><input type="checkbox" name="finishCycle"> Tiện tinh tiếp bằng G70</span></label>
-                <label data-operations="grind">Đường kính sau mài (mm)<input class="input" name="grindDiameter" type="number" min="0.001" step="any" required></label>
-                <label data-operations="grind">Điểm bắt đầu mài Z (mm)<input class="input" name="grindStart" type="number" value="0" step="any" required></label>
-                <label data-operations="grind">Điểm cuối mài Z (mm)<input class="input" name="grindEnd" type="number" step="any" required></label>
-                <label data-operations="grind">Chạy dao mài (mm/phút)<input class="input" name="grindFeed" type="number" min="0.001" step="any" required></label>
-                <label data-operations="grind">M bật đầu mài<input class="input" name="grindOn" placeholder="Theo bảng M-code máy" pattern="[Mm]?[0-9]{1,3}" required></label>
-                <label data-operations="grind">M tắt đầu mài<input class="input" name="grindOff" placeholder="Theo bảng M-code máy" pattern="[Mm]?[0-9]{1,3}" required></label>
-                <label data-operations="grind" class="turning-wide"><span><input type="checkbox" name="grindConfirmed" required> Bật đầu mài trong mã NC. Tôi đã đối chiếu mã M bật/tắt theo tài liệu của máy.</span></label>
+                <legend>Cycle Parameters</legend>
+                <label data-operations="rough roughLinear groove grooveCycle part thread grind grindPlunge">Radial Depth of Cut (mm)<input class="input" name="stepDepth" type="number" value="2" min="0.001" step="any" required></label>
+                <label data-operations="rough roughLinear">Radial Finish Allowance (mm)<input class="input" name="allowance" type="number" value="0.3" min="0" step="any" required></label>
+                <label data-operations="groove grooveCycle part">Groove / Part-off Z (mm)<input class="input" name="cutZ" type="number" value="-25" step="any" required></label>
+                <label data-operations="groove grooveCycle thread">Root Diameter (mm)<input class="input" name="rootDiameter" type="number" value="48" min="0" step="any" required></label>
+                <label data-operations="drill drillCycle">Drill Depth (mm)<input class="input" name="drillDepth" type="number" value="20" min="0.001" step="any" required></label>
+                <label data-operations="drill drillCycle">Peck Depth (mm)<input class="input" name="peck" type="number" value="4" min="0.001" step="any" required></label>
+                <label data-operations="thread">Thread End Z (mm)<input class="input" name="threadEndZ" type="number" value="-20" step="any" required></label>
+                <label data-operations="thread">Thread Lead (mm/rev)<input class="input" name="pitch" type="number" value="1.5" min="0.001" step="any" required></label>
+                <label data-operations="rough roughFace drillCycle grooveCycle">Retract R (mm)<input class="input" name="cycleRetract" type="number" value="0.5" min="0.001" step="any" required></label>
+                <label data-operations="roughFace">Axial Depth of Cut (mm)<input class="input" name="faceStep" type="number" value="1" min="0.001" step="any" required></label>
+                <label data-operations="roughFace">Stock Face Z+ (mm)<input class="input" name="faceStock" type="number" value="3" min="0.001" step="any" required></label>
+                <label data-operations="roughFace">Axial Finish Allowance (mm)<input class="input" name="faceAllowance" type="number" value="0.2" min="0" step="any" required></label>
+                <label data-operations="rough roughFace"><span><input type="checkbox" name="finishCycle"> Finish with G70</span></label>
+                <label data-operations="grind grindPlunge">Ground Diameter (mm)<input class="input" name="grindDiameter" type="number" min="0.001" step="any" required></label>
+                <label data-operations="grind grindPlunge">Grinding Start Z (mm)<input class="input" name="grindStart" type="number" value="0" step="any" required></label>
+                <label data-operations="grind">Grinding End Z (mm)<input class="input" name="grindEnd" type="number" step="any" required></label>
+                <label data-operations="grind grindPlunge">Grinding Feed Rate (mm/min)<input class="input" name="grindFeed" type="number" min="0.001" step="any" required></label>
+                <label data-operations="grind grindPlunge">Grinding Head On M-code<input class="input" name="grindOn" placeholder="Theo bảng M-code máy" pattern="[Mm]?[0-9]{1,3}" required></label>
+                <label data-operations="grind grindPlunge">Grinding Head Off M-code<input class="input" name="grindOff" placeholder="Theo bảng M-code máy" pattern="[Mm]?[0-9]{1,3}" required></label>
+                <label data-operations="grind grindPlunge" class="turning-wide"><span><input type="checkbox" name="grindConfirmed" required> Bật đầu mài trong mã NC. Tôi đã đối chiếu mã M bật/tắt theo tài liệu của máy.</span></label>
+                <label data-operations="drillCycle grooveCycle">P/Q Input Increment<select class="input" name="peckIncrement"><option value="standard">0.001 mm / 0.0001 in</option><option value="fine">0.0001 mm / 0.00001 in</option></select></label>
+                <label data-operations="grind grindPlunge">Spark-out Dwell (s)<input class="input" name="grindDwell" type="number" value="0" min="0" max="60" step="0.001" required></label>
               </fieldset>
               <p class="meta" id="turningOperationNote" hidden></p>
               <label class="turning-profile">Biên dạng X–Z (mm)
@@ -914,6 +950,6 @@
 
   <div class="toast" id="toast" role="status" aria-live="polite"></div>
 
-  <script type="module" src="assets/js/app.js?v=20261119-fanuc-cycles"></script>
+  <script type="module" src="assets/js/app.js?v=20261119-fanuc-nc-panel"></script>
 </body>
 </html>

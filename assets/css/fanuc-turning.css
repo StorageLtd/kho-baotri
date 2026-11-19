@@ -148,3 +148,37 @@ body[data-page="fanucTurningPage"] .topbar { position: static; }
 #turningDimensionEditor[hidden] { display: none; }
 .turning-card .turning-parameters + .turning-fields { margin-top: 11px; }
 .turning-machine-note { margin: 0; }
+.turning-grid { grid-template-columns: minmax(0, 1fr); }
+.turning-drawing { display: grid; grid-template-columns: minmax(0, 1fr) minmax(225px, 25%); }
+.turning-graphics { min-width: 0; }
+#turningPlot { width: min(100%, 96vh); aspect-ratio: 64 / 37; }
+.turning-simulation {
+  min-width: 0; min-height: 0; display: flex; flex-direction: column;
+  position: relative; padding: 0; background: #111b25; color: #d4e4f0;
+  border-left: 1px solid #344858;
+}
+.turning-code-header {
+  display: flex; align-items: center; justify-content: space-between; gap: 8px;
+  padding: 7px 10px; min-height: 43px; border-bottom: 1px solid #344858; background: #182430;
+}
+.turning-code-header h3 { margin: 0; font-size: 13px; }
+.turning-code-header .btn { padding: 4px 7px; font-size: 11px; min-height: 27px; white-space: nowrap; }
+.turning-code-view {
+  position: absolute; inset: 43px 0 0; overflow: auto; padding-block: 5px;
+  font: 12px/1.65 ui-monospace, monospace; overscroll-behavior: contain;
+}
+.turning-code-line { display: grid; grid-template-columns: 31px minmax(max-content, 1fr); min-height: 20px; padding-right: 8px; white-space: pre; }
+.turning-code-line > span { color: #899fb4; text-align: right; padding-right: 8px; user-select: none; }
+.turning-code-line[aria-current="step"] { color: #fff2a1; background: #27415c; }
+.turning-sidebar { grid-template-columns: minmax(200px, 25%) minmax(0, 1fr); align-items: start; border: 0; border-top: 1px solid #c9d5e1; }
+@media (min-width: 1270px) {
+  .turning-card > .turning-fields, .turning-card .turning-parameters { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+}
+@media (max-width: 760px) {
+  .turning-drawing, .turning-sidebar { grid-template-columns: minmax(0, 1fr); }
+  .turning-simulation { border-left: 0; border-top: 1px solid #344858; }
+  .turning-code-view { position: static; min-height: 100px; max-height: 235px; }
+}
+.turning-fields label[hidden] { display: none; }
+.turning-code-view { position: absolute; }
+@media (max-width: 760px) { .turning-code-view { position: relative; inset: auto; } }

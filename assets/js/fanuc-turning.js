@@ -5,7 +5,10 @@ const profileOperations = ['profile', 'rough', 'roughLinear'];
 const operationNotes = {
   rough: 'FANUC G71 hai dòng, Type I (X tăng dần hoặc giữ nguyên về phía Z âm). Mô phỏng chu trình xấp xỉ.',
   roughFace: 'FANUC G72 hai dòng cho mặt phẳng Z0. Phôi thô bắt đầu tại Z dương. Mô phỏng chu trình xấp xỉ.',
-  grind: 'Mài trụ ngoài chạy dọc, dùng G98 (chạy dao theo phút). X là đường kính tại điểm tiếp xúc đá đã gá và so dao. Đối chiếu tốc độ đá, chiều quay, gá đặt và M-code theo máy.',
+  grind: 'G01 Traverse Grinding, G98 Feed per Minute. G04 Spark-out Dwell ở cuối lượt mài cuối. X là đường kính tại điểm tiếp xúc đá đã so dao.',
+  grindPlunge: 'G01 Plunge Grinding, G98 Feed per Minute. Z giữ cố định. G04 Spark-out Dwell ở đường kính cuối. Kiểm tra đá và bề rộng tiếp xúc.',
+  drillCycle: 'G74 hai dòng, khoan tâm theo Z. Q là chiều sâu mỗi nhát theo P/Q Input Increment của máy.',
+  grooveCycle: 'G75 hai dòng, một rãnh ngoài tại Z cố định. P là bước ăn dao theo bán kính. Chiều rộng rãnh theo lưỡi dao thực tế.',
   roughLinear: 'Tiện theo lớp G00/G01. Biên dạng phải có đường kính tăng dần hoặc giữ nguyên khi đi về phía mâm cặp.',
   groove: 'Một rãnh theo bề rộng thực tế của lưỡi dao. Tọa độ Z tham chiếu mũi dao đã khai báo trên máy.',
   part: 'Mô phỏng cắt đứt đến tâm. Gá kẹp và đỡ chi tiết sau khi cắt cần được kiểm tra trên máy.',
@@ -38,13 +41,13 @@ export function generateTurningProgram(settings) {
   }
   const machine = settings.machine ?? 'fanuc';
   if (!['fanuc', 'pl800gb'].includes(machine)) throw new Error('Chọn kiểu máy hợp lệ.');
-  const grinding = operation === 'grind';
+  const grinding = ['grind', 'grindPlunge'].includes(operation);
   if (grinding && machine !== 'pl800gb') throw new Error('Chọn PL800GB để khai báo đầu mài.');
   if (![tool, offset, rpm].every(Number.isInteger) || !inRange(tool, 1, 99) ||
       !inRange(offset, 1, 99) || !inRange(rpm, 1, 99999) || (!grinding && !inRange(feed, 0.001, 100))) {
     throw new Error('Kiểm tra số dao, số offset, tốc độ trục chính và lượng chạy dao.');
   }
-  if (!scale || ![...profileOperations, 'face', 'groove', 'part', 'drill', 'thread', 'roughFace', 'grind'].includes(operation)) throw new Error('Chọn đơn vị và nguyên công hợp lệ.');
+  if (!scale || ![...profileOperations, 'face', 'groove', 'part', 'drill', 'thread', 'roughFace', 'grind', 'grindPlunge', 'drillCycle', 'grooveCycle'].includes(operation)) throw new Error('Chọn đơn vị và nguyên công hợp lệ.');
   const precision = units === 'inch' ? 5 : 3;
   const coordinate = value => {
     const formatted = (value / scale).toFixed(precision);
@@ -60,6 +63,13 @@ export function generateTurningProgram(settings) {
     'G54', `T${String(tool).padStart(2, '0')}${String(offset).padStart(2, '0')}`,
     `G97 S${rpm} M03`, rapid(start),
   ];
+  const coolant = settings.coolant;
+  if (coolant !== undefined && !['off', 'flood'].includes(coolant)) throw new Error('Chọn Coolant hợp lệ.');
+  if (coolant) lines.push(coolant === 'flood' ? 'M08 (COOLANT ON)' : 'M09 (COOLANT OFF)');
+  const compensation = settings.compensation ?? 'off';
+  if (compensation !== 'off' && (operation !== 'profile' || !['G41', 'G42'].includes(compensation))) {
+    throw new Error('Tool Nose Compensation chỉ áp dụng cho Profile Finishing.');
+  }
   const feedWord = ` F${(feed / scale).toFixed(units === 'inch' ? 6 : 4)}`;
   const passCount = (distance, step) => {
     if (!inRange(step, 0.001, 10000)) throw new Error('Bước cắt phải lớn hơn hoặc bằng 0,001 mm.');
@@ -87,23 +97,44 @@ export function generateTurningProgram(settings) {
     if (settings.finishCycle) lines.push(`G70 P100 Q${end}`);
     lines.push(rapid({ x: outside, z: stockFace + clearance }));
   };
+  const peckCycle = (depthAxis, incrementAxis, peck, entry, target) => {
+    const retract = settings.cycleRetract;
+    const increment = settings.peckIncrement === 'standard' ? (units === 'inch' ? 0.0001 : 0.001)
+      : settings.peckIncrement === 'fine' ? (units === 'inch' ? 0.00001 : 0.0001) : null;
+    if (!increment || !inRange(retract, 0.001, peck)) throw new Error('Kiểm tra P/Q Input Increment và Retract R. R phải nhỏ hơn bước cắt.');
+    const pulses = Math.round(peck / scale / increment);
+    if (!Number.isSafeInteger(pulses) || pulses < 1 || Math.abs(pulses * increment * scale - peck) > 1e-7 ||
+        retract >= peck || Number(coordinate(retract)) >= pulses * increment) {
+      throw new Error('Bước cắt phải biểu diễn đúng bằng P/Q Input Increment, và Retract R phải nhỏ hơn bước cắt.');
+    }
+    const axial = depthAxis === 'Z';
+    const g = axial ? 'G74' : 'G75';
+    passCount(axial ? entry.z - target : (entry.x - target) / 2, peck);
+    lines.push(rapid(entry), `(PREVIEW PQ INCREMENT ${increment.toFixed(6)})`, `${g} R${coordinate(retract)}`,
+      `${g} ${depthAxis}${coordinate(target)} ${incrementAxis}${pulses}${feedWord}`, rapid(start));
+  };
   if (grinding) {
     const { grindDiameter, grindStart, grindEnd, stepDepth, grindFeed, grindConfirmed } = settings;
+    const dwell = settings.grindDwell ?? 0;
+    const traverse = operation === 'grind';
     const on = normalizedM(settings.grindOn);
     const off = normalizedM(settings.grindOff);
     if (!grindConfirmed || !on || !off || on === off) throw new Error('Nhập hai mã M phụ khác nhau và xác nhận đã đối chiếu bảng M-code của máy.');
     if (!inRange(grindDiameter, 0.001, diameter - 0.001) || !inRange(grindStart, -length, 0) ||
-        !inRange(grindEnd, -length, grindStart - 0.001) || !inRange(grindFeed, 0.001, 10000)) {
+        (traverse && !inRange(grindEnd, -length, grindStart - 0.001)) || !inRange(grindFeed, 0.001, 10000) || !inRange(dwell, 0, 60)) {
       throw new Error('Kiểm tra đường kính sau mài, hai đầu hành trình Z và lượng chạy dao mài.');
     }
     const count = passCount((diameter - grindDiameter) / 2, stepDepth);
     const approach = { x: outside, z: grindStart };
     const grindFeedWord = ` F${(grindFeed / scale).toFixed(6)}`;
-    lines.push('(PL800GB OD GRIND - VERIFY WHEEL AND AUXILIARY M CODES)', `${on} (GRIND HEAD ON)`, rapid(approach));
+    const endZ = traverse ? grindEnd : grindStart;
+    lines.push(`(PL800GB OD ${traverse ? 'TRAVERSE' : 'PLUNGE'} GRIND)`, `${on} (GRIND HEAD ON)`, rapid(approach));
     for (let pass = 1; pass <= count; pass++) {
       const x = Math.max(grindDiameter, diameter - 2 * stepDepth * pass);
-      lines.push(cut({ x, z: grindStart }) + grindFeedWord, cut({ x, z: grindEnd }),
-        rapid({ x: outside, z: grindEnd }), rapid(approach));
+      lines.push(cut({ x, z: grindStart }) + grindFeedWord);
+      if (traverse) lines.push(cut({ x, z: endZ }));
+      if (pass === count && dwell > 0) lines.push(`G04 X${dwell.toFixed(3)} (SPARK-OUT DWELL)`);
+      lines.push(rapid({ x: outside, z: endZ }), rapid(approach));
     }
     lines.push(rapid(start), `${off} (GRIND HEAD OFF)`);
   } else if (operation === 'roughFace') {
@@ -129,6 +160,16 @@ export function generateTurningProgram(settings) {
         `G32 X${coordinate(x)} Z${coordinate(threadEndZ)} F${(pitch / scale).toFixed(6)}`,
         rapid({ x: outside, z: threadEndZ }), rapid(entry));
     }
+  } else if (operation === 'drillCycle') {
+    const { drillDepth, peck } = settings;
+    if (!inRange(drillDepth, 0.001, length)) throw new Error('Kiểm tra Drill Depth trong phạm vi phôi.');
+    peckCycle('Z', 'Q', peck, { x: 0, z: clearance }, -drillDepth);
+  } else if (operation === 'grooveCycle') {
+    const { cutZ, rootDiameter, stepDepth } = settings;
+    if (!inRange(cutZ, -length, -0.001) || !inRange(rootDiameter, 0, diameter - 0.001)) {
+      throw new Error('Kiểm tra Groove Z và Root Diameter trong phạm vi phôi.');
+    }
+    peckCycle('X', 'P', stepDepth, { x: outside, z: cutZ }, rootDiameter);
   } else if (operation === 'drill') {
     const { drillDepth, peck } = settings;
     if (!inRange(drillDepth, 0.001, length)) throw new Error('Chiều sâu khoan phải nằm trong chiều dài phôi.');
@@ -202,14 +243,27 @@ export function generateTurningProgram(settings) {
         }
         if (lines.length === 8) throw new Error('Biên dạng và lượng dư không tạo được lượt tiện thô.');
       }
-    } else {
+    } else if (compensation === 'off') {
       lines.push(rapid({ x: points[0].x, z: clearance }), cut(points[0]) + feedWord,
         ...points.slice(1).map(cut), rapid({ x: outside, z: last.z }), rapid(start));
+    } else {
+      const lead = settings.compLead;
+      if (!inRange(lead, 0.001, 100)) throw new Error('Kiểm tra Lead-in / Lead-out.');
+      const leadZ = Math.max(clearance, lead);
+      const exitX = Math.max(outside, last.x + 2 * lead);
+      lines.push(
+        '(TOOL NOSE COMPENSATION FROM CNC TOOL OFFSET)',
+        rapid({ x: points[0].x, z: leadZ }),
+        `${compensation} ${cut(points[0])}${feedWord}`,
+        ...points.slice(1).map(cut),
+        `G40 ${cut({ x: exitX, z: last.z })}`,
+        rapid({ x: exitX, z: leadZ }), rapid(start),
+      );
     }
   }
   const series = String(settings.controller ?? '').replace(/[^a-z0-9 .+-]/gi, '').trim().slice(0, 32);
   if (machine === 'pl800gb' || series) lines.splice(3, 0, `(${machine === 'pl800gb' ? 'SMEC PL800GB' : 'FANUC LATHE'}${series ? ' ' + series.toUpperCase() : ''})`);
-  return [...lines, 'M05', 'M30', '%', ''].join('\n');
+  return [...lines, ...(coolant === 'flood' ? ['M09 (COOLANT OFF)'] : []), 'M05', 'M30', '%', ''].join('\n');
 }
 
 export function resizeTurningEndpoint(points, index, anchor, target, type, { diameter, length }) {
@@ -282,12 +336,31 @@ function roughingMoves(g, stock, start, contour, depth, retract, allowanceX, all
   if (longitudinal && !cuttingPasses) throw new Error('Không có lượt tiện dọc trong phôi theo biên dạng G71 này.');
 }
 
+function peckingMoves(g, start, target, peck, retract, push) {
+  const axial = g === 74;
+  const axis = axial ? 'z' : 'x';
+  const step = peck * (axial ? 1 : 2);
+  const relief = retract * (axial ? 1 : 2);
+  const count = Math.ceil((start[axis] - target[axis]) / step - 1e-7);
+  if (!Number.isFinite(count) || count < 1 || count > 301 || relief <= 0 || relief >= step) {
+    throw new Error('Không mô phỏng được bước cắt P/Q hoặc Retract R.');
+  }
+  for (let pass = 1; pass <= count; pass++) {
+    const value = Math.max(target[axis], start[axis] - pass * step);
+    push({ ...target, [axis]: value }, 'feed');
+    if (pass < count) push({ ...target, [axis]: value + relief }, 'rapid');
+  }
+  push(start, 'rapid');
+}
+
 export function readTurningMoves(program) {
   let scale = 1;
   let mode;
   let position;
   let stock;
   let cycleSetup;
+  let pqIncrement;
+  let peckSetup;
   const moves = [];
   const lines = program.split('\n');
   const blocks = lines.map(ncWords);
@@ -308,6 +381,24 @@ export function readTurningMoves(program) {
     if (g === 20 || g === 21) scale = g === 20 ? 25.4 : 1;
     const stockWords = /^\(PREVIEW STOCK X([\d.]+) Z([\d.]+)\)$/.exec(raw);
     if (stockWords) stock = { x: Number(stockWords[1]) * scale, z: Number(stockWords[2]) * scale };
+    const pqWords = /^\(PREVIEW PQ INCREMENT ([\d.]+)\)$/.exec(raw);
+    if (pqWords) pqIncrement = Number(pqWords[1]) * scale;
+    if (g === 74 || g === 75) {
+      const axial = g === 74;
+      const pulse = words.get(axial ? 'Q' : 'P');
+      if (pulse === undefined) {
+        peckSetup = { g, retract: words.get('R') * scale };
+      } else {
+        if (!position || peckSetup?.g !== g) throw new Error('Thiếu khối Retract R của G74/G75.');
+        peckingMoves(g, position, at(words, position), pulse * pqIncrement, peckSetup.retract,
+          (to, motion) => push(to, motion, index));
+      }
+      continue;
+    }
+    if (g === 4) {
+      if (position) push(position, 'event', index);
+      continue;
+    }
     if ((g === 71 || g === 72) && !words.has('P')) {
       cycleSetup = { g, depth: words.get(g === 71 ? 'U' : 'W') * scale, retract: words.get('R') * scale };
       continue;
@@ -338,7 +429,7 @@ export function readTurningMoves(program) {
     if (g === 0) mode = 'rapid';
     if (g === 1) mode = 'feed';
     if (g === 32) mode = 'thread';
-    if (position && /\(GRIND HEAD (?:ON|OFF)\)/.test(raw)) push(position, 'event', index);
+    if (position && /\((?:GRIND HEAD|COOLANT) (?:ON|OFF)\)/.test(raw)) push(position, 'event', index);
     if (mode && (words.has('X') || words.has('Z'))) push(at(words, position), mode, index);
   }
   return moves;
@@ -387,6 +478,40 @@ export function initTurningPreview() {
   let imageFlipped = false;
   const coordinateLabel = byId('turningCoordinate');
   const currentBlock = byId('turningCurrentBlock');
+  const codeView = byId('turningCodeView');
+  let codeLines = [];
+  let activeCodeRow;
+
+  function setCode(program) {
+    code.value = program;
+    codeLines = program ? program.trimEnd().split('\n') : [];
+    activeCodeRow = undefined;
+    codeView.replaceChildren(...codeLines.map((line, index) => {
+      const row = document.createElement('div');
+      row.className = 'turning-code-line';
+      const number = document.createElement('span');
+      number.setAttribute('aria-hidden', 'true');
+      number.textContent = String(index + 1);
+      const block = document.createElement('code');
+      block.textContent = line;
+      row.append(number, block);
+      return row;
+    }));
+  }
+
+  function showCodeLine(line) {
+    currentBlock.textContent = line ? codeLines[line - 1] : '—';
+    const row = line ? codeView.children[line - 1] : undefined;
+    if (row === activeCodeRow) return;
+    activeCodeRow?.removeAttribute('aria-current');
+    activeCodeRow = row;
+    if (!row) return;
+    row.setAttribute('aria-current', 'step');
+    const top = row.offsetTop;
+    if (top < codeView.scrollTop || top + row.offsetHeight > codeView.scrollTop + codeView.clientHeight) {
+      codeView.scrollTop = Math.max(0, top - codeView.clientHeight / 2);
+    }
+  }
   const importStatus = byId('turningImportStatus');
   const undo = byId('turningUndo');
   const showProfile = byId('turningShowProfile');
@@ -419,9 +544,11 @@ export function initTurningPreview() {
     const pitch = fields.operation.value === 'thread' ? fields.pitch.valueAsNumber : 0;
     const faceStock = fields.operation.value === 'roughFace' ? fields.faceStock.valueAsNumber : 0;
     const stockFront = Number.isFinite(faceStock) && faceStock > 0 && faceStock <= 1000 ? faceStock : 0;
-    const front = Math.max(clearance + stockFront, Number.isFinite(pitch) && pitch <= 100 ? 2 * pitch : 0);
+    const compLead = !fields.compLead.disabled ? fields.compLead.valueAsNumber : 0;
+    const leadSpace = Number.isFinite(compLead) && compLead <= 100 ? compLead : 0;
+    const front = Math.max(clearance + stockFront, leadSpace, Number.isFinite(pitch) && pitch <= 100 ? 2 * pitch : 0);
     const spanZ = length + clearance + front;
-    const spanR = diameter / 2 + 2 * clearance;
+    const spanR = diameter / 2 + Math.max(2 * clearance, leadSpace + clearance);
     const fittedScale = Math.min((right - left) / spanZ, (bottom - top) / spanR);
     const scale = fittedScale * zoom;
     const centerX = (left + right) / 2;
@@ -619,7 +746,7 @@ export function initTurningPreview() {
     for (const tick of ticks) ctx.fillText(tick.value, tick.x, tick.y);
     ctx.fillText('R (mm)', left, top - 6);
     ctx.fillText('Z (mm)', right - 30, bottom + 33);
-    currentBlock.textContent = step ? code.value.split('\n')[moves[step - 1].line - 1] : '—';
+    showCodeLine(step ? moves[step - 1].line : undefined);
     stepLabel.textContent = step ? `${step} / ${moves.length} · dòng NC ${moves[step - 1].line}` : `0 / ${moves.length}`;
   }
 
@@ -632,7 +759,7 @@ export function initTurningPreview() {
   function reset() {
     stop();
     moves = [];
-    code.value = '';
+    setCode('');
     slider.max = slider.value = 0;
     slider.disabled = play.disabled = download.disabled = true;
     status.textContent = '';
@@ -655,14 +782,25 @@ export function initTurningPreview() {
     reset();
   }
 
+  function updateCompensation() {
+    const available = fields.operation.value === 'profile';
+    fields.compensation.disabled = !available;
+    byId('turningCompensationLabel').hidden = !available;
+    const showLead = available && fields.compensation.value !== 'off';
+    fields.compLead.disabled = !showLead;
+    byId('turningLeadLabel').hidden = !showLead;
+    byId('turningCompensationNote').hidden = !showLead;
+  }
+
   function updateOperation() {
     const grinding = fields.machine.value === 'pl800gb';
-    const grindOption = fields.operation.querySelector('[value="grind"]');
-    grindOption.hidden = grindOption.disabled = !grinding;
-    if (!grinding && fields.operation.value === 'grind') fields.operation.value = 'profile';
+    const grindingGroup = byId('turningGrindingGroup');
+    grindingGroup.hidden = grindingGroup.disabled = !grinding;
+    if (!grinding && ['grind', 'grindPlunge'].includes(fields.operation.value)) fields.operation.value = 'profile';
     const operation = fields.operation.value;
-    fields.feed.disabled = operation === 'grind';
+    fields.feed.disabled = ['grind', 'grindPlunge'].includes(operation);
     fields.feed.closest('label').hidden = fields.feed.disabled;
+    updateCompensation();
     const usesProfile = profileOperations.includes(operation);
     fields.profile.disabled = !usesProfile;
     fields.profile.closest('label').hidden = !usesProfile;
@@ -680,7 +818,7 @@ export function initTurningPreview() {
     note.textContent = operationNotes[operation] || '';
     for (const label of parameters.querySelectorAll('[data-operations]')) {
       label.hidden = !label.dataset.operations.split(' ').includes(operation);
-      label.querySelector('input').disabled = label.hidden;
+      label.querySelector('input, select').disabled = label.hidden;
     }
     reset();
   }
@@ -777,6 +915,7 @@ export function initTurningPreview() {
     if (event.target !== fields.operation) reset();
   });
   fields.operation.addEventListener('change', updateOperation);
+  fields.compensation.addEventListener('change', () => { updateCompensation(); reset(); });
   fields.machine.addEventListener('change', updateOperation);
   for (const field of [fields.grindOn, fields.grindOff, fields.controller]) {
     field.addEventListener('input', () => { fields.grindConfirmed.checked = false; });
@@ -1346,7 +1485,7 @@ export function initTurningPreview() {
       for (const { name, type } of fields) if (name && type === 'number') settings[name] = Number(settings[name]);
       const program = generateTurningProgram(settings);
       moves = readTurningMoves(program);
-      code.value = program;
+      setCode(program);
       slider.max = moves.length;
       slider.value = moves.length;
       slider.disabled = play.disabled = download.disabled = false;
