@@ -6,7 +6,7 @@ const asModule = source => 'data:text/javascript;base64,' + Buffer.from(source).
 const sketchSource = await readFile(new URL('../assets/js/fanuc-sketch.js', import.meta.url), 'utf8');
 const sketchUrl = asModule(sketchSource);
 const source = await readFile(new URL('../assets/js/fanuc-turning.js', import.meta.url), 'utf8');
-const { generateTurningProgram, readTurningMoves, resizeTurningEndpoint } = await import(asModule(source.replace(/\.\/fanuc-sketch\.js\?v=\d+/, sketchUrl)));
+const { generateTurningProgram, readTurningMoves, resizeTurningEndpoint, sketchEndpointAtLength } = await import(asModule(source.replace(/\.\/fanuc-sketch\.js\?v=\d+/, sketchUrl)));
 const { arcPoints, profileFromStl, profileFromImage, findSketchSnap, nearestSketchEdge, profileFromDxf } = await import(sketchUrl);
 
 const setup = {
@@ -262,7 +262,7 @@ test('G74 and G75 post the correct integer P/Q words and replay their pecks', ()
 test('tool nose compensation uses CNC offset, linear entry and cancellation and floods only when selected', () => {
   const code = generateTurningProgram({ ...setup, controller: '0i-TF Plus', coolant: 'flood', compensation: 'G42', compLead: 3 });
   assert.match(code, /FANUC LATHE 0I-TF PLUS/);
-  assert.match(code, /M08 \(COOLANT ON\)[\s\S]*G42 G01 X40\.000 Z0\.000[\s\S]*G40 G01 X66\.000 Z-60\.000[\s\S]*M09 \(COOLANT OFF\)\nM05/);
+  assert.match(code, /M8 \(COOLANT ON\)[\s\S]*G42 G01 X40\.000 Z0\.000[\s\S]*G40 G01 X66\.000 Z-60\.000[\s\S]*M9 \(COOLANT OFF\)\nM05/);
   const moves = readTurningMoves(code);
   assert.equal(moves.filter(move => move.mode === 'event').length, 2);
   assert.equal(moves.find(move => code.split('\n')[move.line - 1].startsWith('G42')).mode, 'feed');
@@ -279,4 +279,30 @@ test('plunge grinding holds Z and records G04 spark-out as an event, not an X mo
   const dwell = readTurningMoves(code).find(move => code.split('\n')[move.line - 1].startsWith('G04'));
   assert.equal(dwell.mode, 'event');
   assert.deepEqual(dwell.to, { x: 59.8, z: -25 });
+});
+
+test('typed line length uses radius and Z, including constrained axes', () => {
+  const start = { x: 40, z: -20 };
+  assert.deepEqual(sketchEndpointAtLength(start, undefined, 12.5, 'line'), { x: 40, z: -32.5 });
+  assert.deepEqual(sketchEndpointAtLength(start, { x: 46, z: -24 }, 10, 'line'), { x: 52, z: -28 });
+  assert.deepEqual(sketchEndpointAtLength(start, { x: 34, z: -40 }, 2.5, 'vertical'), { x: 35, z: -20 });
+  assert.deepEqual(sketchEndpointAtLength(start, { x: 50, z: -40 }, 2.5, 'horizontal'), { x: 40, z: -22.5 });
+});
+
+test('grinding wheel speed stays separate from workpiece spindle and needs an explicit program format', () => {
+  const params = {
+    ...setup, machine: 'pl800gb', operation: 'grindPlunge', grindDiameter: 59.8,
+    grindStart: -25, stepDepth: 0.1, grindFeed: 30, grindOn: '151', grindOff: '152',
+    grindConfirmed: true, grindRpm: 3400,
+  };
+  const manual = generateTurningProgram({ ...params, grindSpeedMode: 'manual' });
+  assert.match(manual, /\(SET GRIND WHEEL TO 3400 RPM ON MACHINE\)/);
+  assert.doesNotMatch(manual, /[SPQ]3400/);
+  const combined = generateTurningProgram({ ...params, grindSpeedMode: 'program', grindSpeedM: 'M151', grindSpeedAddress: 'P' });
+  assert.match(combined, /G97 S600 M03[\s\S]*M151 P3400 \(GRIND HEAD ON\)/);
+  assert.equal(combined.match(/M151/g).length, 1);
+  const separate = generateTurningProgram({ ...params, grindSpeedMode: 'program', grindSpeedM: 'M153', grindSpeedAddress: 'S' });
+  assert.match(separate, /M153 S3400 \(GRIND WHEEL SPEED\)\nM151 \(GRIND HEAD ON\)/);
+  assert.equal(readTurningMoves(separate).filter(move => move.mode === 'event').length, 3);
+  assert.throws(() => generateTurningProgram({ ...params, grindSpeedMode: 'program', grindSpeedM: 'M152', grindSpeedAddress: 'P' }), /Wheel Speed M-code/);
 });

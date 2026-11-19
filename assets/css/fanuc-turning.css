@@ -182,3 +182,35 @@ body[data-page="fanucTurningPage"] .topbar { position: static; }
 .turning-fields label[hidden] { display: none; }
 .turning-code-view { position: absolute; }
 @media (max-width: 760px) { .turning-code-view { position: relative; inset: auto; } }
+.turning-grid { grid-template-columns: minmax(0, 1fr) clamp(250px, 23%, 324px); }
+.turning-drawing { grid-template-columns: minmax(0, 1fr) minmax(180px, 27%); }
+.turning-sidebar {
+  grid-template-columns: minmax(0, 1fr); border-top: 0; border-left: 1px solid #c9d5e1;
+}
+.turning-card > .turning-fields, .turning-card .turning-parameters { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+#turningPlot { margin-inline: 0 auto; width: 100%; }
+.turning-line-entry {
+  display: flex; align-items: center; flex-wrap: wrap; gap: 8px; padding: 5px 12px;
+  background: #182430; color: #d0e1ef; border-bottom: 1px solid #344858; font-size: 12px;
+}
+.turning-line-entry[hidden] { display: none; }
+.turning-line-entry label { display: inline-flex; align-items: center; flex-wrap: wrap; gap: 5px; }
+.turning-line-entry input {
+  width: 100px; padding: 4px 6px; color: #e6eef7; background: #223343;
+  border: 1px solid #506378; border-radius: 4px;
+}
+.turning-line-entry .btn { min-height: 27px; padding: 4px 8px; font-size: 11px; }
+@media (max-width: 1260px) and (min-width: 1061px) {
+  .turning-drawing { grid-template-columns: minmax(0, 1fr); }
+  .turning-code-view { position: relative; inset: auto; min-height: 130px; max-height: 235px; }
+}
+@media (max-width: 1060px) {
+  .turning-grid { grid-template-columns: minmax(0, 1fr); }
+  .turning-sidebar { border-left: 0; border-top: 1px solid #c9d5e1; }
+}
+@media (max-width: 760px) {
+  .turning-drawing { grid-template-columns: minmax(0, 1fr); }
+}
+@media (max-width: 460px) {
+  .turning-card > .turning-fields, .turning-card .turning-parameters { grid-template-columns: minmax(0, 1fr); }
+}

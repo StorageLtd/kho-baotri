@@ -65,7 +65,7 @@ export function generateTurningProgram(settings) {
   ];
   const coolant = settings.coolant;
   if (coolant !== undefined && !['off', 'flood'].includes(coolant)) throw new Error('Chọn Coolant hợp lệ.');
-  if (coolant) lines.push(coolant === 'flood' ? 'M08 (COOLANT ON)' : 'M09 (COOLANT OFF)');
+  if (coolant) lines.push(coolant === 'flood' ? 'M8 (COOLANT ON)' : 'M9 (COOLANT OFF)');
   const compensation = settings.compensation ?? 'off';
   if (compensation !== 'off' && (operation !== 'profile' || !['G41', 'G42'].includes(compensation))) {
     throw new Error('Tool Nose Compensation chỉ áp dụng cho Profile Finishing.');
@@ -128,7 +128,28 @@ export function generateTurningProgram(settings) {
     const approach = { x: outside, z: grindStart };
     const grindFeedWord = ` F${(grindFeed / scale).toFixed(6)}`;
     const endZ = traverse ? grindEnd : grindStart;
-    lines.push(`(PL800GB OD ${traverse ? 'TRAVERSE' : 'PLUNGE'} GRIND)`, `${on} (GRIND HEAD ON)`, rapid(approach));
+    const speedMode = settings.grindSpeedMode;
+    const wheelRpm = settings.grindRpm;
+    let startHead = `${on} (GRIND HEAD ON)`;
+    lines.push(`(PL800GB OD ${traverse ? 'TRAVERSE' : 'PLUNGE'} GRIND)`);
+    if (speedMode !== undefined) {
+      if (!Number.isInteger(wheelRpm) || !inRange(wheelRpm, 1, 99999)) throw new Error('Nhập Grinding Wheel Speed theo vòng/phút.');
+      if (speedMode === 'manual') {
+        lines.push(`(SET GRIND WHEEL TO ${wheelRpm} RPM ON MACHINE)`);
+      } else if (speedMode === 'program') {
+        const speedM = normalizedM(settings.grindSpeedM);
+        const address = settings.grindSpeedAddress;
+        if (!speedM || speedM === off || !['S', 'P', 'Q'].includes(address)) {
+          throw new Error('Kiểm tra Wheel Speed M-code và Speed Word. M đặt tốc độ phải khác M tắt đầu mài.');
+        }
+        const block = `${speedM} ${address}${wheelRpm}`;
+        if (speedM === on) startHead = `${block} (GRIND HEAD ON)`;
+        else lines.push(`${block} (GRIND WHEEL SPEED)`);
+      } else {
+        throw new Error('Chọn Wheel Speed Command hợp lệ.');
+      }
+    }
+    lines.push(startHead, rapid(approach));
     for (let pass = 1; pass <= count; pass++) {
       const x = Math.max(grindDiameter, diameter - 2 * stepDepth * pass);
       lines.push(cut({ x, z: grindStart }) + grindFeedWord);
@@ -263,7 +284,20 @@ export function generateTurningProgram(settings) {
   }
   const series = String(settings.controller ?? '').replace(/[^a-z0-9 .+-]/gi, '').trim().slice(0, 32);
   if (machine === 'pl800gb' || series) lines.splice(3, 0, `(${machine === 'pl800gb' ? 'SMEC PL800GB' : 'FANUC LATHE'}${series ? ' ' + series.toUpperCase() : ''})`);
-  return [...lines, ...(coolant === 'flood' ? ['M09 (COOLANT OFF)'] : []), 'M05', 'M30', '%', ''].join('\n');
+  return [...lines, ...(coolant === 'flood' ? ['M9 (COOLANT OFF)'] : []), 'M05', 'M30', '%', ''].join('\n');
+}
+
+export function sketchEndpointAtLength(start, direction, distance, tool) {
+  if (!Number.isFinite(distance) || distance < 0.001) throw new Error('Nhập Line Length từ 0,001 mm.');
+  let dz = tool === 'vertical' ? 0 : (direction ? direction.z - start.z : -1);
+  let dr = tool === 'horizontal' ? 0 : (direction ? (direction.x - start.x) / 2 : 1);
+  if (!direction && tool !== 'vertical') dr = 0;
+  if (!dz && !dr) {
+    if (tool === 'vertical') dr = 1;
+    else dz = -1;
+  }
+  const span = Math.hypot(dz, dr);
+  return { x: Number((start.x + 2 * dr * distance / span).toFixed(5)), z: Number((start.z + dz * distance / span).toFixed(5)) };
 }
 
 export function resizeTurningEndpoint(points, index, anchor, target, type, { diameter, length }) {
@@ -429,7 +463,7 @@ export function readTurningMoves(program) {
     if (g === 0) mode = 'rapid';
     if (g === 1) mode = 'feed';
     if (g === 32) mode = 'thread';
-    if (position && /\((?:GRIND HEAD|COOLANT) (?:ON|OFF)\)/.test(raw)) push(position, 'event', index);
+    if (position && /\((?:(?:GRIND HEAD|COOLANT) (?:ON|OFF)|GRIND WHEEL SPEED)\)/.test(raw)) push(position, 'event', index);
     if (mode && (words.has('X') || words.has('Z'))) push(at(words, position), mode, index);
   }
   return moves;
@@ -455,6 +489,9 @@ export function initTurningPreview() {
   const insertPoint = byId('turningInsertPoint');
   const objectSnap = byId('turningObjectSnap');
   let activeTool = 'line';
+  const lineInput = byId('turningLineLength');
+  const lineTools = ['line', 'horizontal', 'vertical'];
+  let lineDirection;
   let selectedPoint;
   let selectedEdge;
   let edgeStyles = [];
@@ -772,6 +809,7 @@ export function initTurningPreview() {
     if (edits.length > 50) edits.shift();
     undo.disabled = false;
     fields.profile.value = value;
+    lineDirection = undefined;
     edgeStyles = styles;
     if (!keepDimensions) {
       annotations.length = 0;
@@ -790,6 +828,19 @@ export function initTurningPreview() {
     fields.compLead.disabled = !showLead;
     byId('turningLeadLabel').hidden = !showLead;
     byId('turningCompensationNote').hidden = !showLead;
+  }
+
+  function updateGrindingSpeed() {
+    const grinding = ['grind', 'grindPlunge'].includes(fields.operation.value);
+    const programmed = grinding && fields.grindSpeedMode.value === 'program';
+    byId('turningSpindleLabel').textContent = grinding ? 'Workpiece Spindle Speed (rpm)' : 'Spindle Speed (rpm)';
+    byId('turningGrindSpeedCode').hidden = fields.grindSpeedM.disabled = !programmed;
+    byId('turningGrindSpeedAddress').hidden = fields.grindSpeedAddress.disabled = !programmed;
+    byId('turningGrindSpeedNote').hidden = !programmed;
+  }
+
+  function updateLineEntry() {
+    byId('turningLineEntry').hidden = fields.profile.disabled || !lineTools.includes(activeTool);
   }
 
   function updateOperation() {
@@ -820,6 +871,8 @@ export function initTurningPreview() {
       label.hidden = !label.dataset.operations.split(' ').includes(operation);
       label.querySelector('input, select').disabled = label.hidden;
     }
+    updateGrindingSpeed();
+    updateLineEntry();
     reset();
   }
 
@@ -906,6 +959,7 @@ export function initTurningPreview() {
 
   form.addEventListener('input', event => {
     if (event.target === fields.profile) {
+      lineDirection = undefined;
       arcMiddle = cursor = snapMarker = undefined;
       edgeStyles = [];
       annotations.length = 0;
@@ -917,12 +971,15 @@ export function initTurningPreview() {
   fields.operation.addEventListener('change', updateOperation);
   fields.compensation.addEventListener('change', () => { updateCompensation(); reset(); });
   fields.machine.addEventListener('change', updateOperation);
-  for (const field of [fields.grindOn, fields.grindOff, fields.controller]) {
+  fields.grindSpeedMode.addEventListener('change', () => { updateGrindingSpeed(); reset(); });
+  for (const field of [fields.grindOn, fields.grindOff, fields.grindRpm, fields.grindSpeedMode,
+    fields.grindSpeedM, fields.grindSpeedAddress, fields.controller]) {
     field.addEventListener('input', () => { fields.grindConfirmed.checked = false; });
   }
   undo.addEventListener('click', () => {
     const previous = edits.pop();
     fields.profile.value = previous.profile;
+    lineDirection = undefined;
     edgeStyles = previous.styles;
     annotations.length = 0;
     editDimension(undefined);
@@ -934,6 +991,8 @@ export function initTurningPreview() {
   for (const control of [showProfile, showRapid]) control.addEventListener('change', draw);
   function selectTool(value) {
     activeTool = value;
+    lineDirection = undefined;
+    updateLineEntry();
     for (const button of tools) {
       button.setAttribute('aria-pressed', String(button.dataset.sketchTool === value));
     }
@@ -952,7 +1011,13 @@ export function initTurningPreview() {
   }
 
   for (const button of tools) {
-    button.addEventListener('click', () => selectTool(button.dataset.sketchTool));
+    button.addEventListener('click', () => {
+      selectTool(button.dataset.sketchTool);
+      if (lineTools.includes(activeTool)) {
+        lineInput.focus({ preventScroll: true });
+        lineInput.select();
+      }
+    });
   }
   removePoint.addEventListener('click', deleteEdge);
   byId('turningApplyPoint').addEventListener('click', editSelected);
@@ -1037,7 +1102,14 @@ export function initTurningPreview() {
     const z = candidate?.z ?? (Math.abs(raw.z) <= Math.min(length / 8, 4 / plot.scale) ? 0 : rounded(raw.z));
     const x = candidate?.x ?? rounded(raw.x);
     const last = points.at(-1);
-    const result = { x: activeTool === 'horizontal' && last ? last.x : x, z: activeTool === 'vertical' && last ? last.z : z };
+    let result = { x: activeTool === 'horizontal' && last ? last.x : x, z: activeTool === 'vertical' && last ? last.z : z };
+    if (last && lineTools.includes(activeTool)) {
+      if (Math.hypot((result.x - last.x) / 2, result.z - last.z) > 0.0001) lineDirection = result;
+      if (lineInput.value) {
+        try { result = sketchEndpointAtLength(last, lineDirection, lineInput.valueAsNumber, activeTool); }
+        catch { return; }
+      }
+    }
     if (candidate && (candidate.x !== result.x || candidate.z !== result.z)) snapMarker = undefined;
     if (result.z > 0 || result.z < -length || result.x < 0 || result.x > diameter) return;
     return result;
@@ -1158,6 +1230,10 @@ export function initTurningPreview() {
       draw();
       return;
     }
+    appendSketchPoint(point);
+  });
+
+  function appendSketchPoint(point) {
     const points = readProfile(fields.profile.value);
     const last = points.at(-1);
     if (!last && point.z !== 0) {
@@ -1190,12 +1266,34 @@ export function initTurningPreview() {
       const styles = edgeStyles.slice();
       const stroke = nextStroke++;
       additions.forEach((_, i) => { if (points.length + i) styles[points.length + i] = { color: color.value, stroke }; });
+      const delta = last && { x: point.x - last.x, z: point.z - last.z };
       replaceProfile(writeProfile([...points, ...additions]), styles, true);
+      lineDirection = delta && { x: point.x + delta.x, z: point.z + delta.z };
     } catch (error) {
       arcMiddle = undefined;
       sketchStatus.textContent = error.message;
       draw();
     }
+  }
+
+  function insertTypedLength() {
+    if (fields.profile.disabled || !lineTools.includes(activeTool)) return;
+    try {
+      const last = readProfile(fields.profile.value).at(-1);
+      if (!last) throw new Error('Bấm trên Z0 để đặt điểm đầu trước khi nhập chiều dài.');
+      appendSketchPoint(sketchEndpointAtLength(last, lineDirection, lineInput.valueAsNumber, activeTool));
+    } catch (error) {
+      sketchStatus.textContent = error.message;
+    }
+  }
+  byId('turningApplyLength').addEventListener('click', insertTypedLength);
+  lineInput.addEventListener('keydown', event => {
+    if (event.key === 'Enter') { event.preventDefault(); insertTypedLength(); }
+  });
+  lineInput.addEventListener('input', () => {
+    const length = lineInput.valueAsNumber;
+    if (length >= 0.001) sketchStatus.textContent = 'Chỉ hướng bằng con trỏ rồi bấm, hoặc nhấn Enter để vẽ đúng chiều dài.';
+    else sketchStatus.textContent = '';
   });
 
   for (const id of ['turningImageWidth', 'turningImageZ', 'turningImageR', 'turningImageOpacity']) {
