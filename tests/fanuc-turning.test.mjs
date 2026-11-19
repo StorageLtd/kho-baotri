@@ -339,3 +339,12 @@ test('ID grinding opens the bore radially and withdraws below the bore diameter 
   const plunge = readTurningMoves(generateTurningProgram({ ...params, operation: 'grindIdPlunge', grindStart: -22 }));
   assert.ok(plunge.filter(move => move.mode === 'feed').every(move => move.to.z === -22));
 });
+
+test('multi-tool program rejects post-parting operations and identifies each tool in NC', () => {
+  const part = { ...setup, operation: 'part', cutZ: -30, stepDepth: 3 };
+  const face = { ...setup, operation: 'face', tool: 8, offset: 2 };
+  const change = { x: -200, z: -400, confirmed: true };
+  assert.throws(() => generateTurningSequence([part, face], change), /Parting cuối/);
+  const code = generateTurningSequence([face, part], change);
+  assert.match(code, /\(OPERATION 1 T0802 FACE\)[\s\S]*\(OPERATION 2 T0207 PART\)/);
+});

@@ -7,7 +7,7 @@
   <meta name="referrer" content="no-referrer">
   <title>LTD VIET NAM - Cloud Maintenance System</title>
   <link rel="stylesheet" href="assets/css/app.css?v=20261105-compact-alarm">
-  <link rel="stylesheet" href="assets/css/fanuc-turning.css?v=8">
+  <link rel="stylesheet" href="assets/css/fanuc-turning.css?v=9">
   <link rel="stylesheet" href="assets/css/cnc-report.css?v=20261107-tool-context">
   <link rel="stylesheet" href="assets/css/cnc-transfer.css?v=20261111-viewer-controls">
   <link rel="stylesheet" href="assets/css/cnc-dashboard.css?v=20261109-productivity">
@@ -257,7 +257,12 @@
           <p class="turning-warning"><strong>Mã NC thử nghiệm, chưa kiểm chứng trên máy.</strong> Chỉ dùng để xem trước và mô phỏng. Đường chạy 2D không kiểm tra va chạm, gá kẹp hay bù bán kính mũi dao.</p>
           <div class="turning-workbench">
             <div class="turning-ribbon" aria-label="Thanh lệnh biên dạng">
-              <div class="turning-ribbon-group">
+                <div class="turning-ribbon-group">
+                <button class="turning-command" type="button" id="turningSaveProject"><i aria-hidden="true">↓</i>Lưu dự án</button>
+                <button class="turning-command" type="button" id="turningOpenProject"><i aria-hidden="true">↑</i>Mở dự án</button>
+                <input id="turningProjectFile" type="file" accept=".json,application/json" hidden>
+              </div>
+            <div class="turning-ribbon-group">
                 <button class="turning-command" type="button" id="turningOpenImage"><i aria-hidden="true">▧</i>Nhập ảnh</button>
                 <button class="turning-command" type="button" id="turningOpenMesh"><i aria-hidden="true">◇</i>Nhập STL</button>
                 <button class="turning-command" type="button" id="turningOpenPdf"><i aria-hidden="true">▤</i>Nhập PDF</button>
@@ -282,6 +287,7 @@
                 <button class="turning-command" type="button" id="turningFit"><i aria-hidden="true">□</i>Vừa khung</button>
               </div>
             </div>
+            <p id="turningProjectStatus" role="status" hidden></p>
             <div class="turning-grid">
               <section class="turning-drawing" aria-label="Bản vẽ và đường dao X–Z">
                 <div class="turning-graphics">
@@ -302,7 +308,7 @@
                     <label for="turningStep">Bước mô phỏng <output id="turningStepLabel">0 / 0</output></label>
                     <input id="turningStep" type="range" min="0" max="0" value="0" disabled>
                   </div>
-                  <p class="turning-current"><span>Khối NC đang xem</span><code id="turningCurrentBlock">—</code></p>
+                  <p class="turning-current"><span id="turningPlaybackOperation">Khối NC đang xem</span><code id="turningCurrentBlock">—</code></p>
                 </div>
               <canvas id="turningPlot" width="640" height="370" tabindex="0" aria-label="Biểu đồ phôi, biên dạng và đường chạy dao X–Z"></canvas>
               <div class="turning-legend" aria-label="Chú giải và lớp hiển thị">
@@ -483,7 +489,7 @@
                   <label>Tool Change X · G53 (mm)<input class="input" id="turningChangeX" type="number" step="any"></label>
                   <label>Tool Change Z · G53 (mm)<input class="input" id="turningChangeZ" type="number" step="any"></label>
                 </div>
-                <label class="turning-change-confirm"><input type="checkbox" id="turningChangeConfirmed"> Tôi đã đối chiếu vị trí đổi dao, thứ tự Z rồi X và khoảng hở khi tiếp cận phôi.</label>
+                <label class="turning-change-confirm"><input type="checkbox" id="turningChangeConfirmed"> Tôi đã đối chiếu vị trí đổi dao, thứ tự Z rồi X, khoảng hở khi tiếp cận phôi và mã M đầu mài nếu có.</label>
                 <div class="turning-actions"><button type="button" class="btn primary" id="turningSequenceGenerate">Tạo NC nhiều nguyên công</button></div>
               </div>
               <p id="turningSequenceStatus" role="status"></p>
@@ -980,6 +986,6 @@
 
   <div class="toast" id="toast" role="status" aria-live="polite"></div>
 
-  <script type="module" src="assets/js/app.js?v=20261119-fanuc-operations"></script>
+  <script type="module" src="assets/js/app.js?v=20261119-fanuc-project"></script>
 </body>
 </html>

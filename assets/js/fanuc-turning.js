@@ -5,6 +5,18 @@ const profileOperations = ['profile', 'rough', 'roughLinear'];
 const grindingOperations = ['grind', 'grindPlunge', 'grindId', 'grindIdPlunge'];
 const internalGrinding = ['grindId', 'grindIdPlunge'];
 const maxOperations = 12;
+const sharedSetupKeys = ['machine', 'controller', 'units', 'diameter', 'length'];
+
+function sameTurningSetup(a, b) {
+  return sharedSetupKeys.every(key => a[key] === b[key]);
+}
+
+function validateQueueOrder(operations) {
+  const parting = operations.findIndex(item => item.operation === 'part');
+  if (parting >= 0 && parting < operations.length - 1) {
+    throw new Error(`Nguyên công ${parting + 1} cắt đứt phôi. Đặt Parting cuối chương trình.`);
+  }
+}
 const operationNotes = {
   rough: 'FANUC G71 hai dòng, Type I (X tăng dần hoặc giữ nguyên về phía Z âm). Mô phỏng chu trình xấp xỉ.',
   roughFace: 'FANUC G72 hai dòng cho mặt phẳng Z0. Phôi thô bắt đầu tại Z dương. Mô phỏng chu trình xấp xỉ.',
@@ -317,7 +329,7 @@ export function generateTurningProgram(settings, { sequenceBase = 100, bodyOnly 
 export function generateTurningSequence(operations, changePosition) {
   if (!operations.length || operations.length > maxOperations) throw new Error(`Chọn từ 1 đến ${maxOperations} nguyên công.`);
   const first = operations[0];
-  const shared = ['machine', 'controller', 'units', 'diameter', 'length'];
+  validateQueueOrder(operations);
   const scale = unitsToMm[first.units];
   const { x, z, confirmed } = changePosition;
   if (!scale || !confirmed || ![x, z].every(value => Number.isFinite(value) && Math.abs(value) <= 10000)) {
@@ -328,13 +340,14 @@ export function generateTurningSequence(operations, changePosition) {
   const home = [`G53 G00 Z${(z / scale).toFixed(digits)}`, `G53 G00 X${(x / scale).toFixed(digits)}`];
   const lines = ['%', 'O0100', '(PREVIEW ONLY - VERIFY TOOL CHANGE AND ALL SETUPS)',
     `(${first.machine === 'pl800gb' ? 'SMEC PL800GB' : 'FANUC LATHE'}${series ? ' ' + series.toUpperCase() : ''})`,
-    first.units === 'inch' ? 'G20' : 'G21', 'G40', 'M9 (COOLANT OFF)', 'M05'];
+    first.units === 'inch' ? 'G20' : 'G21', 'G18 G40 G80', 'M9 (COOLANT OFF)', 'M05'];
   operations.forEach((settings, index) => {
     try {
-      if (shared.some(key => settings[key] !== first[key])) throw new Error('Kiểu máy, series, đơn vị và kích thước phôi phải giống nhau giữa các bước.');
+      if (!sameTurningSetup(settings, first)) throw new Error('Kiểu máy, series, đơn vị và kích thước phôi phải giống nhau giữa các bước.');
       const title = settings.operation.toUpperCase();
+      const toolCode = String(settings.tool).padStart(2, '0') + String(settings.offset).padStart(2, '0');
       const body = generateTurningProgram(settings, { sequenceBase: 100 + 3000 * index, bodyOnly: true });
-      lines.push(`(OPERATION ${index + 1} ${title})`, ...home, body);
+      lines.push(`(OPERATION ${index + 1} T${toolCode} ${title})`, ...home, body);
     } catch (error) {
       throw new Error(`Nguyên công ${index + 1}: ${error.message}`);
     }
@@ -578,14 +591,24 @@ export function initTurningPreview() {
   const codeView = byId('turningCodeView');
   let codeLines = [];
   let activeCodeRow;
+  let operationAtLine = [];
+  const playbackOperation = byId('turningPlaybackOperation');
 
   function setCode(program) {
     code.value = program;
     codeLines = program ? program.trimEnd().split('\n') : [];
     activeCodeRow = undefined;
+    let operationLabel;
+    operationAtLine = [];
     codeView.replaceChildren(...codeLines.map((line, index) => {
       const row = document.createElement('div');
       row.className = 'turning-code-line';
+      const operation = /^\(OPERATION (\d+) (T\d+) /.exec(line);
+      if (operation) {
+        operationLabel = `Nguyên công ${operation[1]} · ${operation[2]}`;
+        row.classList.add('turning-code-operation');
+      }
+      operationAtLine.push(operationLabel);
       const number = document.createElement('span');
       number.setAttribute('aria-hidden', 'true');
       number.textContent = String(index + 1);
@@ -598,6 +621,7 @@ export function initTurningPreview() {
 
   function showCodeLine(line) {
     currentBlock.textContent = line ? codeLines[line - 1] : '—';
+    playbackOperation.textContent = operationAtLine[line - 1] || 'Khối NC đang xem';
     const row = line ? codeView.children[line - 1] : undefined;
     if (row === activeCodeRow) return;
     activeCodeRow?.removeAttribute('aria-current');
@@ -1714,6 +1738,19 @@ export function initTurningPreview() {
   const changeX = byId('turningChangeX');
   const changeZ = byId('turningChangeZ');
   const changeConfirmed = byId('turningChangeConfirmed');
+  function loadSetup(settings) {
+    for (const field of fields) {
+      if (!field.name) continue;
+      if (field.type === 'checkbox') field.checked = Boolean(settings[field.name]);
+      else if (field.name in settings) field.value = settings[field.name];
+    }
+    edgeStyles = [];
+    edits.length = 0;
+    annotations.length = 0;
+    lineDirection = undefined;
+    updateOperation();
+  }
+
   function renderQueue() {
     queueAdd.textContent = editingIndex < 0 ? 'Thêm nguyên công' : 'Lưu nguyên công';
     queueCancel.hidden = editingIndex < 0;
@@ -1728,15 +1765,7 @@ export function initTurningPreview() {
       const actions = [
         ['Sửa', () => {
           editingIndex = index;
-          for (const field of fields) {
-            if (!field.name) continue;
-            if (field.type === 'checkbox') field.checked = Boolean(settings[field.name]);
-            else if (field.name in settings) field.value = settings[field.name];
-          }
-          edgeStyles = [];
-          edits.length = 0;
-          annotations.length = 0;
-          updateOperation();
+          loadSetup(settings);
           renderQueue();
           form.scrollIntoView({ block: 'start' });
         }],
@@ -1769,7 +1798,11 @@ export function initTurningPreview() {
     renderQueue();
   }
   function moveQueued(from, to) {
-    [queue[from], queue[to]] = [queue[to], queue[from]];
+    const candidate = queue.slice();
+    [candidate[from], candidate[to]] = [candidate[to], candidate[from]];
+    try { validateQueueOrder(candidate); }
+    catch (error) { reportProgramError(queueStatus, error); return; }
+    queue.splice(0, queue.length, ...candidate);
     if (editingIndex === from) editingIndex = to;
     else if (editingIndex === to) editingIndex = from;
     changedQueue();
@@ -1780,8 +1813,14 @@ export function initTurningPreview() {
       if (queue.length >= maxOperations && editingIndex < 0) throw new Error(`Tối đa ${maxOperations} nguyên công.`);
       const settings = readSetup();
       generateTurningProgram(settings);
-      if (editingIndex < 0) queue.push(settings);
-      else queue[editingIndex] = settings;
+      const candidate = queue.slice();
+      if (editingIndex < 0) candidate.push(settings);
+      else candidate[editingIndex] = settings;
+      if (candidate.some(item => !sameTurningSetup(item, candidate[0]))) {
+        throw new Error('Các nguyên công phải dùng cùng kiểu máy, series, đơn vị và kích thước phôi.');
+      }
+      validateQueueOrder(candidate);
+      queue.splice(0, queue.length, ...candidate);
       editingIndex = -1;
       changedQueue();
     } catch (error) {
@@ -1812,6 +1851,82 @@ export function initTurningPreview() {
   });
   renderQueue();
 
+  const projectInput = byId('turningProjectFile');
+  const projectStatus = byId('turningProjectStatus');
+  const fieldSpecs = new Map([...fields].filter(field => field.name).map(field => [field.name, field]));
+  function sanitizeSetup(source, required) {
+    if (!source || typeof source !== 'object' || Array.isArray(source)) throw new Error('Thiếu thông số thiết lập.');
+    const entries = [];
+    for (const [key, value] of Object.entries(source)) {
+      const field = fieldSpecs.get(key);
+      if (!field) continue;
+      if (field.type === 'number') {
+        if (!(typeof value === 'number' && Number.isFinite(value) || !required && value === '')) throw new Error(`Thông số số không hợp lệ: ${key}.`);
+      } else if (field.type === 'checkbox') {
+        if (value !== 'on' && value !== true && value !== false) throw new Error(`Thông số xác nhận không hợp lệ: ${key}.`);
+      } else if (typeof value !== 'string' || value.length > (key === 'profile' ? 10000 : 128) ||
+          (field.tagName === 'SELECT' && ![...field.options].some(option => option.value === value))) {
+        throw new Error(`Thông số không hợp lệ: ${key}.`);
+      }
+      entries.push([key, value]);
+    }
+    return Object.fromEntries(entries);
+  }
+
+  function projectMessage(message, error = false) {
+    projectStatus.hidden = false;
+    projectStatus.dataset.error = String(error);
+    projectStatus.textContent = message;
+  }
+
+  byId('turningSaveProject').addEventListener('click', () => {
+    if (editingIndex >= 0) {
+      projectMessage('Lưu hoặc hủy sửa nguyên công trước khi lưu dự án.', true);
+      return;
+    }
+    const draft = Object.fromEntries([...fields].filter(field => field.name).map(field => [
+      field.name, field.type === 'checkbox' ? field.checked : field.type === 'number' && field.value !== '' ? field.valueAsNumber : field.value,
+    ]));
+    const project = { format: 'LTD-FANUC-PROJECT', version: 1, draft, operations: queue,
+      toolChange: { x: changeX.value, z: changeZ.value } };
+    downloadText(JSON.stringify(project, null, 2), 'fanuc-project.json', 'application/json');
+    projectMessage('Đã lưu biên dạng, thông số và danh sách nguyên công vào fanuc-project.json.');
+  });
+  byId('turningOpenProject').addEventListener('click', () => projectInput.click());
+  projectInput.addEventListener('change', async () => {
+    const file = projectInput.files[0];
+    projectInput.value = '';
+    if (!file) return;
+    try {
+      if (file.size > 1024 * 1024) throw new Error('Tệp dự án vượt quá 1 MB.');
+      const project = JSON.parse(await file.text());
+      if (project?.format !== 'LTD-FANUC-PROJECT' || project.version !== 1 ||
+          !Array.isArray(project.operations) || project.operations.length > maxOperations) throw new Error('Định dạng tệp dự án không hợp lệ.');
+      const draft = sanitizeSetup(project.draft, false);
+      if ([...fieldSpecs.keys()].some(name => !(name in draft))) throw new Error('Tệp dự án thiếu trường thiết lập.');
+      const loaded = project.operations.map(record => sanitizeSetup(record, true));
+      for (const item of loaded) {
+        generateTurningProgram(item);
+        if (!sameTurningSetup(item, loaded[0])) throw new Error('Thiết lập chung giữa các nguyên công không khớp.');
+      }
+      validateQueueOrder(loaded);
+      const changeValues = [project.toolChange?.x, project.toolChange?.z];
+      if (changeValues.some(value => typeof value !== 'string' || value.length > 24 ||
+          (value !== '' && !Number.isFinite(Number(value))))) throw new Error('Tọa độ đổi dao trong dự án không hợp lệ.');
+      changeX.value = changeValues[0];
+      changeZ.value = changeValues[1];
+      changeConfirmed.checked = false;
+      editingIndex = -1;
+      queue.splice(0, queue.length, ...loaded);
+      byId('turningRemoveImage').click();
+      loadSetup({ ...draft, grindConfirmed: false });
+      changedQueue();
+      projectMessage(`Đã mở dự án với ${loaded.length} nguyên công. Hãy xác nhận lại vị trí đổi dao trước khi tạo NC.`);
+    } catch (error) {
+      projectMessage(`Không mở được dự án. ${error.message}`, true);
+    }
+  });
+
   slider.addEventListener('input', () => {
     stop();
     draw();
@@ -1830,14 +1945,15 @@ export function initTurningPreview() {
       if (+slider.value >= moves.length) stop();
     }, 330);
   });
-  download.addEventListener('click', () => {
-    const url = URL.createObjectURL(new Blob([code.value], { type: 'text/plain' }));
+  function downloadText(value, filename, type) {
+    const url = URL.createObjectURL(new Blob([value], { type }));
     const link = document.createElement('a');
     link.href = url;
-    link.download = 'fanuc-tien-ban-thu.nc';
+    link.download = filename;
     link.click();
     setTimeout(() => URL.revokeObjectURL(url), 1000);
-  });
+  }
+  download.addEventListener('click', () => downloadText(code.value, 'fanuc-tien-ban-thu.nc', 'text/plain'));
   new ResizeObserver(() => {
     const width = canvas.clientWidth;
     if (!width) return;
