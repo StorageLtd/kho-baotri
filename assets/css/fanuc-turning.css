@@ -16,3 +16,28 @@
 #turningStatus[data-error="true"] { color: var(--danger, #b42318); }
 @media (max-width: 1000px) { .turning-grid { grid-template-columns: minmax(0, 1fr); } }
 @media (max-width: 420px) { .turning-fields { grid-template-columns: minmax(0, 1fr); } }
+.turning-parameters { margin: 14px 0 0; border: 1px solid #dce3ed; border-radius: 8px; padding: 12px; }
+.turning-parameters[hidden], .turning-parameters label[hidden] { display: none; }
+.turning-toolbar { display: flex; align-items: end; gap: 10px; flex-wrap: wrap; margin: 0 0 10px; }
+.turning-tools { display: flex; flex-wrap: wrap; gap: 6px; }
+.turning-tools .btn { min-width: 36px; padding: 7px 9px; }
+.turning-import { padding: 9px 12px; border: 1px solid #dce3ed; border-radius: 8px; }
+.turning-import summary { font-weight: 600; cursor: pointer; }
+.turning-import .turning-fields, .turning-import .turning-tools { margin-top: 10px; }
+.turning-import input[type=file] { max-width: 100%; }
+.turning-import p { margin: 8px 0 0; }
+.turning-coordinate, .turning-current { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin: 8px 0; color: #334155; font: 13px ui-monospace, monospace; }
+.turning-current code { color: #12479a; font-weight: 700; }
+.turning-card canvas[data-pan] { cursor: grab; touch-action: none; }
+.turning-card canvas[data-dragging] { cursor: grabbing; }
+.turning-wide { grid-column: 1 / -1; }
+.turning-legend { display: flex; flex-wrap: wrap; gap: 6px 13px; color: #43536a; font-size: 12px; }
+.turning-legend > span, .turning-card .turning-legend > label { display: inline-flex; align-items: center; gap: 5px; font-size: inherit; }
+.turning-legend input { margin: 0; accent-color: #0c6650; }
+.turning-key { width: 14px; border-top: 2px solid; }
+.turning-key.stock { border: 1px solid #91a2ba; background: #e1e7ef; height: 9px; }
+.turning-key.profile { color: #177044; }
+.turning-key.rapid { color: #ac510c; border-top-style: dashed; }
+.turning-key.feed { color: #1457bd; }
+.turning-key.thread { color: #a52267; }
+.turning-key.active { color: #6833b4; }
