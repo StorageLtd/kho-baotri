@@ -7,7 +7,7 @@
   <meta name="referrer" content="no-referrer">
   <title>LTD VIET NAM - Cloud Maintenance System</title>
   <link rel="stylesheet" href="assets/css/app.css?v=20261105-compact-alarm">
-  <link rel="stylesheet" href="assets/css/fanuc-turning.css?v=9">
+  <link rel="stylesheet" href="assets/css/fanuc-turning.css?v=10">
   <link rel="stylesheet" href="assets/css/cnc-report.css?v=20261107-tool-context">
   <link rel="stylesheet" href="assets/css/cnc-transfer.css?v=20261111-viewer-controls">
   <link rel="stylesheet" href="assets/css/cnc-dashboard.css?v=20261109-productivity">
@@ -393,6 +393,7 @@
                 <p class="meta turning-wide turning-machine-note">Series ghi vào đầu tệp NC. Post dùng hệ FANUC A và X theo đường kính. Đối chiếu chu trình và độ phân giải P/Q theo cấu hình máy.</p>
               </fieldset>
               <div class="turning-fields">
+                <div class="turning-operation-picker turning-wide" id="turningOperationPicker" aria-label="Nhóm nguyên công"></div>
                 <label class="turning-wide">Operation
                   <select class="input" name="operation">
                     <optgroup label="Turning">
@@ -421,6 +422,9 @@
                   </select>
                 </label>
                 <label>NC Units<select class="input" name="units"><option value="mm">mm (G21)</option><option value="inch">inch (G20)</option></select></label>
+                <label>Work Offset<select class="input" name="workOffset"><option>G54</option><option>G55</option><option>G56</option><option>G57</option><option>G58</option><option>G59</option></select></label>
+                <label>Radial Clearance (mm)<input class="input" name="radialClearance" type="number" value="3" min="0.001" max="1000" step="any" required></label>
+                <label>Approach Z+ (mm)<input class="input" name="axialClearance" type="number" value="3" min="0.001" max="1000" step="any" required></label>
                 <label>Stock Diameter (mm)<input class="input" name="diameter" type="number" value="60" min="0.1" max="10000" step="any" required></label>
                 <label>Stock Length (mm)<input class="input" name="length" type="number" value="80" min="0.1" max="10000" step="any" required></label>
                 <label>Tool Number<input class="input" name="tool" type="number" value="1" min="1" max="99" required></label>
@@ -463,6 +467,8 @@
                 <p id="turningGrindSpeedNote" class="meta turning-wide" hidden></p>
                 <label data-operations="grind grindPlunge grindId grindIdPlunge" class="turning-wide"><span><input type="checkbox" name="grindConfirmed" required> Bật đầu mài trong mã NC. Tôi đã đối chiếu mã M và cách đặt tốc độ theo tài liệu của máy.</span></label>
                 <label data-operations="drillCycle grooveCycle">P/Q Input Increment<select class="input" name="peckIncrement"><option value="standard">0.001 mm / 0.0001 in</option><option value="fine">0.0001 mm / 0.00001 in</option></select></label>
+                <label data-operations="grind grindPlunge grindId grindIdPlunge">Grinding Infeed (mm/min)<input class="input" name="grindInfeed" type="number" min="0.001" max="10000" step="any" placeholder="Theo Grinding Feed Rate"></label>
+                <label data-operations="grind grindId">Spark-out Traverse Passes<input class="input" name="grindSparkPasses" type="number" min="0" max="30" value="0" required></label>
                 <label data-operations="grind grindPlunge grindId grindIdPlunge">Spark-out Dwell (s)<input class="input" name="grindDwell" type="number" value="0" min="0" max="60" step="0.001" required></label>
               </fieldset>
               <p class="meta" id="turningOperationNote" hidden></p>
@@ -986,6 +992,6 @@
 
   <div class="toast" id="toast" role="status" aria-live="polite"></div>
 
-  <script type="module" src="assets/js/app.js?v=20261119-fanuc-project"></script>
+  <script type="module" src="assets/js/app.js?v=20261119-fanuc-review"></script>
 </body>
 </html>

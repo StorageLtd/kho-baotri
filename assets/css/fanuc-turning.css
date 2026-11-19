@@ -225,3 +225,10 @@ body[data-page="fanucTurningPage"] .topbar { position: static; }
 #turningProjectStatus { margin: 0; padding: 7px 12px; font-size: 12px; color: #244663; background: #eef6ff; }
 #turningProjectStatus[data-error="true"] { color: #8a2822; background: #fff0ed; }
 .turning-code-line.turning-code-operation { border-top: 1px solid #364b60; color: #9ad5fb; }
+.turning-operation-picker { display: flex; flex-wrap: wrap; gap: 5px; margin-bottom: 2px; }
+.turning-operation-picker button {
+  font: inherit; font-size: 11px; color: #29435b; background: #f2f7fb;
+  border: 1px solid #d1dce7; border-radius: 5px; padding: 6px 8px; cursor: pointer;
+}
+.turning-operation-picker button[aria-pressed=true] { background: #dceefd; color: #124d79; border-color: #8ab6d7; font-weight: 700; }
+.turning-operation-picker button:focus-visible { outline: 2px solid #267cbf; outline-offset: 1px; }

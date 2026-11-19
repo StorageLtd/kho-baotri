@@ -5,10 +5,11 @@ const profileOperations = ['profile', 'rough', 'roughLinear'];
 const grindingOperations = ['grind', 'grindPlunge', 'grindId', 'grindIdPlunge'];
 const internalGrinding = ['grindId', 'grindIdPlunge'];
 const maxOperations = 12;
-const sharedSetupKeys = ['machine', 'controller', 'units', 'diameter', 'length'];
+const setupDefaults = { workOffset: 'G54', radialClearance: 3, axialClearance: 3, grindInfeed: '', grindSparkPasses: 0 };
+const sharedSetupKeys = ['machine', 'controller', 'units', 'diameter', 'length', 'workOffset'];
 
 function sameTurningSetup(a, b) {
-  return sharedSetupKeys.every(key => a[key] === b[key]);
+  return sharedSetupKeys.every(key => (a[key] ?? setupDefaults[key]) === (b[key] ?? setupDefaults[key]));
 }
 
 function validateQueueOrder(operations) {
@@ -76,14 +77,20 @@ export function generateTurningProgram(settings, { sequenceBase = 100, bodyOnly 
     const formatted = (value / scale).toFixed(precision);
     return Number(formatted) === 0 ? (0).toFixed(precision) : formatted;
   };
-  const outside = diameter + clearance * 2;
+  const workOffset = settings.workOffset ?? setupDefaults.workOffset;
+  const radialClearance = settings.radialClearance ?? setupDefaults.radialClearance;
+  const clearance = settings.axialClearance ?? setupDefaults.axialClearance;
+  if (!/^G5[4-9]$/.test(workOffset) || !inRange(radialClearance, 0.001, 1000) || !inRange(clearance, 0.001, 1000)) {
+    throw new Error('Chọn Work Offset G54–G59 và nhập khoảng hở X/Z từ 0,001 đến 1000 mm.');
+  }
+  const outside = diameter + radialClearance * 2;
   const rapid = point => `G00 X${coordinate(point.x)} Z${coordinate(point.z)}`;
   const cut = point => `G01 X${coordinate(point.x)} Z${coordinate(point.z)}`;
   const start = { x: outside, z: clearance };
   const lines = [
     '%', 'O0100', '(PREVIEW ONLY - UNVERIFIED ON MACHINE)',
     `G18 G40 G80 G${grinding ? '98' : '99'} G${units === 'inch' ? '20' : '21'}`,
-    'G54', `T${String(tool).padStart(2, '0')}${String(offset).padStart(2, '0')}`,
+    workOffset, `T${String(tool).padStart(2, '0')}${String(offset).padStart(2, '0')}`,
     `G97 S${rpm} M03`, rapid(start),
   ];
   const coolant = settings.coolant;
@@ -133,8 +140,13 @@ export function generateTurningProgram(settings, { sequenceBase = 100, bodyOnly 
   if (grinding) {
     const { grindDiameter, grindStart, grindEnd, stepDepth, grindFeed, grindConfirmed } = settings;
     const dwell = settings.grindDwell ?? 0;
+    const sparkPasses = settings.grindSparkPasses ?? 0;
+    const infeed = settings.grindInfeed || grindFeed;
     const internal = internalGrinding.includes(operation);
     const traverse = ['grind', 'grindId'].includes(operation);
+    if (!inRange(infeed, 0.001, 10000) || !Number.isInteger(sparkPasses) || !inRange(sparkPasses, 0, 30) || (!traverse && sparkPasses !== 0)) {
+      throw new Error('Kiểm tra Grinding Infeed và số lượt Spark-out Traverse (0–30, chỉ cho mài dọc).');
+    }
     const bore = settings.grindBoreDiameter;
     const boreDepth = settings.grindBoreDepth;
     const relief = settings.grindIdRelief;
@@ -159,6 +171,7 @@ export function generateTurningProgram(settings, { sequenceBase = 100, bodyOnly 
     if (internal && Number(coordinate(retractX)) >= Number(coordinate(bore))) throw new Error('Khoảng lùi ID quá nhỏ sau khi làm tròn NC.');
     const approach = { x: retractX, z: grindStart };
     const grindFeedWord = ` F${(grindFeed / scale).toFixed(6)}`;
+    const infeedWord = ` F${(infeed / scale).toFixed(6)}`;
     const speedMode = settings.grindSpeedMode;
     const wheelRpm = settings.grindRpm;
     let startHead = `${on} (GRIND HEAD ON)`;
@@ -186,10 +199,17 @@ export function generateTurningProgram(settings, { sequenceBase = 100, bodyOnly 
     for (let pass = 1; pass <= count; pass++) {
       const cutDepth = Math.min(radialStock, stepDepth * pass);
       const x = internal ? bore + 2 * cutDepth : diameter - 2 * cutDepth;
-      lines.push(cut({ x, z: grindStart }) + grindFeedWord);
-      if (traverse) lines.push(cut({ x, z: endZ }));
-      if (pass === count && dwell > 0) lines.push(`G04 X${dwell.toFixed(3)} (SPARK-OUT DWELL)`);
-      lines.push(rapid({ x: retractX, z: endZ }));
+      lines.push(cut({ x, z: grindStart }) + infeedWord);
+      if (traverse) lines.push(cut({ x, z: endZ }) + (infeed === grindFeed ? '' : grindFeedWord));
+      let retractZ = endZ;
+      if (pass === count) {
+        for (let repeat = 1; repeat <= sparkPasses; repeat++) {
+          retractZ = repeat % 2 ? grindStart : endZ;
+          lines.push(cut({ x, z: retractZ }) + ' (SPARK-OUT TRAVERSE)');
+        }
+        if (dwell > 0) lines.push(`G04 X${dwell.toFixed(3)} (SPARK-OUT DWELL)`);
+      }
+      lines.push(rapid({ x: retractX, z: retractZ }));
       if (pass < count || !internal) lines.push(rapid(approach));
     }
     if (internal) lines.push(rapid({ x: retractX, z: clearance }));
@@ -343,7 +363,7 @@ export function generateTurningSequence(operations, changePosition) {
     first.units === 'inch' ? 'G20' : 'G21', 'G18 G40 G80', 'M9 (COOLANT OFF)', 'M05'];
   operations.forEach((settings, index) => {
     try {
-      if (!sameTurningSetup(settings, first)) throw new Error('Kiểu máy, series, đơn vị và kích thước phôi phải giống nhau giữa các bước.');
+      if (!sameTurningSetup(settings, first)) throw new Error('Kiểu máy, series, đơn vị và kích thước phôi và Work Offset phải giống nhau giữa các bước.');
       const title = settings.operation.toUpperCase();
       const toolCode = String(settings.tool).padStart(2, '0') + String(settings.offset).padStart(2, '0');
       const body = generateTurningProgram(settings, { sequenceBase: 100 + 3000 * index, bodyOnly: true });
@@ -953,12 +973,33 @@ export function initTurningPreview() {
     byId('turningLineEntry').hidden = fields.profile.disabled || !lineTools.includes(activeTool);
   }
 
+  const operationGroups = [...fields.operation.querySelectorAll('optgroup')];
+  const operationPicker = byId('turningOperationPicker');
+  const groupNames = ['Tiện', 'Rãnh / Cắt', 'Khoan', 'Ren', 'Mài'];
+  const groupButtons = operationGroups.map((group, index) => {
+    const button = document.createElement('button');
+    button.type = 'button';
+    button.textContent = groupNames[index];
+    button.addEventListener('click', () => {
+      fields.operation.value = group.querySelector('option').value;
+      updateOperation();
+      fields.operation.focus();
+    });
+    operationPicker.append(button);
+    return button;
+  });
+
   function updateOperation() {
     const grinding = fields.machine.value === 'pl800gb';
     const grindingGroup = byId('turningGrindingGroup');
     grindingGroup.hidden = grindingGroup.disabled = !grinding;
     if (!grinding && grindingOperations.includes(fields.operation.value)) fields.operation.value = 'profile';
     const operation = fields.operation.value;
+    const activeGroup = fields.operation.selectedOptions[0]?.parentElement;
+    groupButtons.forEach((button, index) => {
+      button.hidden = operationGroups[index].disabled;
+      button.setAttribute('aria-pressed', String(operationGroups[index] === activeGroup));
+    });
     fields.feed.disabled = grindingOperations.includes(operation);
     fields.feed.closest('label').hidden = fields.feed.disabled;
     updateCompensation();
@@ -1817,7 +1858,7 @@ export function initTurningPreview() {
       if (editingIndex < 0) candidate.push(settings);
       else candidate[editingIndex] = settings;
       if (candidate.some(item => !sameTurningSetup(item, candidate[0]))) {
-        throw new Error('Các nguyên công phải dùng cùng kiểu máy, series, đơn vị và kích thước phôi.');
+        throw new Error('Các nguyên công phải dùng cùng kiểu máy, series, đơn vị kích thước phôi và Work Offset.');
       }
       validateQueueOrder(candidate);
       queue.splice(0, queue.length, ...candidate);
@@ -1902,7 +1943,7 @@ export function initTurningPreview() {
       const project = JSON.parse(await file.text());
       if (project?.format !== 'LTD-FANUC-PROJECT' || project.version !== 1 ||
           !Array.isArray(project.operations) || project.operations.length > maxOperations) throw new Error('Định dạng tệp dự án không hợp lệ.');
-      const draft = sanitizeSetup(project.draft, false);
+      const draft = sanitizeSetup({ ...setupDefaults, ...project.draft }, false);
       if ([...fieldSpecs.keys()].some(name => !(name in draft))) throw new Error('Tệp dự án thiếu trường thiết lập.');
       const loaded = project.operations.map(record => sanitizeSetup(record, true));
       for (const item of loaded) {

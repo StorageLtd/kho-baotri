@@ -348,3 +348,25 @@ test('multi-tool program rejects post-parting operations and identifies each too
   const code = generateTurningSequence([face, part], change);
   assert.match(code, /\(OPERATION 1 T0802 FACE\)[\s\S]*\(OPERATION 2 T0207 PART\)/);
 });
+
+test('work offset and approach clearances are explicit without changing the stock geometry', () => {
+  const customized = { ...setup, workOffset: 'G57', radialClearance: 5, axialClearance: 8 };
+  const code = generateTurningProgram(customized);
+  assert.match(code, /G57\nT0207\nG97 S600 M03\nG00 X70\.000 Z8\.000/);
+  assert.throws(() => generateTurningProgram({ ...customized, workOffset: 'G53' }), /Work Offset/);
+  assert.throws(() => generateTurningProgram({ ...customized, axialClearance: 0 }), /khoảng hở/);
+  assert.throws(() => generateTurningSequence([customized, setup], { x: 0, z: 0, confirmed: true }), /Work Offset/);
+});
+
+test('ID spark-out traverses at final diameter, uses traverse feed and retracts on the actual end side', () => {
+  const settings = { ...setup, machine: 'pl800gb', operation: 'grindId', grindBoreDiameter: 20, grindBoreDepth: 40,
+    grindIdRelief: 1, grindStart: -2, grindEnd: -35, grindDiameter: 20.4, stepDepth: 0.1,
+    grindFeed: 35, grindInfeed: 10, grindSparkPasses: 3, grindDwell: 1.5,
+    grindOn: '151', grindOff: '152', grindConfirmed: true };
+  const code = generateTurningProgram(settings);
+  assert.match(code, /G01 X20\.400 Z-2\.000 F10\.000000\nG01 X20\.400 Z-35\.000 F35\.000000/);
+  assert.match(code, /G01 X20\.400 Z-2\.000 \(SPARK-OUT TRAVERSE\)\nG04 X1\.500 \(SPARK-OUT DWELL\)\nG00 X18\.000 Z-2\.000/);
+  assert.equal(code.match(/SPARK-OUT TRAVERSE/g).length, 3);
+  assert.ok(readTurningMoves(code).some(move => move.mode === 'event' && move.to.z === -2 && move.to.x === 20.4));
+  assert.throws(() => generateTurningProgram({ ...settings, operation: 'grindIdPlunge' }), /Spark-out Traverse/);
+});
