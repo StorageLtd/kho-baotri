@@ -2,9 +2,14 @@ import { arcPoints, profileFromStl, profileFromImage, findSketchSnap, nearestSke
 
 const clearance = 3;
 const profileOperations = ['profile', 'rough', 'roughLinear'];
+const grindingOperations = ['grind', 'grindPlunge', 'grindId', 'grindIdPlunge'];
+const internalGrinding = ['grindId', 'grindIdPlunge'];
+const maxOperations = 12;
 const operationNotes = {
   rough: 'FANUC G71 hai dòng, Type I (X tăng dần hoặc giữ nguyên về phía Z âm). Mô phỏng chu trình xấp xỉ.',
   roughFace: 'FANUC G72 hai dòng cho mặt phẳng Z0. Phôi thô bắt đầu tại Z dương. Mô phỏng chu trình xấp xỉ.',
+  grindId: 'Mài lỗ trụ chạy dọc. Lỗ phải có sẵn và mở về Z0. X lùi về phía tâm trước khi rút theo Z.',
+  grindIdPlunge: 'Mài lỗ trụ ăn ngang tại Z cố định. Kiểm tra đường kính đá, thân đá và khoảng hở đáy lỗ.',
   grind: 'G01 Traverse Grinding, G98 Feed per Minute. G04 Spark-out Dwell ở cuối lượt mài cuối. X là đường kính tại điểm tiếp xúc đá đã so dao.',
   grindPlunge: 'G01 Plunge Grinding, G98 Feed per Minute. Z giữ cố định. G04 Spark-out Dwell ở đường kính cuối. Kiểm tra đá và bề rộng tiếp xúc.',
   drillCycle: 'G74 hai dòng, khoan tâm theo Z. Q là chiều sâu mỗi nhát theo P/Q Input Increment của máy.',
@@ -38,7 +43,7 @@ function normalizedM(raw) {
     if (!Number.isInteger(code) || code < 10 || [19, 30, 98, 99, 198].includes(code)) return null;
     return `M${String(code).padStart(2, '0')}`;
 }
-export function generateTurningProgram(settings) {
+export function generateTurningProgram(settings, { sequenceBase = 100, bodyOnly = false } = {}) {
   const { operation, units, diameter, length, tool, offset, rpm, feed, profile } = settings;
   const scale = unitsToMm[units];
   const inRange = (value, min, max) => Number.isFinite(value) && value >= min && value <= max;
@@ -47,13 +52,13 @@ export function generateTurningProgram(settings) {
   }
   const machine = settings.machine ?? 'fanuc';
   if (!['fanuc', 'pl800gb'].includes(machine)) throw new Error('Chọn kiểu máy hợp lệ.');
-  const grinding = ['grind', 'grindPlunge'].includes(operation);
+  const grinding = grindingOperations.includes(operation);
   if (grinding && machine !== 'pl800gb') throw new Error('Chọn PL800GB để khai báo đầu mài.');
   if (![tool, offset, rpm].every(Number.isInteger) || !inRange(tool, 1, 99) ||
       !inRange(offset, 1, 99) || !inRange(rpm, 1, 99999) || (!grinding && !inRange(feed, 0.001, 100))) {
     throw new Error('Kiểm tra số dao, số offset, tốc độ trục chính và lượng chạy dao.');
   }
-  if (!scale || ![...profileOperations, 'face', 'groove', 'part', 'drill', 'thread', 'roughFace', 'grind', 'grindPlunge', 'drillCycle', 'grooveCycle'].includes(operation)) throw new Error('Chọn đơn vị và nguyên công hợp lệ.');
+  if (!scale || ![...profileOperations, 'face', 'groove', 'part', 'drill', 'thread', 'roughFace', ...grindingOperations, 'drillCycle', 'grooveCycle'].includes(operation)) throw new Error('Chọn đơn vị và nguyên công hợp lệ.');
   const precision = units === 'inch' ? 5 : 3;
   const coordinate = value => {
     const formatted = (value / scale).toFixed(precision);
@@ -86,15 +91,15 @@ export function generateTurningProgram(settings) {
   const cycle = (g, depthAxis, depth, stockFace, allowanceX, allowanceZ, contour) => {
     const retract = settings.cycleRetract;
     if (!inRange(depth, 0.001, 10000) || !inRange(retract, 0.001, 1000)) throw new Error('Kiểm tra bước cắt và khoảng lùi R.');
-    const end = 100 + 10 * (contour.length - 1);
+    const end = sequenceBase + 10 * (contour.length - 1);
     lines.push(
       `(PREVIEW STOCK X${coordinate(diameter)} Z${coordinate(stockFace)})`,
       rapid({ x: outside, z: stockFace + clearance }),
       `${g} ${depthAxis}${coordinate(depth)} R${coordinate(retract)}`,
-      `${g} P100 Q${end} U${coordinate(allowanceX)} W${coordinate(allowanceZ)}${feedWord}`,
-      ...contour.map((block, i) => `N${100 + i * 10} ${block}${i === contour.length - 1 ? feedWord : ''}`),
+      `${g} P${sequenceBase} Q${end} U${coordinate(allowanceX)} W${coordinate(allowanceZ)}${feedWord}`,
+      ...contour.map((block, i) => `N${sequenceBase + i * 10} ${block}${i === contour.length - 1 ? feedWord : ''}`),
     );
-    if (settings.finishCycle) lines.push(`G70 P100 Q${end}`);
+    if (settings.finishCycle) lines.push(`G70 P${sequenceBase} Q${end}`);
     lines.push(rapid({ x: outside, z: stockFace + clearance }));
   };
   const peckCycle = (depthAxis, incrementAxis, peck, entry, target) => {
@@ -116,22 +121,36 @@ export function generateTurningProgram(settings) {
   if (grinding) {
     const { grindDiameter, grindStart, grindEnd, stepDepth, grindFeed, grindConfirmed } = settings;
     const dwell = settings.grindDwell ?? 0;
-    const traverse = operation === 'grind';
+    const internal = internalGrinding.includes(operation);
+    const traverse = ['grind', 'grindId'].includes(operation);
+    const bore = settings.grindBoreDiameter;
+    const boreDepth = settings.grindBoreDepth;
+    const relief = settings.grindIdRelief;
     const on = normalizedM(settings.grindOn);
     const off = normalizedM(settings.grindOff);
     if (!grindConfirmed || !on || !off || on === off) throw new Error('Nhập hai mã M phụ khác nhau và xác nhận đã đối chiếu bảng M-code của máy.');
-    if (!inRange(grindDiameter, 0.001, diameter - 0.001) || !inRange(grindStart, -length, 0) ||
+    const validDiameter = internal
+      ? inRange(bore, 0.01, diameter - 0.001) && inRange(grindDiameter, bore + 0.001, diameter - 0.001)
+      : inRange(grindDiameter, 0.001, diameter - 0.001);
+    if (!validDiameter || !inRange(grindStart, -length, 0) ||
         (traverse && !inRange(grindEnd, -length, grindStart - 0.001)) || !inRange(grindFeed, 0.001, 10000) || !inRange(dwell, 0, 60)) {
-      throw new Error('Kiểm tra đường kính sau mài, hai đầu hành trình Z và lượng chạy dao mài.');
+      throw new Error('Kiểm tra đường kính trước/sau mài, hành trình Z và lượng chạy dao mài.');
     }
-    const count = passCount((diameter - grindDiameter) / 2, stepDepth);
-    const approach = { x: outside, z: grindStart };
-    const grindFeedWord = ` F${(grindFeed / scale).toFixed(6)}`;
     const endZ = traverse ? grindEnd : grindStart;
+    if (internal && (!inRange(boreDepth, 0.002, length) || endZ <= -boreDepth ||
+        !inRange(relief, 0.001, (bore - 0.001) / 2))) {
+      throw new Error('Vị trí mài ID phải nằm trước đáy lỗ. Kiểm tra chiều sâu lỗ và khoảng lùi theo bán kính.');
+    }
+    const radialStock = internal ? (grindDiameter - bore) / 2 : (diameter - grindDiameter) / 2;
+    const count = passCount(radialStock, stepDepth);
+    const retractX = internal ? bore - 2 * relief : outside;
+    if (internal && Number(coordinate(retractX)) >= Number(coordinate(bore))) throw new Error('Khoảng lùi ID quá nhỏ sau khi làm tròn NC.');
+    const approach = { x: retractX, z: grindStart };
+    const grindFeedWord = ` F${(grindFeed / scale).toFixed(6)}`;
     const speedMode = settings.grindSpeedMode;
     const wheelRpm = settings.grindRpm;
     let startHead = `${on} (GRIND HEAD ON)`;
-    lines.push(`(PL800GB OD ${traverse ? 'TRAVERSE' : 'PLUNGE'} GRIND)`);
+    lines.push(`(PL800GB ${internal ? 'ID' : 'OD'} ${traverse ? 'TRAVERSE' : 'PLUNGE'} GRIND)`);
     if (speedMode !== undefined) {
       if (!Number.isInteger(wheelRpm) || !inRange(wheelRpm, 1, 99999)) throw new Error('Nhập Grinding Wheel Speed theo vòng/phút.');
       if (speedMode === 'manual') {
@@ -149,14 +168,19 @@ export function generateTurningProgram(settings) {
         throw new Error('Chọn Wheel Speed Command hợp lệ.');
       }
     }
-    lines.push(startHead, rapid(approach));
+    lines.push(startHead);
+    if (internal) lines.push(rapid({ x: retractX, z: clearance }));
+    lines.push(rapid(approach));
     for (let pass = 1; pass <= count; pass++) {
-      const x = Math.max(grindDiameter, diameter - 2 * stepDepth * pass);
+      const cutDepth = Math.min(radialStock, stepDepth * pass);
+      const x = internal ? bore + 2 * cutDepth : diameter - 2 * cutDepth;
       lines.push(cut({ x, z: grindStart }) + grindFeedWord);
       if (traverse) lines.push(cut({ x, z: endZ }));
       if (pass === count && dwell > 0) lines.push(`G04 X${dwell.toFixed(3)} (SPARK-OUT DWELL)`);
-      lines.push(rapid({ x: outside, z: endZ }), rapid(approach));
+      lines.push(rapid({ x: retractX, z: endZ }));
+      if (pass < count || !internal) lines.push(rapid(approach));
     }
+    if (internal) lines.push(rapid({ x: retractX, z: clearance }));
     lines.push(rapid(start), `${off} (GRIND HEAD OFF)`);
   } else if (operation === 'roughFace') {
     const { faceStock, faceStep, faceAllowance } = settings;
@@ -282,9 +306,40 @@ export function generateTurningProgram(settings) {
       );
     }
   }
+  if (bodyOnly) {
+    return [...lines.slice(3), rapid(start), 'M9 (COOLANT OFF)', 'M05'].join('\n');
+  }
   const series = String(settings.controller ?? '').replace(/[^a-z0-9 .+-]/gi, '').trim().slice(0, 32);
   if (machine === 'pl800gb' || series) lines.splice(3, 0, `(${machine === 'pl800gb' ? 'SMEC PL800GB' : 'FANUC LATHE'}${series ? ' ' + series.toUpperCase() : ''})`);
   return [...lines, ...(coolant === 'flood' ? ['M9 (COOLANT OFF)'] : []), 'M05', 'M30', '%', ''].join('\n');
+}
+
+export function generateTurningSequence(operations, changePosition) {
+  if (!operations.length || operations.length > maxOperations) throw new Error(`Chọn từ 1 đến ${maxOperations} nguyên công.`);
+  const first = operations[0];
+  const shared = ['machine', 'controller', 'units', 'diameter', 'length'];
+  const scale = unitsToMm[first.units];
+  const { x, z, confirmed } = changePosition;
+  if (!scale || !confirmed || ![x, z].every(value => Number.isFinite(value) && Math.abs(value) <= 10000)) {
+    throw new Error('Nhập X/Z đổi dao theo tọa độ máy (mm) và xác nhận vị trí cùng thứ tự chạy Z rồi X.');
+  }
+  const series = String(first.controller ?? '').replace(/[^a-z0-9 .+-]/gi, '').trim().slice(0, 32);
+  const digits = first.units === 'inch' ? 5 : 3;
+  const home = [`G53 G00 Z${(z / scale).toFixed(digits)}`, `G53 G00 X${(x / scale).toFixed(digits)}`];
+  const lines = ['%', 'O0100', '(PREVIEW ONLY - VERIFY TOOL CHANGE AND ALL SETUPS)',
+    `(${first.machine === 'pl800gb' ? 'SMEC PL800GB' : 'FANUC LATHE'}${series ? ' ' + series.toUpperCase() : ''})`,
+    first.units === 'inch' ? 'G20' : 'G21', 'G40', 'M9 (COOLANT OFF)', 'M05'];
+  operations.forEach((settings, index) => {
+    try {
+      if (shared.some(key => settings[key] !== first[key])) throw new Error('Kiểu máy, series, đơn vị và kích thước phôi phải giống nhau giữa các bước.');
+      const title = settings.operation.toUpperCase();
+      const body = generateTurningProgram(settings, { sequenceBase: 100 + 3000 * index, bodyOnly: true });
+      lines.push(`(OPERATION ${index + 1} ${title})`, ...home, body);
+    } catch (error) {
+      throw new Error(`Nguyên công ${index + 1}: ${error.message}`);
+    }
+  });
+  return [...lines, ...home, 'M30', '%', ''].join('\n');
 }
 
 export function sketchEndpointAtLength(start, direction, distance, tool) {
@@ -411,6 +466,11 @@ export function readTurningMoves(program) {
   for (let index = 0; index < lines.length; index++) {
     const raw = lines[index];
     const words = blocks[index];
+    if (/^G53\b/.test(raw)) {
+      if (position) push(position, 'event', index);
+      position = undefined;
+      continue;
+    }
     const g = words.get('G');
     if (g === 20 || g === 21) scale = g === 20 ? 25.4 : 1;
     const stockWords = /^\(PREVIEW STOCK X([\d.]+) Z([\d.]+)\)$/.exec(raw);
@@ -564,6 +624,9 @@ export function initTurningPreview() {
   let panX = 0;
   let panY = 0;
   let moves = [];
+  let queuedStock;
+  let programFront = 0;
+  let programRadius = 0;
   let timer;
   let plot;
 
@@ -576,16 +639,16 @@ export function initTurningPreview() {
   }
 
   function draw() {
-    const { diameter, length } = dimensions();
+    const { diameter, length } = queuedStock ?? dimensions();
     const left = 44, top = 20, right = logicalWidth - 44, bottom = logicalHeight - 38;
     const pitch = fields.operation.value === 'thread' ? fields.pitch.valueAsNumber : 0;
     const faceStock = fields.operation.value === 'roughFace' ? fields.faceStock.valueAsNumber : 0;
     const stockFront = Number.isFinite(faceStock) && faceStock > 0 && faceStock <= 1000 ? faceStock : 0;
     const compLead = !fields.compLead.disabled ? fields.compLead.valueAsNumber : 0;
     const leadSpace = Number.isFinite(compLead) && compLead <= 100 ? compLead : 0;
-    const front = Math.max(clearance + stockFront, leadSpace, Number.isFinite(pitch) && pitch <= 100 ? 2 * pitch : 0);
+    const front = Math.max(programFront, clearance + stockFront, leadSpace, Number.isFinite(pitch) && pitch <= 100 ? 2 * pitch : 0);
     const spanZ = length + clearance + front;
-    const spanR = diameter / 2 + Math.max(2 * clearance, leadSpace + clearance);
+    const spanR = Math.max(programRadius + clearance, diameter / 2 + Math.max(2 * clearance, leadSpace + clearance));
     const fittedScale = Math.min((right - left) / spanZ, (bottom - top) / spanR);
     const scale = fittedScale * zoom;
     const centerX = (left + right) / 2;
@@ -614,6 +677,15 @@ export function initTurningPreview() {
     const [stockLeft, stockTop] = at({ x: diameter, z: -length });
     ctx.fillStyle = '#1c2936';
     ctx.fillRect(stockLeft, stockTop, (length + stockFront) * scale, baseY - stockTop);
+    if (internalGrinding.includes(fields.operation.value)) {
+      const boreDiameter = fields.grindBoreDiameter.valueAsNumber;
+      const boreDepth = fields.grindBoreDepth.valueAsNumber;
+      if (boreDiameter > 0 && boreDiameter < diameter && boreDepth > 0 && boreDepth <= length) {
+        const [boreLeft, boreTop] = at({ x: boreDiameter, z: -boreDepth });
+        ctx.fillStyle = '#101720';
+        ctx.fillRect(boreLeft, boreTop, boreDepth * scale, baseY - boreTop);
+      }
+    }
     if (referenceImage) {
       const width = byId('turningImageWidth').valueAsNumber;
       const z = byId('turningImageZ').valueAsNumber;
@@ -796,6 +868,8 @@ export function initTurningPreview() {
   function reset() {
     stop();
     moves = [];
+    queuedStock = undefined;
+    programFront = programRadius = 0;
     setCode('');
     slider.max = slider.value = 0;
     slider.disabled = play.disabled = download.disabled = true;
@@ -831,7 +905,7 @@ export function initTurningPreview() {
   }
 
   function updateGrindingSpeed() {
-    const grinding = ['grind', 'grindPlunge'].includes(fields.operation.value);
+    const grinding = grindingOperations.includes(fields.operation.value);
     const speedMode = fields.grindSpeedMode.value;
     const sameBlock = speedMode === 'sameBlock';
     const separateBlock = speedMode === 'program';
@@ -859,9 +933,9 @@ export function initTurningPreview() {
     const grinding = fields.machine.value === 'pl800gb';
     const grindingGroup = byId('turningGrindingGroup');
     grindingGroup.hidden = grindingGroup.disabled = !grinding;
-    if (!grinding && ['grind', 'grindPlunge'].includes(fields.operation.value)) fields.operation.value = 'profile';
+    if (!grinding && grindingOperations.includes(fields.operation.value)) fields.operation.value = 'profile';
     const operation = fields.operation.value;
-    fields.feed.disabled = ['grind', 'grindPlunge'].includes(operation);
+    fields.feed.disabled = grindingOperations.includes(operation);
     fields.feed.closest('label').hidden = fields.feed.disabled;
     updateCompensation();
     const usesProfile = profileOperations.includes(operation);
@@ -1590,30 +1664,154 @@ export function initTurningPreview() {
     }
   });
 
+  function readSetup() {
+    const settings = Object.fromEntries(new FormData(form));
+    for (const { name, type } of fields) {
+      if (name && type === 'number' && name in settings) settings[name] = Number(settings[name]);
+    }
+    return settings;
+  }
+
+  function previewProgram(program, feedback, scroll) {
+    moves = readTurningMoves(program);
+    for (const { from, to } of moves) {
+      programFront = Math.max(programFront, from.z, to.z);
+      programRadius = Math.max(programRadius, from.x / 2, to.x / 2);
+    }
+    setCode(program);
+    slider.max = moves.length;
+    slider.value = moves.length;
+    slider.disabled = play.disabled = download.disabled = false;
+    feedback.dataset.error = 'false';
+    feedback.textContent = `Đã tạo mã thử và đọc ${moves.length} bước mô phỏng.`;
+    draw();
+    const controls = play.closest('.turning-playbar');
+    const bounds = controls.getBoundingClientRect();
+    if (scroll && (bounds.top < 0 || bounds.bottom > window.innerHeight)) controls.scrollIntoView({ block: 'center' });
+  }
+
+  function reportProgramError(feedback, error) {
+    feedback.dataset.error = 'true';
+    feedback.textContent = error.message;
+  }
+
   form.addEventListener('submit', event => {
     event.preventDefault();
     reset();
     try {
-      const settings = Object.fromEntries(new FormData(form));
-      for (const { name, type } of fields) if (name && type === 'number') settings[name] = Number(settings[name]);
-      const program = generateTurningProgram(settings);
-      moves = readTurningMoves(program);
-      setCode(program);
-      slider.max = moves.length;
-      slider.value = moves.length;
-      slider.disabled = play.disabled = download.disabled = false;
-      status.textContent = `Đã tạo mã thử nghiệm và đọc ${moves.length} đoạn đường chạy từ mã NC.`;
-      draw();
-      const controls = play.closest('.turning-playbar');
-      const bounds = controls.getBoundingClientRect();
-      if (event.submitter && (bounds.top < 0 || bounds.bottom > window.innerHeight)) {
-        controls.scrollIntoView({ block: 'center' });
-      }
+      previewProgram(generateTurningProgram(readSetup()), status, event.submitter);
     } catch (error) {
-      status.dataset.error = 'true';
-      status.textContent = error.message;
+      reportProgramError(status, error);
     }
   });
+
+  const queue = [];
+  let editingIndex = -1;
+  const queueAdd = byId('turningQueueAdd');
+  const queueCancel = byId('turningQueueCancel');
+  const queueStatus = byId('turningSequenceStatus');
+  const operationList = byId('turningOperationList');
+  const changeX = byId('turningChangeX');
+  const changeZ = byId('turningChangeZ');
+  const changeConfirmed = byId('turningChangeConfirmed');
+  function renderQueue() {
+    queueAdd.textContent = editingIndex < 0 ? 'Thêm nguyên công' : 'Lưu nguyên công';
+    queueCancel.hidden = editingIndex < 0;
+    byId('turningSequenceSettings').hidden = !queue.length;
+    operationList.replaceChildren(...queue.map((settings, index) => {
+      const li = document.createElement('li');
+      const name = document.createElement('p');
+      const label = [...fields.operation.options].find(option => option.value === settings.operation)?.textContent;
+      name.textContent = `${label} · T${String(settings.tool).padStart(2, '0')}${String(settings.offset).padStart(2, '0')}`;
+      if (index === editingIndex) name.setAttribute('aria-current', 'true');
+      li.append(name);
+      const actions = [
+        ['Sửa', () => {
+          editingIndex = index;
+          for (const field of fields) {
+            if (!field.name) continue;
+            if (field.type === 'checkbox') field.checked = Boolean(settings[field.name]);
+            else if (field.name in settings) field.value = settings[field.name];
+          }
+          edgeStyles = [];
+          edits.length = 0;
+          annotations.length = 0;
+          updateOperation();
+          renderQueue();
+          form.scrollIntoView({ block: 'start' });
+        }],
+        ['Lên', () => moveQueued(index, index - 1), index === 0],
+        ['Xuống', () => moveQueued(index, index + 1), index === queue.length - 1],
+        ['Xóa', () => {
+          queue.splice(index, 1);
+          if (editingIndex === index) editingIndex = -1;
+          else if (editingIndex > index) editingIndex--;
+          changedQueue();
+        }],
+      ];
+      for (const [label, handler, disabled] of actions) {
+        const button = document.createElement('button');
+        button.className = 'btn';
+        button.type = 'button';
+        button.textContent = label;
+        button.setAttribute('aria-label', `${label} nguyên công ${index + 1}`);
+        button.disabled = Boolean(disabled);
+        button.addEventListener('click', handler);
+        li.append(button);
+      }
+      return li;
+    }));
+  }
+  function changedQueue() {
+    reset();
+    queueStatus.dataset.error = 'false';
+    queueStatus.textContent = `${queue.length} nguyên công trong danh sách.`;
+    renderQueue();
+  }
+  function moveQueued(from, to) {
+    [queue[from], queue[to]] = [queue[to], queue[from]];
+    if (editingIndex === from) editingIndex = to;
+    else if (editingIndex === to) editingIndex = from;
+    changedQueue();
+  }
+  queueAdd.addEventListener('click', () => {
+    if (!form.reportValidity()) return;
+    try {
+      if (queue.length >= maxOperations && editingIndex < 0) throw new Error(`Tối đa ${maxOperations} nguyên công.`);
+      const settings = readSetup();
+      generateTurningProgram(settings);
+      if (editingIndex < 0) queue.push(settings);
+      else queue[editingIndex] = settings;
+      editingIndex = -1;
+      changedQueue();
+    } catch (error) {
+      reportProgramError(queueStatus, error);
+    }
+  });
+  queueCancel.addEventListener('click', () => {
+    editingIndex = -1;
+    renderQueue();
+  });
+
+  for (const field of [changeX, changeZ, changeConfirmed]) field.addEventListener('input', () => {
+    if (field !== changeConfirmed) changeConfirmed.checked = false;
+    reset();
+  });
+  byId('turningSequenceGenerate').addEventListener('click', () => {
+    reset();
+    try {
+      if (editingIndex >= 0) throw new Error('Lưu hoặc hủy sửa nguyên công trước khi tạo chương trình.');
+      const program = generateTurningSequence(queue, {
+        x: changeX.valueAsNumber, z: changeZ.valueAsNumber, confirmed: changeConfirmed.checked,
+      });
+      queuedStock = queue[0];
+      previewProgram(program, queueStatus, true);
+    } catch (error) {
+      reportProgramError(queueStatus, error);
+    }
+  });
+  renderQueue();
+
   slider.addEventListener('input', () => {
     stop();
     draw();

@@ -214,3 +214,11 @@ body[data-page="fanucTurningPage"] .topbar { position: static; }
 @media (max-width: 460px) {
   .turning-card > .turning-fields, .turning-card .turning-parameters { grid-template-columns: minmax(0, 1fr); }
 }
+.turning-sequence ol { margin: 0; padding-left: 22px; }
+.turning-sequence li { margin-bottom: 9px; }
+.turning-sequence li p { margin: 0 0 4px; font-size: 12px; }
+.turning-sequence li .btn { min-height: 25px; padding: 3px 6px; font-size: 11px; }
+.turning-sequence [aria-current="true"] { color: #175c93; font-weight: 700; }
+.turning-change-confirm { display: flex; gap: 7px; margin-top: 9px; align-items: flex-start; }
+#turningSequenceStatus { font-size: 12px; margin: 8px 0 0; }
+#turningSequenceStatus[data-error="true"] { color: #ae2a24; }

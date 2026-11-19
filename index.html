@@ -7,7 +7,7 @@
   <meta name="referrer" content="no-referrer">
   <title>LTD VIET NAM - Cloud Maintenance System</title>
   <link rel="stylesheet" href="assets/css/app.css?v=20261105-compact-alarm">
-  <link rel="stylesheet" href="assets/css/fanuc-turning.css?v=7">
+  <link rel="stylesheet" href="assets/css/fanuc-turning.css?v=8">
   <link rel="stylesheet" href="assets/css/cnc-report.css?v=20261107-tool-context">
   <link rel="stylesheet" href="assets/css/cnc-transfer.css?v=20261111-viewer-controls">
   <link rel="stylesheet" href="assets/css/cnc-dashboard.css?v=20261109-productivity">
@@ -409,6 +409,8 @@
                     <optgroup label="Grinding · PL800GB" id="turningGrindingGroup" hidden disabled>
                       <option value="grind">G01/G04 · OD Traverse Grinding</option>
                       <option value="grindPlunge">G01/G04 · OD Plunge Grinding</option>
+                      <option value="grindId">G01/G04 · ID Traverse Grinding</option>
+                      <option value="grindIdPlunge">G01/G04 · ID Plunge Grinding</option>
                     </optgroup>
                   </select>
                 </label>
@@ -426,7 +428,7 @@
               </div>
               <fieldset class="turning-fields turning-parameters" id="turningParameters" hidden>
                 <legend>Cycle Parameters</legend>
-                <label data-operations="rough roughLinear groove grooveCycle part thread grind grindPlunge">Radial Depth of Cut (mm)<input class="input" name="stepDepth" type="number" value="2" min="0.001" step="any" required></label>
+                <label data-operations="rough roughLinear groove grooveCycle part thread grind grindPlunge grindId grindIdPlunge">Radial Depth of Cut (mm)<input class="input" name="stepDepth" type="number" value="2" min="0.001" step="any" required></label>
                 <label data-operations="rough roughLinear">Radial Finish Allowance (mm)<input class="input" name="allowance" type="number" value="0.3" min="0" step="any" required></label>
                 <label data-operations="groove grooveCycle part">Groove / Part-off Z (mm)<input class="input" name="cutZ" type="number" value="-25" step="any" required></label>
                 <label data-operations="groove grooveCycle thread">Root Diameter (mm)<input class="input" name="rootDiameter" type="number" value="48" min="0" step="any" required></label>
@@ -439,20 +441,23 @@
                 <label data-operations="roughFace">Stock Face Z+ (mm)<input class="input" name="faceStock" type="number" value="3" min="0.001" step="any" required></label>
                 <label data-operations="roughFace">Axial Finish Allowance (mm)<input class="input" name="faceAllowance" type="number" value="0.2" min="0" step="any" required></label>
                 <label data-operations="rough roughFace"><span><input type="checkbox" name="finishCycle"> Finish with G70</span></label>
-                <label data-operations="grind grindPlunge">Ground Diameter (mm)<input class="input" name="grindDiameter" type="number" min="0.001" step="any" required></label>
-                <label data-operations="grind grindPlunge">Grinding Start Z (mm)<input class="input" name="grindStart" type="number" value="0" step="any" required></label>
-                <label data-operations="grind">Grinding End Z (mm)<input class="input" name="grindEnd" type="number" step="any" required></label>
-                <label data-operations="grind grindPlunge">Grinding Feed Rate (mm/min)<input class="input" name="grindFeed" type="number" min="0.001" step="any" required></label>
-                <label data-operations="grind grindPlunge">Grinding Head On M-code<input class="input" name="grindOn" placeholder="Theo bảng M-code máy" pattern="[Mm]?[0-9]{1,3}" required></label>
-                <label data-operations="grind grindPlunge">Grinding Head Off M-code<input class="input" name="grindOff" placeholder="Theo bảng M-code máy" pattern="[Mm]?[0-9]{1,3}" required></label>
-                <label data-operations="grind grindPlunge">Grinding Wheel Speed (rpm)<input class="input" name="grindRpm" type="number" min="1" max="99999" placeholder="Tốc độ đá mài" required></label>
-                <label data-operations="grind grindPlunge">Wheel Speed Command<select class="input" name="grindSpeedMode"><option value="manual">Set on machine · NC comment</option><option value="sameBlock">Same block as Head On</option><option value="program">Separate M-code block</option></select></label>
+                <label data-operations="grindId grindIdPlunge">Existing Bore Diameter (mm)<input class="input" name="grindBoreDiameter" type="number" min="0.01" step="any" required></label>
+                <label data-operations="grindId grindIdPlunge">Existing Bore Depth (mm)<input class="input" name="grindBoreDepth" type="number" min="0.002" step="any" required></label>
+                <label data-operations="grindId grindIdPlunge">ID Radial Clearance (mm)<input class="input" name="grindIdRelief" type="number" min="0.001" step="any" required></label>
+                <label data-operations="grind grindPlunge grindId grindIdPlunge">Ground Diameter (mm)<input class="input" name="grindDiameter" type="number" min="0.001" step="any" required></label>
+                <label data-operations="grind grindPlunge grindId grindIdPlunge">Grinding Start Z (mm)<input class="input" name="grindStart" type="number" value="0" step="any" required></label>
+                <label data-operations="grind grindId">Grinding End Z (mm)<input class="input" name="grindEnd" type="number" step="any" required></label>
+                <label data-operations="grind grindPlunge grindId grindIdPlunge">Grinding Feed Rate (mm/min)<input class="input" name="grindFeed" type="number" min="0.001" step="any" required></label>
+                <label data-operations="grind grindPlunge grindId grindIdPlunge">Grinding Head On M-code<input class="input" name="grindOn" placeholder="Theo bảng M-code máy" pattern="[Mm]?[0-9]{1,3}" required></label>
+                <label data-operations="grind grindPlunge grindId grindIdPlunge">Grinding Head Off M-code<input class="input" name="grindOff" placeholder="Theo bảng M-code máy" pattern="[Mm]?[0-9]{1,3}" required></label>
+                <label data-operations="grind grindPlunge grindId grindIdPlunge">Grinding Wheel Speed (rpm)<input class="input" name="grindRpm" type="number" min="1" max="99999" placeholder="Tốc độ đá mài" required></label>
+                <label data-operations="grind grindPlunge grindId grindIdPlunge">Wheel Speed Command<select class="input" name="grindSpeedMode"><option value="manual">Set on machine · NC comment</option><option value="sameBlock">Same block as Head On</option><option value="program">Separate M-code block</option></select></label>
                 <label id="turningGrindSpeedCode" hidden>Wheel Speed M-code<input class="input" name="grindSpeedM" pattern="[Mm]?[0-9]{1,3}" placeholder="Theo tài liệu máy" required></label>
                 <label id="turningGrindSpeedAddress" hidden>Speed Word<select class="input" name="grindSpeedAddress" required><option value="">Chọn theo tài liệu máy</option><option>S</option><option>P</option><option>Q</option></select></label>
                 <p id="turningGrindSpeedNote" class="meta turning-wide" hidden></p>
-                <label data-operations="grind grindPlunge" class="turning-wide"><span><input type="checkbox" name="grindConfirmed" required> Bật đầu mài trong mã NC. Tôi đã đối chiếu mã M và cách đặt tốc độ theo tài liệu của máy.</span></label>
+                <label data-operations="grind grindPlunge grindId grindIdPlunge" class="turning-wide"><span><input type="checkbox" name="grindConfirmed" required> Bật đầu mài trong mã NC. Tôi đã đối chiếu mã M và cách đặt tốc độ theo tài liệu của máy.</span></label>
                 <label data-operations="drillCycle grooveCycle">P/Q Input Increment<select class="input" name="peckIncrement"><option value="standard">0.001 mm / 0.0001 in</option><option value="fine">0.0001 mm / 0.00001 in</option></select></label>
-                <label data-operations="grind grindPlunge">Spark-out Dwell (s)<input class="input" name="grindDwell" type="number" value="0" min="0" max="60" step="0.001" required></label>
+                <label data-operations="grind grindPlunge grindId grindIdPlunge">Spark-out Dwell (s)<input class="input" name="grindDwell" type="number" value="0" min="0" max="60" step="0.001" required></label>
               </fieldset>
               <p class="meta" id="turningOperationNote" hidden></p>
               <label class="turning-profile">Biên dạng X–Z (mm)
@@ -464,9 +469,25 @@
               <p class="meta">Mỗi dòng gồm X (đường kính) và Z, cách nhau bằng dấu cách. Mặt đầu ở Z0, phía trong phôi có Z âm. Bắt đầu ở Z0 và đi dần sang trái. Dấu | đầu dòng biểu thị khoảng hở sau khi xóa nét. Tiện tinh giả định phôi đã được tiện thô.</p>
               <div class="turning-actions">
                 <button type="submit" class="btn primary">Tạo mã và mô phỏng</button>
+                <button type="button" class="btn" id="turningQueueAdd">Thêm nguyên công</button>
+                <button type="button" class="btn" id="turningQueueCancel" hidden>Hủy sửa</button>
               </div>
               <p id="turningStatus" role="status"></p>
             </form>
+            <section class="section turning-card turning-sequence">
+              <h3>Danh sách nguyên công</h3>
+              <p class="meta">Thêm từng bước sau khi khai báo dao và thông số. Các bước được xuất theo thứ tự trong danh sách.</p>
+              <ol id="turningOperationList"></ol>
+              <div id="turningSequenceSettings" hidden>
+                <div class="turning-fields">
+                  <label>Tool Change X · G53 (mm)<input class="input" id="turningChangeX" type="number" step="any"></label>
+                  <label>Tool Change Z · G53 (mm)<input class="input" id="turningChangeZ" type="number" step="any"></label>
+                </div>
+                <label class="turning-change-confirm"><input type="checkbox" id="turningChangeConfirmed"> Tôi đã đối chiếu vị trí đổi dao, thứ tự Z rồi X và khoảng hở khi tiếp cận phôi.</label>
+                <div class="turning-actions"><button type="button" class="btn primary" id="turningSequenceGenerate">Tạo NC nhiều nguyên công</button></div>
+              </div>
+              <p id="turningSequenceStatus" role="status"></p>
+            </section>
 
               </aside>
             </div>
@@ -959,6 +980,6 @@
 
   <div class="toast" id="toast" role="status" aria-live="polite"></div>
 
-  <script type="module" src="assets/js/app.js?v=20261119-fanuc-wheel-block"></script>
+  <script type="module" src="assets/js/app.js?v=20261119-fanuc-operations"></script>
 </body>
 </html>

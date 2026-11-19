@@ -6,7 +6,7 @@ const asModule = source => 'data:text/javascript;base64,' + Buffer.from(source).
 const sketchSource = await readFile(new URL('../assets/js/fanuc-sketch.js', import.meta.url), 'utf8');
 const sketchUrl = asModule(sketchSource);
 const source = await readFile(new URL('../assets/js/fanuc-turning.js', import.meta.url), 'utf8');
-const { generateTurningProgram, readTurningMoves, resizeTurningEndpoint, sketchEndpointAtLength } = await import(asModule(source.replace(/\.\/fanuc-sketch\.js\?v=\d+/, sketchUrl)));
+const { generateTurningProgram, generateTurningSequence, readTurningMoves, resizeTurningEndpoint, sketchEndpointAtLength } = await import(asModule(source.replace(/\.\/fanuc-sketch\.js\?v=\d+/, sketchUrl)));
 const { arcPoints, profileFromStl, profileFromImage, findSketchSnap, nearestSketchEdge, profileFromDxf } = await import(sketchUrl);
 
 const setup = {
@@ -309,4 +309,33 @@ test('grinding wheel speed stays separate from workpiece spindle and needs an ex
   assert.match(separate, /M153 S3400 \(GRIND WHEEL SPEED\)\nM151 \(GRIND HEAD ON\)/);
   assert.equal(readTurningMoves(separate).filter(move => move.mode === 'event').length, 3);
   assert.throws(() => generateTurningProgram({ ...params, grindSpeedMode: 'program', grindSpeedM: 'M152', grindSpeedAddress: 'P' }), /Wheel Speed M-code/);
+});
+
+test('combined program uses unique P/Q labels, ordered tool offsets, and one program end', () => {
+  const rough = { ...setup, operation: 'rough', tool: 1, offset: 2, stepDepth: 4, allowance: 1, cycleRetract: 0.5, finishCycle: true };
+  const face = { ...setup, operation: 'roughFace', tool: 3, offset: 4, faceStock: 3, faceStep: 1, faceAllowance: 0.2, cycleRetract: 0.5 };
+  const change = { x: -200, z: -400, confirmed: true };
+  const result = generateTurningSequence([rough, face], change);
+  assert.equal(result.match(/^O0100$/gm).length, 1);
+  assert.equal(result.match(/^M30$/gm).length, 1);
+  assert.match(result, /T0102[\s\S]+G71 P100 Q140[\s\S]+G70 P100 Q140[\s\S]+G53 G00 Z-400\.000\nG53 G00 X-200\.000[\s\S]+T0304[\s\S]+G72 P3100 Q3110/);
+  const moves = readTurningMoves(result);
+  assert.ok(moves.some(move => move.mode === 'feed' && move.to.z === -60));
+  assert.ok(moves.some(move => move.mode === 'feed' && move.to.x === 0 && move.to.z === 0.2));
+  assert.ok(moves.every(move => move.to.x !== -200 && move.to.z !== -400));
+  assert.throws(() => generateTurningSequence([rough, { ...face, units: 'inch' }], change), /Nguyên công 2.*đơn vị/);
+  assert.throws(() => generateTurningSequence([rough, face], { ...change, confirmed: false }), /xác nhận/);
+});
+
+test('ID grinding opens the bore radially and withdraws below the bore diameter before moving toward Z0', () => {
+  const params = { ...setup, machine: 'pl800gb', operation: 'grindId', grindBoreDiameter: 20, grindBoreDepth: 40,
+    grindIdRelief: 1, grindStart: -2, grindEnd: -35, grindDiameter: 20.4, stepDepth: 0.1,
+    grindFeed: 35, grindOn: '151', grindOff: '152', grindConfirmed: true };
+  const code = generateTurningProgram(params);
+  assert.match(code, /G00 X18\.000 Z3\.000\nG00 X18\.000 Z-2\.000/);
+  assert.match(code, /G01 X20\.400 Z-35\.000\nG00 X18\.000 Z-35\.000\nG00 X18\.000 Z3\.000/);
+  assert.throws(() => generateTurningProgram({ ...params, grindEnd: -40 }), /đáy lỗ/);
+  assert.throws(() => generateTurningProgram({ ...params, grindDiameter: 19 }), /đường kính/);
+  const plunge = readTurningMoves(generateTurningProgram({ ...params, operation: 'grindIdPlunge', grindStart: -22 }));
+  assert.ok(plunge.filter(move => move.mode === 'feed').every(move => move.to.z === -22));
 });
