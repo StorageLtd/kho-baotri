@@ -1,0 +1,18 @@
+.turning-nav-icon { display: inline-grid; place-items: center; width: 24px; font-size: 22px; flex: none; }
+.turning-preview { display: grid; gap: 14px; }
+.turning-warning { margin: 0; padding: 12px 16px; background: #fff4d8; color: #643e00; border: 1px solid #edce86; border-radius: 10px; }
+.turning-grid { display: grid; grid-template-columns: minmax(0, .85fr) minmax(0, 1.15fr); gap: 14px; align-items: start; }
+.turning-card { padding: 16px; min-width: 0; }
+.turning-card h3 { margin: 0 0 14px; }
+.turning-fields { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+.turning-card label { display: grid; align-content: start; gap: 5px; font-size: 14px; }
+.turning-card .input { width: 100%; min-width: 0; }
+.turning-profile { margin-top: 12px; }
+.turning-card textarea { resize: vertical; font-family: monospace; }
+.turning-actions { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 10px; }
+.turning-card canvas { display: block; width: 100%; height: auto; border: 1px solid #dce3ed; border-radius: 8px; background: #f7f9fc; cursor: crosshair; }
+.turning-legend { margin: 8px 0; }
+#turningStatus { margin: 8px 0 0; font-size: 14px; }
+#turningStatus[data-error="true"] { color: var(--danger, #b42318); }
+@media (max-width: 1000px) { .turning-grid { grid-template-columns: minmax(0, 1fr); } }
+@media (max-width: 420px) { .turning-fields { grid-template-columns: minmax(0, 1fr); } }

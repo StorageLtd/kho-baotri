@@ -1,3 +1,4 @@
+import { initTurningPreview } from "./fanuc-turning.js?v=1";
 import {openCncTransfer,clearCncTransferSessions} from "./cnc-transfer-ui.js?v=20261111-viewer-controls";
 import {buildCncReport,vnDate} from "./cnc-reports.js?v=20261111-viewer-controls";
 ﻿import { downloadInventoryWorkbook } from "./inventory-xlsx.js?v=20261105-no-prices";
@@ -528,7 +529,10 @@ import { cncDisplayState, cncIsFresh, cncMeasurement, cncMode, cncDuration, cncS
       return false;
     }
 
+    initTurningPreview();
+
     function switchPage(pageId) {
+      document.querySelector("#fanucTurningPage").hidden = pageId !== "fanucTurningPage";
       document.body.dataset.page = pageId;
       if(pageId!=="cncMonitoringPage"&&cncDetailsDialog?.open)cncDetailsDialog.close();
       els.overviewPage.hidden = (pageId !== "overviewPage");
@@ -558,6 +562,9 @@ import { cncDisplayState, cncIsFresh, cncMeasurement, cncMode, cncDuration, cncS
       } else if(pageId === "cncMonitoringPage") {
         els.pageHeading.textContent = "";
         els.pageSubtitle.textContent = "";
+      } else if(pageId === "fanucTurningPage") {
+        els.pageHeading.textContent = "LẬP TRÌNH TIỆN FANUC";
+        els.pageSubtitle.textContent = "Xem thử mã NC và mô phỏng đường chạy dao.";
       } else if(pageId === "machinesPage") {
         els.pageHeading.textContent = "HỒ SƠ MÁY XƯỞNG";
         els.pageSubtitle.textContent = "Hệ thống lưu giữ thông tin hồ sơ thiết bị, thời hạn bảo hành của toàn xưởng.";
