@@ -116,3 +116,35 @@ body[data-page="fanucTurningPage"] .topbar { position: static; }
   .turning-ribbon-group { padding-inline: 4px; gap: 2px; }
   .turning-command { min-width: 37px; padding-inline: 4px; }
 }
+#turningPlot {
+  display: block;
+  width: min(100%, 88vh);
+  max-width: 100%;
+  aspect-ratio: 64 / 35;
+  margin-inline: auto;
+}
+.turning-drawing { background: #101720; }
+.turning-simulation { background: #fff; }
+.turning-playbar {
+  display: grid;
+  grid-template-columns: auto minmax(115px, 1fr) minmax(145px, 1fr);
+  align-items: center;
+  gap: 8px 13px;
+  padding: 8px 12px;
+  background: #182430;
+  color: #d0e1ef;
+  border-bottom: 1px solid #344858;
+}
+.turning-play-position label { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 3px 8px; font-size: 12px; }
+.turning-play-position input { width: 100%; margin: 4px 0 0; display: block; accent-color: #69bff5; }
+.turning-playbar .turning-current { display: grid; color: #bed3e5; margin: 0; overflow-wrap: anywhere; }
+.turning-playbar .turning-current code { color: #80d5ff; }
+.turning-playbar .btn { min-height: 34px; padding: 5px 10px; }
+#turningDimensionEditor span { flex: 1 1 100%; color: #365579; }
+@media (max-width: 650px) {
+  .turning-playbar { grid-template-columns: auto minmax(0, 1fr); }
+  .turning-playbar .turning-current { grid-column: 1 / -1; display: flex; }
+}
+#turningDimensionEditor[hidden] { display: none; }
+.turning-card .turning-parameters + .turning-fields { margin-top: 11px; }
+.turning-machine-note { margin: 0; }

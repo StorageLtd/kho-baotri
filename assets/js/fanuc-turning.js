@@ -1,9 +1,12 @@
 import { arcPoints, profileFromStl, profileFromImage, findSketchSnap, nearestSketchEdge, profileFromDxf } from "./fanuc-sketch.js?v=4";
 
 const clearance = 3;
-const profileOperations = ['profile', 'rough'];
+const profileOperations = ['profile', 'rough', 'roughLinear'];
 const operationNotes = {
-  rough: 'Tiện theo lớp G00/G01. Biên dạng phải có đường kính tăng dần hoặc giữ nguyên khi đi về phía mâm cặp.',
+  rough: 'FANUC G71 hai dòng, Type I (X tăng dần hoặc giữ nguyên về phía Z âm). Mô phỏng chu trình xấp xỉ.',
+  roughFace: 'FANUC G72 hai dòng cho mặt phẳng Z0. Phôi thô bắt đầu tại Z dương. Mô phỏng chu trình xấp xỉ.',
+  grind: 'Mài trụ ngoài chạy dọc, dùng G98 (chạy dao theo phút). X là đường kính tại điểm tiếp xúc đá đã gá và so dao. Đối chiếu tốc độ đá, chiều quay, gá đặt và M-code theo máy.',
+  roughLinear: 'Tiện theo lớp G00/G01. Biên dạng phải có đường kính tăng dần hoặc giữ nguyên khi đi về phía mâm cặp.',
   groove: 'Một rãnh theo bề rộng thực tế của lưỡi dao. Tọa độ Z tham chiếu mũi dao đã khai báo trên máy.',
   part: 'Mô phỏng cắt đứt đến tâm. Gá kẹp và đỡ chi tiết sau khi cắt cần được kiểm tra trên máy.',
   thread: 'Ren ngoài bước cố định từ phía trước Z0. Cần rãnh thoát ren tại điểm cuối và dao phù hợp. Nhập đường kính đỉnh ren vào ô đường kính phôi.',
@@ -33,11 +36,15 @@ export function generateTurningProgram(settings) {
   if (!inRange(diameter, 0.1, 10000) || !inRange(length, 0.1, 10000)) {
     throw new Error('Kích thước phôi phải trong khoảng 0.1–10000 mm.');
   }
+  const machine = settings.machine ?? 'fanuc';
+  if (!['fanuc', 'pl800gb'].includes(machine)) throw new Error('Chọn kiểu máy hợp lệ.');
+  const grinding = operation === 'grind';
+  if (grinding && machine !== 'pl800gb') throw new Error('Chọn PL800GB để khai báo đầu mài.');
   if (![tool, offset, rpm].every(Number.isInteger) || !inRange(tool, 1, 99) ||
-      !inRange(offset, 1, 99) || !inRange(rpm, 1, 99999) || !inRange(feed, 0.001, 100)) {
+      !inRange(offset, 1, 99) || !inRange(rpm, 1, 99999) || (!grinding && !inRange(feed, 0.001, 100))) {
     throw new Error('Kiểm tra số dao, số offset, tốc độ trục chính và lượng chạy dao.');
   }
-  if (!scale || ![...profileOperations, 'face', 'groove', 'part', 'drill', 'thread'].includes(operation)) throw new Error('Chọn đơn vị và nguyên công hợp lệ.');
+  if (!scale || ![...profileOperations, 'face', 'groove', 'part', 'drill', 'thread', 'roughFace', 'grind'].includes(operation)) throw new Error('Chọn đơn vị và nguyên công hợp lệ.');
   const precision = units === 'inch' ? 5 : 3;
   const coordinate = value => {
     const formatted = (value / scale).toFixed(precision);
@@ -49,7 +56,7 @@ export function generateTurningProgram(settings) {
   const start = { x: outside, z: clearance };
   const lines = [
     '%', 'O0100', '(PREVIEW ONLY - UNVERIFIED ON MACHINE)',
-    `G18 G40 G80 G99 G${units === 'inch' ? '20' : '21'}`,
+    `G18 G40 G80 G${grinding ? '98' : '99'} G${units === 'inch' ? '20' : '21'}`,
     'G54', `T${String(tool).padStart(2, '0')}${String(offset).padStart(2, '0')}`,
     `G97 S${rpm} M03`, rapid(start),
   ];
@@ -60,7 +67,53 @@ export function generateTurningProgram(settings) {
     if (count > 300) throw new Error('Thông số tạo hơn 300 lượt cắt. Hãy tăng bước cắt.');
     return count;
   };
-  if (operation === 'thread') {
+  const normalizedM = raw => {
+    const match = /^M?(\d{1,3})$/i.exec(String(raw ?? '').trim());
+    const code = match ? Number(match[1]) : NaN;
+    if (!Number.isInteger(code) || code < 10 || [19, 30, 98, 99, 198].includes(code)) return null;
+    return `M${String(code).padStart(2, '0')}`;
+  };
+  const cycle = (g, depthAxis, depth, stockFace, allowanceX, allowanceZ, contour) => {
+    const retract = settings.cycleRetract;
+    if (!inRange(depth, 0.001, 10000) || !inRange(retract, 0.001, 1000)) throw new Error('Kiểm tra bước cắt và khoảng lùi R.');
+    const end = 100 + 10 * (contour.length - 1);
+    lines.push(
+      `(PREVIEW STOCK X${coordinate(diameter)} Z${coordinate(stockFace)})`,
+      rapid({ x: outside, z: stockFace + clearance }),
+      `${g} ${depthAxis}${coordinate(depth)} R${coordinate(retract)}`,
+      `${g} P100 Q${end} U${coordinate(allowanceX)} W${coordinate(allowanceZ)}${feedWord}`,
+      ...contour.map((block, i) => `N${100 + i * 10} ${block}${i === contour.length - 1 ? feedWord : ''}`),
+    );
+    if (settings.finishCycle) lines.push(`G70 P100 Q${end}`);
+    lines.push(rapid({ x: outside, z: stockFace + clearance }));
+  };
+  if (grinding) {
+    const { grindDiameter, grindStart, grindEnd, stepDepth, grindFeed, grindConfirmed } = settings;
+    const on = normalizedM(settings.grindOn);
+    const off = normalizedM(settings.grindOff);
+    if (!grindConfirmed || !on || !off || on === off) throw new Error('Nhập hai mã M phụ khác nhau và xác nhận đã đối chiếu bảng M-code của máy.');
+    if (!inRange(grindDiameter, 0.001, diameter - 0.001) || !inRange(grindStart, -length, 0) ||
+        !inRange(grindEnd, -length, grindStart - 0.001) || !inRange(grindFeed, 0.001, 10000)) {
+      throw new Error('Kiểm tra đường kính sau mài, hai đầu hành trình Z và lượng chạy dao mài.');
+    }
+    const count = passCount((diameter - grindDiameter) / 2, stepDepth);
+    const approach = { x: outside, z: grindStart };
+    const grindFeedWord = ` F${(grindFeed / scale).toFixed(6)}`;
+    lines.push('(PL800GB OD GRIND - VERIFY WHEEL AND AUXILIARY M CODES)', `${on} (GRIND HEAD ON)`, rapid(approach));
+    for (let pass = 1; pass <= count; pass++) {
+      const x = Math.max(grindDiameter, diameter - 2 * stepDepth * pass);
+      lines.push(cut({ x, z: grindStart }) + grindFeedWord, cut({ x, z: grindEnd }),
+        rapid({ x: outside, z: grindEnd }), rapid(approach));
+    }
+    lines.push(rapid(start), `${off} (GRIND HEAD OFF)`);
+  } else if (operation === 'roughFace') {
+    const { faceStock, faceStep, faceAllowance } = settings;
+    if (!inRange(faceStock, 0.001, 1000) || !inRange(faceAllowance, 0, faceStock - 0.001)) {
+      throw new Error('Z mặt phôi thô phải dương và lớn hơn lượng dư dọc Z.');
+    }
+    passCount(faceStock - faceAllowance, faceStep);
+    cycle('G72', 'W', faceStep, faceStock, 0, faceAllowance, [`G00 Z${coordinate(0)}`, `G01 X${coordinate(0)}`]);
+  } else if (operation === 'thread') {
     const { threadEndZ, pitch, stepDepth, rootDiameter } = settings;
     if (!inRange(threadEndZ, -length, -0.001) || !inRange(pitch, 0.001, 100) ||
         !inRange(rootDiameter, 0.001, diameter - 0.001)) {
@@ -121,7 +174,7 @@ export function generateTurningProgram(settings) {
       }
     });
     const last = points.at(-1);
-    if (operation === 'rough') {
+    if (operation === 'rough' || operation === 'roughLinear') {
       const { stepDepth, allowance } = settings;
       if (!inRange(allowance, 0, diameter / 2)) throw new Error('Lượng dư theo bán kính không hợp lệ.');
       if (points.some((point, index) => index && point.x < points[index - 1].x)) {
@@ -130,54 +183,163 @@ export function generateTurningProgram(settings) {
       const target = points[0].x + 2 * allowance;
       if (target >= diameter) throw new Error('Không có lớp thô trong phôi với lượng dư đã nhập.');
       const count = passCount((diameter - target) / 2, stepDepth);
-      for (let pass = 1; pass <= count; pass++) {
-        const x = Math.max(target, diameter - 2 * stepDepth * pass);
-        const limit = x - 2 * allowance;
-        const crossing = points.findIndex(point => point.x > limit + 1e-8);
-        let z = last.z;
-        if (crossing > 0) {
-          const end = points[crossing];
-          const begin = points[crossing - 1];
-          z = begin.z + (end.z - begin.z) * (limit - begin.x) / (end.x - begin.x);
+      if (operation === 'rough') {
+        cycle('G71', 'U', stepDepth, 0, 2 * allowance, 0, [`G00 X${coordinate(points[0].x)}`, ...points.map(cut)]);
+      } else {
+        for (let pass = 1; pass <= count; pass++) {
+          const x = Math.max(target, diameter - 2 * stepDepth * pass);
+          const limit = x - 2 * allowance;
+          const crossing = points.findIndex(point => point.x > limit + 1e-8);
+          let z = last.z;
+          if (crossing > 0) {
+            const end = points[crossing];
+            const begin = points[crossing - 1];
+            z = begin.z + (end.z - begin.z) * (limit - begin.x) / (end.x - begin.x);
+          }
+          if (z >= 0) continue;
+          lines.push(rapid({ x, z: clearance }), cut({ x, z }) + feedWord,
+            rapid({ x: outside, z }), rapid(start));
         }
-        if (z >= 0) continue;
-        lines.push(rapid({ x, z: clearance }), cut({ x, z }) + feedWord,
-          rapid({ x: outside, z }), rapid(start));
+        if (lines.length === 8) throw new Error('Biên dạng và lượng dư không tạo được lượt tiện thô.');
       }
-      if (lines.length === 8) throw new Error('Biên dạng và lượng dư không tạo được lượt tiện thô.');
     } else {
       lines.push(rapid({ x: points[0].x, z: clearance }), cut(points[0]) + feedWord,
         ...points.slice(1).map(cut), rapid({ x: outside, z: last.z }), rapid(start));
     }
   }
+  const series = String(settings.controller ?? '').replace(/[^a-z0-9 .+-]/gi, '').trim().slice(0, 32);
+  if (machine === 'pl800gb' || series) lines.splice(3, 0, `(${machine === 'pl800gb' ? 'SMEC PL800GB' : 'FANUC LATHE'}${series ? ' ' + series.toUpperCase() : ''})`);
   return [...lines, 'M05', 'M30', '%', ''].join('\n');
+}
+
+export function resizeTurningEndpoint(points, index, anchor, target, type, { diameter, length }) {
+  const current = points[index];
+  if (!current || !Number.isFinite(target) || target < 0.001) throw new Error('Nhập kích thước từ 0,001 mm.');
+  const dx = current.x - anchor.x;
+  const dz = current.z - anchor.z;
+  let { x, z } = current;
+  if (type === 'diameter') x = target;
+  else if (type === 'axial') z = anchor.z + (Math.sign(dz) || -1) * target;
+  else if (type === 'radial') x = anchor.x + (Math.sign(dx) || 1) * target * 2;
+  else {
+    const span = Math.hypot(dx / 2, dz);
+    if (!span) throw new Error('Hai điểm đo đang trùng nhau.');
+    x = anchor.x + dx * target / span;
+    z = anchor.z + dz * target / span;
+  }
+  x = Number(x.toFixed(5));
+  z = Number(z.toFixed(5));
+  const previous = points[index - 1];
+  const next = points[index + 1];
+  if (x < 0 || x > diameter || z < -length || z > (previous?.z ?? 0) ||
+      (!index && z !== 0) || (next && z < next.z) ||
+      [previous, next].some(point => point?.x === x && point.z === z)) {
+    throw new Error('Kích thước này làm điểm ra ngoài phôi, rời Z0 hoặc đảo thứ tự biên dạng.');
+  }
+  return { ...current, x, z };
+}
+
+function ncWords(raw) {
+  return new Map([...raw.replace(/\([^)]*\)/g, '').matchAll(/([A-Z])([+-]?\d+(?:\.\d+)?)/g)]
+    .map(([, address, number]) => [address, Number(number)]));
+}
+
+function roughingMoves(g, stock, start, contour, depth, retract, allowanceX, allowanceZ, push) {
+  const longitudinal = g === 71;
+  const remaining = longitudinal ? stock.x - contour[0].x - allowanceX : stock.z - contour.at(-1).z - allowanceZ;
+  const step = longitudinal ? depth * 2 : depth;
+  const count = Math.ceil(remaining / step - 1e-7);
+  if (count < 1 || count > 301) throw new Error('Không mô phỏng được chu trình: số lượt cắt ngoài giới hạn.');
+  let cuttingPasses = 0;
+  for (let pass = 1; pass <= count; pass++) {
+    if (longitudinal) {
+      const x = Math.max(contour[0].x + allowanceX, stock.x - pass * step);
+      const limit = x - allowanceX;
+      const crossing = contour.findIndex(point => point.x > limit + 1e-7);
+      let z = contour.at(-1).z + allowanceZ;
+      if (crossing > 0) {
+        const a = contour[crossing - 1];
+        const b = contour[crossing];
+        z = a.z + (b.z - a.z) * (limit - a.x) / (b.x - a.x) + allowanceZ;
+      }
+      if (z >= stock.z) continue;
+      cuttingPasses++;
+      push({ x, z: start.z }, 'rapid');
+      push({ x, z }, 'feed');
+      push({ x: Math.min(start.x, x + retract * 2), z: Math.min(start.z, z + retract) }, 'rapid');
+      push({ x: Math.min(start.x, x + retract * 2), z: start.z }, 'rapid');
+      push(start, 'rapid');
+    } else {
+      const z = Math.max(contour.at(-1).z + allowanceZ, stock.z - pass * step);
+      const x = contour.at(-1).x + allowanceX;
+      push({ x: start.x, z }, 'rapid');
+      push({ x, z }, 'feed');
+      push({ x: Math.min(start.x, x + retract * 2), z: Math.min(start.z, z + retract) }, 'rapid');
+      push({ x: start.x, z: Math.min(start.z, z + retract) }, 'rapid');
+      push(start, 'rapid');
+    }
+  }
+  if (longitudinal && !cuttingPasses) throw new Error('Không có lượt tiện dọc trong phôi theo biên dạng G71 này.');
 }
 
 export function readTurningMoves(program) {
   let scale = 1;
   let mode;
   let position;
+  let stock;
+  let cycleSetup;
   const moves = [];
-  for (const [index, raw] of program.split('\n').entries()) {
-    const line = raw.replace(/\([^)]*\)/g, '');
-    const words = new Map();
-    for (const [, address, number] of line.matchAll(/([A-Z])([+-]?\d+(?:\.\d+)?)/g)) {
-      const value = Number(number);
-      words.set(address, value);
-      if (address !== 'G') continue;
-      if (value === 20 || value === 21) scale = value === 20 ? 25.4 : 1;
-      if (value === 0) mode = 'rapid';
-      if (value === 1) mode = 'feed';
-      if (value === 32) mode = 'thread';
-    }
-    if (!mode || (!words.has('X') && !words.has('Z'))) continue;
-    const to = {
-      x: words.has('X') ? words.get('X') * scale : position?.x,
-      z: words.has('Z') ? words.get('Z') * scale : position?.z,
-    };
-    if (!Number.isFinite(to.x) || !Number.isFinite(to.z)) continue;
+  const lines = program.split('\n');
+  const blocks = lines.map(ncWords);
+  const numbered = new Map(blocks.flatMap((words, index) => words.has('N') ? [[words.get('N'), index]] : []));
+  const at = (words, from) => ({
+    x: words.has('X') ? words.get('X') * scale : from?.x,
+    z: words.has('Z') ? words.get('Z') * scale : from?.z,
+  });
+  const push = (to, mode, index) => {
+    if (!Number.isFinite(to.x) || !Number.isFinite(to.z)) return;
     if (position) moves.push({ from: position, to, mode, line: index + 1 });
     position = to;
+  };
+  for (let index = 0; index < lines.length; index++) {
+    const raw = lines[index];
+    const words = blocks[index];
+    const g = words.get('G');
+    if (g === 20 || g === 21) scale = g === 20 ? 25.4 : 1;
+    const stockWords = /^\(PREVIEW STOCK X([\d.]+) Z([\d.]+)\)$/.exec(raw);
+    if (stockWords) stock = { x: Number(stockWords[1]) * scale, z: Number(stockWords[2]) * scale };
+    if ((g === 71 || g === 72) && !words.has('P')) {
+      cycleSetup = { g, depth: words.get(g === 71 ? 'U' : 'W') * scale, retract: words.get('R') * scale };
+      continue;
+    }
+    if (g === 70 || g === 71 || g === 72) {
+      const first = numbered.get(words.get('P'));
+      const last = numbered.get(words.get('Q'));
+      const start = position;
+      if (!start || first === undefined || last === undefined || last < first) throw new Error('Không đọc được khối P/Q của chu trình.');
+      let point = start;
+      const contour = blocks.slice(first, last + 1).map((block, offset) => {
+        point = at(block, point);
+        return { ...point, line: first + offset, mode: block.get('G') === 0 ? 'rapid' : 'feed' };
+      });
+      if (g === 70) {
+        for (const { x, z, line, mode } of contour) push({ x, z }, mode, line);
+        // Return to the cycle origin in two display legs; the controller determines its actual return.
+        push({ x: start.x, z: position.z }, 'rapid', index);
+        push(start, 'rapid', index);
+      } else {
+        if (!stock || cycleSetup?.g !== g) throw new Error('Thiếu tham số chu trình G71/G72.');
+        roughingMoves(g, stock, start, contour, cycleSetup.depth, cycleSetup.retract,
+          words.get('U') * scale, words.get('W') * scale, (to, motion) => push(to, motion, index));
+        index = last;
+      }
+      continue;
+    }
+    if (g === 0) mode = 'rapid';
+    if (g === 1) mode = 'feed';
+    if (g === 32) mode = 'thread';
+    if (position && /\(GRIND HEAD (?:ON|OFF)\)/.test(raw)) push(position, 'event', index);
+    if (mode && (words.has('X') || words.has('Z'))) push(at(words, position), mode, index);
   }
   return moves;
 }
@@ -213,6 +375,10 @@ export function initTurningPreview() {
     return type === 'axial' ? dz : type === 'aligned' ? Math.hypot(dz, dr) : dr * (type === 'diameter' ? 2 : 1);
   };
   let dimensionPoints = [];
+  let activeDimension;
+  const dimensionEditor = byId('turningDimensionEditor');
+  const dimensionInput = byId('turningDimensionValue');
+  const dimensionHelp = byId('turningDimensionHelp');
   const color = byId('turningStrokeColor');
   const dimensionType = byId('turningDimensionType');
   const logicalWidth = canvas.width;
@@ -251,7 +417,9 @@ export function initTurningPreview() {
     const { diameter, length } = dimensions();
     const left = 44, top = 20, right = logicalWidth - 44, bottom = logicalHeight - 38;
     const pitch = fields.operation.value === 'thread' ? fields.pitch.valueAsNumber : 0;
-    const front = Math.max(clearance, Number.isFinite(pitch) && pitch <= 100 ? 2 * pitch : 0);
+    const faceStock = fields.operation.value === 'roughFace' ? fields.faceStock.valueAsNumber : 0;
+    const stockFront = Number.isFinite(faceStock) && faceStock > 0 && faceStock <= 1000 ? faceStock : 0;
+    const front = Math.max(clearance + stockFront, Number.isFinite(pitch) && pitch <= 100 ? 2 * pitch : 0);
     const spanZ = length + clearance + front;
     const spanR = diameter / 2 + 2 * clearance;
     const fittedScale = Math.min((right - left) / spanZ, (bottom - top) / spanR);
@@ -281,7 +449,7 @@ export function initTurningPreview() {
     ctx.clip();
     const [stockLeft, stockTop] = at({ x: diameter, z: -length });
     ctx.fillStyle = '#1c2936';
-    ctx.fillRect(stockLeft, stockTop, length * scale, baseY - stockTop);
+    ctx.fillRect(stockLeft, stockTop, (length + stockFront) * scale, baseY - stockTop);
     if (referenceImage) {
       const width = byId('turningImageWidth').valueAsNumber;
       const z = byId('turningImageZ').valueAsNumber;
@@ -322,7 +490,7 @@ export function initTurningPreview() {
     ctx.fillRect(left, baseY, right - left, 1);
     ctx.fillRect(zOrigin, top, 1, bottom - top);
     ctx.strokeStyle = '#536a83';
-    ctx.strokeRect(stockLeft, stockTop, length * scale, baseY - stockTop);
+    ctx.strokeRect(stockLeft, stockTop, (length + stockFront) * scale, baseY - stockTop);
 
     if (showProfile.checked && profileOperations.includes(fields.operation.value)) {
       let points = [];
@@ -361,11 +529,11 @@ export function initTurningPreview() {
     }
     const step = Number(slider.value);
     for (const move of moves.slice(step)) {
-      if (showRapid.checked || move.mode !== 'rapid') drawLine([move.from, move.to], '#526072', [2, 5]);
+      if (move.mode !== 'event' && (showRapid.checked || move.mode !== 'rapid')) drawLine([move.from, move.to], '#526072', [2, 5]);
     }
     moves.slice(0, step).forEach((move, index) => {
       const rapid = move.mode === 'rapid';
-      if (rapid && !showRapid.checked) return;
+      if (move.mode === 'event' || (rapid && !showRapid.checked)) return;
       const active = index === step - 1;
       const color = active ? '#df9aff' : rapid ? '#ffac5b' : move.mode === 'thread' ? '#ff82bb' : '#52aaff';
       drawLine([move.from, move.to], color, rapid ? [6, 4] : []);
@@ -478,20 +646,31 @@ export function initTurningPreview() {
     undo.disabled = false;
     fields.profile.value = value;
     edgeStyles = styles;
-    if (!keepDimensions) annotations.length = 0;
+    if (!keepDimensions) {
+      annotations.length = 0;
+      editDimension(undefined);
+    }
     setSelection(undefined);
     arcMiddle = undefined;
     reset();
   }
 
   function updateOperation() {
+    const grinding = fields.machine.value === 'pl800gb';
+    const grindOption = fields.operation.querySelector('[value="grind"]');
+    grindOption.hidden = grindOption.disabled = !grinding;
+    if (!grinding && fields.operation.value === 'grind') fields.operation.value = 'profile';
     const operation = fields.operation.value;
+    fields.feed.disabled = operation === 'grind';
+    fields.feed.closest('label').hidden = fields.feed.disabled;
     const usesProfile = profileOperations.includes(operation);
     fields.profile.disabled = !usesProfile;
     fields.profile.closest('label').hidden = !usesProfile;
     fields.profile.closest('label').nextElementSibling.hidden = !usesProfile;
     undo.disabled = !usesProfile || !edits.length;
     arcMiddle = cursor = snapMarker = undefined;
+    dimensionPoints = [];
+    editDimension(undefined);
     setSelection(undefined);
     for (const button of tools) button.disabled = !usesProfile && button.dataset.sketchTool !== 'pan';
     const parameters = byId('turningParameters');
@@ -592,16 +771,22 @@ export function initTurningPreview() {
       arcMiddle = cursor = snapMarker = undefined;
       edgeStyles = [];
       annotations.length = 0;
+      editDimension(undefined);
       setSelection(undefined);
     }
     if (event.target !== fields.operation) reset();
   });
   fields.operation.addEventListener('change', updateOperation);
+  fields.machine.addEventListener('change', updateOperation);
+  for (const field of [fields.grindOn, fields.grindOff, fields.controller]) {
+    field.addEventListener('input', () => { fields.grindConfirmed.checked = false; });
+  }
   undo.addEventListener('click', () => {
     const previous = edits.pop();
     fields.profile.value = previous.profile;
     edgeStyles = previous.styles;
     annotations.length = 0;
+    editDimension(undefined);
     setSelection(undefined);
     undo.disabled = !edits.length;
     arcMiddle = undefined;
@@ -618,6 +803,7 @@ export function initTurningPreview() {
     canvas.toggleAttribute('data-pan', value === 'pan');
     canvas.toggleAttribute('data-select', value === 'select');
     dimensionPoints = [];
+    editDimension(undefined);
     byId('turningDimensionOptions').hidden = value !== 'dimension';
     sketchStatus.textContent = value === 'select'
       ? 'Chọn trên thân nét để tô màu hoặc xóa. Chọn nút để sửa tọa độ.'
@@ -646,11 +832,12 @@ export function initTurningPreview() {
     }
     draw();
   });
-  dimensionType.addEventListener('change', () => { dimensionPoints = []; draw(); });
+  dimensionType.addEventListener('change', () => { dimensionPoints = []; editDimension(undefined); draw(); });
   canvas.addEventListener('keydown', event => {
     if (event.key === 'Escape') {
       arcMiddle = cursor = snapMarker = undefined;
       dimensionPoints = [];
+      editDimension(undefined);
       setSelection(undefined);
       sketchStatus.textContent = '';
       draw();
@@ -749,6 +936,40 @@ export function initTurningPreview() {
     coordinateLabel.textContent = 'X — · Z —';
     draw();
   });
+  function editDimension(annotation) {
+    activeDimension = annotation;
+    dimensionEditor.hidden = !annotation;
+    if (!annotation) return;
+    const driven = annotation.b.index !== undefined;
+    dimensionInput.value = dimensionValue(annotation.a, annotation.b, annotation.type).toFixed(3);
+    dimensionInput.disabled = byId('turningApplyDimension').disabled = !driven;
+    dimensionHelp.textContent = driven
+      ? 'Điểm thứ hai sẽ thay đổi, điểm chuẩn giữ nguyên. Có thể nhập số trước hoặc sau khi đặt kích thước.'
+      : 'Kích thước đo. Bắt điểm thứ hai vào đầu mút để nhập số và chỉnh hình học.';
+  }
+
+  byId('turningApplyDimension').addEventListener('click', () => {
+    if (activeDimension?.b.index === undefined) return;
+    try {
+      const points = readProfile(fields.profile.value);
+      const { a, b, type, placement } = activeDimension;
+      const endpoint = resizeTurningEndpoint(points, b.index, a, dimensionInput.valueAsNumber, type, dimensions());
+      points[b.index] = endpoint;
+      const edited = { a, b: { ...endpoint, index: b.index }, type, placement };
+      replaceProfile(writeProfile(points), edgeStyles);
+      dimensionPoints = placement ? [] : [a, edited.b];
+      if (placement) annotations.push(edited);
+      editDimension(edited);
+      sketchStatus.textContent = `Đã cập nhật biên dạng theo ${dimensionValue(a, edited.b, type).toFixed(3)} mm.`;
+      draw();
+    } catch (error) {
+      dimensionHelp.textContent = error.message;
+    }
+  });
+  dimensionInput.addEventListener('keydown', event => {
+    if (event.key === 'Enter') { event.preventDefault(); byId('turningApplyDimension').click(); }
+  });
+
   canvas.addEventListener('click', event => {
     if (fields.profile.disabled || activeTool === 'pan') return;
     const point = sketchPoint(event);
@@ -776,6 +997,8 @@ export function initTurningPreview() {
         if (dimensionPoints.length && Math.hypot(point.x - dimensionPoints[0].x, point.z - dimensionPoints[0].z) < 0.0001) return;
         if (!dimensionPoints.length && dimensionType.value === 'diameter') dimensionPoints.push({ x: 0, z: point.z });
         dimensionPoints.push(point);
+        if (dimensionPoints.length === 2) editDimension({ a: dimensionPoints[0], b: dimensionPoints[1], type: dimensionType.value });
+        else editDimension(undefined);
         sketchStatus.textContent = dimensionPoints.length === 2 ? 'Chọn vị trí đặt đường kích thước.' : 'Chọn điểm đo thứ hai.';
       } else {
         const [a, b] = dimensionPoints;
@@ -786,7 +1009,9 @@ export function initTurningPreview() {
         } else if (annotations.length >= 50) {
           sketchStatus.textContent = 'Đã đạt giới hạn 50 kích thước.';
         } else {
-          annotations.push({ a, b, placement: point, type });
+          const annotation = { a, b, placement: point, type };
+          annotations.push(annotation);
+          editDimension(annotation);
           sketchStatus.textContent = `Đã đặt kích thước ${type === 'diameter' ? 'Ø' : ''}${value.toFixed(3)} mm.`;
         }
         dimensionPoints = [];
@@ -1118,14 +1343,20 @@ export function initTurningPreview() {
     reset();
     try {
       const settings = Object.fromEntries(new FormData(form));
-      for (const key of ['diameter', 'length', 'tool', 'offset', 'rpm', 'feed', 'stepDepth', 'allowance', 'cutZ', 'rootDiameter', 'drillDepth', 'peck', 'threadEndZ', 'pitch']) settings[key] = Number(settings[key]);
-      code.value = generateTurningProgram(settings);
-      moves = readTurningMoves(code.value);
+      for (const { name, type } of fields) if (name && type === 'number') settings[name] = Number(settings[name]);
+      const program = generateTurningProgram(settings);
+      moves = readTurningMoves(program);
+      code.value = program;
       slider.max = moves.length;
       slider.value = moves.length;
       slider.disabled = play.disabled = download.disabled = false;
       status.textContent = `Đã tạo mã thử nghiệm và đọc ${moves.length} đoạn đường chạy từ mã NC.`;
       draw();
+      const controls = play.closest('.turning-playbar');
+      const bounds = controls.getBoundingClientRect();
+      if (event.submitter && (bounds.top < 0 || bounds.bottom > window.innerHeight)) {
+        controls.scrollIntoView({ block: 'center' });
+      }
     } catch (error) {
       status.dataset.error = 'true';
       status.textContent = error.message;

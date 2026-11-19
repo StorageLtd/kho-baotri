@@ -6,7 +6,7 @@ const asModule = source => 'data:text/javascript;base64,' + Buffer.from(source).
 const sketchSource = await readFile(new URL('../assets/js/fanuc-sketch.js', import.meta.url), 'utf8');
 const sketchUrl = asModule(sketchSource);
 const source = await readFile(new URL('../assets/js/fanuc-turning.js', import.meta.url), 'utf8');
-const { generateTurningProgram, readTurningMoves } = await import(asModule(source.replace(/\.\/fanuc-sketch\.js\?v=\d+/, sketchUrl)));
+const { generateTurningProgram, readTurningMoves, resizeTurningEndpoint } = await import(asModule(source.replace(/\.\/fanuc-sketch\.js\?v=\d+/, sketchUrl)));
 const { arcPoints, profileFromStl, profileFromImage, findSketchSnap, nearestSketchEdge, profileFromDxf } = await import(sketchUrl);
 
 const setup = {
@@ -52,11 +52,11 @@ test('rejects malformed, out-of-stock, reversed and collapsed profiles', () => {
 });
 
 test('roughing limits each layer to the target profile plus radial allowance', () => {
-  const moves = readTurningMoves(generateTurningProgram({ ...setup, operation: 'rough', stepDepth: 4, allowance: 1 }));
+  const moves = readTurningMoves(generateTurningProgram({ ...setup, operation: 'roughLinear', stepDepth: 4, allowance: 1 }));
   const cuts = moves.filter(move => move.mode === 'feed');
   assert.deepEqual(cuts.map(move => move.to), [{ x: 52, z: -60 }, { x: 44, z: -22 }, { x: 42, z: -20 }]);
   assert.ok(cuts.every(move => move.from.z === 3 && move.from.x === move.to.x));
-  assert.throws(() => generateTurningProgram({ ...setup, operation: 'rough', stepDepth: 2, allowance: 1, profile: '50 0\n40 -10' }), /tăng dần/);
+  assert.throws(() => generateTurningProgram({ ...setup, operation: 'roughLinear', stepDepth: 2, allowance: 1, profile: '50 0\n40 -10' }), /tăng dần/);
 });
 
 test('grooving and parting plunge at fixed Z and peck drilling retracts between cuts', () => {
@@ -194,4 +194,53 @@ test('DXF expands a connected arc without losing its endpoints', () => {
   assert.deepEqual(points.at(-1), { x: 20, z: -10 });
   assert.ok(points.length > 5);
   assert.ok(points.every(point => Math.abs(Math.hypot(point.z, point.x / 2 - 10) - 10) < 0.0001));
+});
+
+test('G71 two-block Type I generates P/Q contour and simulates the cycle block', () => {
+  const code = generateTurningProgram({ ...setup, operation: 'rough', stepDepth: 4, allowance: 1, cycleRetract: 0.5, finishCycle: true });
+  assert.match(code, /G71 U4\.000 R0\.500\nG71 P100 Q140 U2\.000 W0\.000 F0\.2540\nN100 G00 X40\.000/);
+  assert.match(code, /N140 G01 X50\.000 Z-60\.000 F0\.2540\nG70 P100 Q140/);
+  const cycleLine = code.split('\n').findIndex(line => line.startsWith('G71 P')) + 1;
+  const cuts = readTurningMoves(code).filter(move => move.mode === 'feed' && move.line === cycleLine);
+  assert.equal(cuts.length, 3);
+  assert.equal(cuts[0].to.x, 52);
+  assert.ok(Math.abs(cuts[1].to.z + 22) < 1e-8);
+  assert.equal(cuts[2].to.x, 42);
+  assert.ok(readTurningMoves(code).some(move => move.mode === 'feed' && move.to.x === 50 && move.to.z === -60));
+});
+
+test('G72 faces planar stock from positive Z and converts depth and allowance for G20', () => {
+  const code = generateTurningProgram({
+    ...setup, units: 'inch', operation: 'roughFace', faceStock: 5.08, faceStep: 2.54, faceAllowance: 0.254, cycleRetract: 0.254,
+  });
+  assert.match(code, /G72 W0\.10000 R0\.01000\nG72 P100 Q110 U0\.00000 W0\.01000/);
+  assert.match(code, /N100 G00 Z0\.00000\nN110 G01 X0\.00000/);
+  const cuts = readTurningMoves(code).filter(move => move.mode === 'feed');
+  assert.deepEqual(cuts.map(move => [move.to.x, +move.to.z.toFixed(3)]), [[0, 2.54], [0, 0.254]]);
+});
+
+test('PL800GB requires confirmed distinct auxiliary M codes and simulates head events', () => {
+  const params = {
+    ...setup, machine: 'pl800gb', controller: '0i-TF Plus', operation: 'grind',
+    grindDiameter: 59.8, grindStart: -2, grindEnd: -30, stepDepth: 0.06, grindFeed: 35,
+    grindOn: 'm151', grindOff: '152', grindConfirmed: true,
+  };
+  assert.throws(() => generateTurningProgram({ ...params, grindConfirmed: false }), /xác nhận/);
+  assert.throws(() => generateTurningProgram({ ...params, grindOff: 'M151' }), /khác nhau/);
+  assert.throws(() => generateTurningProgram({ ...params, machine: 'fanuc' }), /PL800GB/);
+  const code = generateTurningProgram(params);
+  assert.match(code, /SMEC PL800GB 0I-TF PLUS/);
+  assert.match(code, /G98 G21/);
+  assert.match(code, /M151 \(GRIND HEAD ON\)[\s\S]*G01 X59\.800 Z-30\.000[\s\S]*M152 \(GRIND HEAD OFF\)/);
+  const events = readTurningMoves(code).filter(move => move.mode === 'event');
+  assert.deepEqual(events.map(event => code.split('\n')[event.line - 1]), ['M151 (GRIND HEAD ON)', 'M152 (GRIND HEAD OFF)']);
+});
+
+test('editing a dimension moves the snapped endpoint and enforces stock and point order', () => {
+  const contour = [{ x: 40, z: 0 }, { x: 40, z: -20 }, { x: 50, z: -30 }];
+  assert.deepEqual(resizeTurningEndpoint(contour, 1, contour[0], 25, 'axial', setup), { x: 40, z: -25 });
+  assert.deepEqual(resizeTurningEndpoint(contour, 1, { x: 0, z: -20 }, 48, 'diameter', setup), { x: 48, z: -20 });
+  assert.deepEqual(resizeTurningEndpoint(contour, 1, { x: 20, z: -20 }, 13, 'radial', setup), { x: 46, z: -20 });
+  assert.throws(() => resizeTurningEndpoint(contour, 1, contour[0], 31, 'axial', setup), /đảo thứ tự/);
+  assert.throws(() => resizeTurningEndpoint(contour, 1, contour[0], 70, 'diameter', setup), /ngoài phôi/);
 });

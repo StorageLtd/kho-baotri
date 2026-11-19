@@ -1,4 +1,4 @@
-import { initTurningPreview } from "./fanuc-turning.js?v=4";
+import { initTurningPreview } from "./fanuc-turning.js?v=5";
 import {openCncTransfer,clearCncTransferSessions} from "./cnc-transfer-ui.js?v=20261111-viewer-controls";
 import {buildCncReport,vnDate} from "./cnc-reports.js?v=20261111-viewer-controls";
 ﻿import { downloadInventoryWorkbook } from "./inventory-xlsx.js?v=20261105-no-prices";
