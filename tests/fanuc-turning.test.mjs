@@ -301,6 +301,10 @@ test('grinding wheel speed stays separate from workpiece spindle and needs an ex
   const combined = generateTurningProgram({ ...params, grindSpeedMode: 'program', grindSpeedM: 'M151', grindSpeedAddress: 'P' });
   assert.match(combined, /G97 S600 M03[\s\S]*M151 P3400 \(GRIND HEAD ON\)/);
   assert.equal(combined.match(/M151/g).length, 1);
+  const m13 = generateTurningProgram({ ...params, grindOn: 'M13', grindSpeedMode: 'sameBlock', grindSpeedAddress: 'S' });
+  assert.match(m13, /M13 S3400 \(GRIND HEAD ON\)/);
+  assert.equal(m13.match(/^M13\b/gm).length, 1);
+  assert.throws(() => generateTurningProgram({ ...params, grindOn: 'M13', grindSpeedMode: 'sameBlock' }), /Speed Word/);
   const separate = generateTurningProgram({ ...params, grindSpeedMode: 'program', grindSpeedM: 'M153', grindSpeedAddress: 'S' });
   assert.match(separate, /M153 S3400 \(GRIND WHEEL SPEED\)\nM151 \(GRIND HEAD ON\)/);
   assert.equal(readTurningMoves(separate).filter(move => move.mode === 'event').length, 3);

@@ -32,6 +32,12 @@ function readProfile(text) {
 
 const writeProfile = points => points.map(({ x, z, breakBefore }) => `${breakBefore ? '| ' : ''}${x} ${z}`).join('\n');
 
+function normalizedM(raw) {
+    const match = /^M?(\d{1,3})$/i.exec(String(raw ?? '').trim());
+    const code = match ? Number(match[1]) : NaN;
+    if (!Number.isInteger(code) || code < 10 || [19, 30, 98, 99, 198].includes(code)) return null;
+    return `M${String(code).padStart(2, '0')}`;
+}
 export function generateTurningProgram(settings) {
   const { operation, units, diameter, length, tool, offset, rpm, feed, profile } = settings;
   const scale = unitsToMm[units];
@@ -76,12 +82,6 @@ export function generateTurningProgram(settings) {
     const count = Math.ceil(distance / step - 1e-9);
     if (count > 300) throw new Error('Thông số tạo hơn 300 lượt cắt. Hãy tăng bước cắt.');
     return count;
-  };
-  const normalizedM = raw => {
-    const match = /^M?(\d{1,3})$/i.exec(String(raw ?? '').trim());
-    const code = match ? Number(match[1]) : NaN;
-    if (!Number.isInteger(code) || code < 10 || [19, 30, 98, 99, 198].includes(code)) return null;
-    return `M${String(code).padStart(2, '0')}`;
   };
   const cycle = (g, depthAxis, depth, stockFace, allowanceX, allowanceZ, contour) => {
     const retract = settings.cycleRetract;
@@ -136,8 +136,8 @@ export function generateTurningProgram(settings) {
       if (!Number.isInteger(wheelRpm) || !inRange(wheelRpm, 1, 99999)) throw new Error('Nhập Grinding Wheel Speed theo vòng/phút.');
       if (speedMode === 'manual') {
         lines.push(`(SET GRIND WHEEL TO ${wheelRpm} RPM ON MACHINE)`);
-      } else if (speedMode === 'program') {
-        const speedM = normalizedM(settings.grindSpeedM);
+      } else if (speedMode === 'program' || speedMode === 'sameBlock') {
+        const speedM = speedMode === 'sameBlock' ? on : normalizedM(settings.grindSpeedM);
         const address = settings.grindSpeedAddress;
         if (!speedM || speedM === off || !['S', 'P', 'Q'].includes(address)) {
           throw new Error('Kiểm tra Wheel Speed M-code và Speed Word. M đặt tốc độ phải khác M tắt đầu mài.');
@@ -832,11 +832,23 @@ export function initTurningPreview() {
 
   function updateGrindingSpeed() {
     const grinding = ['grind', 'grindPlunge'].includes(fields.operation.value);
-    const programmed = grinding && fields.grindSpeedMode.value === 'program';
+    const speedMode = fields.grindSpeedMode.value;
+    const sameBlock = speedMode === 'sameBlock';
+    const separateBlock = speedMode === 'program';
+    const programmed = grinding && (sameBlock || separateBlock);
     byId('turningSpindleLabel').textContent = grinding ? 'Workpiece Spindle Speed (rpm)' : 'Spindle Speed (rpm)';
-    byId('turningGrindSpeedCode').hidden = fields.grindSpeedM.disabled = !programmed;
+    byId('turningGrindSpeedCode').hidden = fields.grindSpeedM.disabled = !(grinding && separateBlock);
     byId('turningGrindSpeedAddress').hidden = fields.grindSpeedAddress.disabled = !programmed;
-    byId('turningGrindSpeedNote').hidden = !programmed;
+    const note = byId('turningGrindSpeedNote');
+    note.hidden = !programmed;
+    if (programmed) {
+      const m = normalizedM(sameBlock ? fields.grindOn.value : fields.grindSpeedM.value);
+      const address = fields.grindSpeedAddress.value;
+      const rpm = fields.grindRpm.valueAsNumber;
+      note.textContent = m && address && Number.isInteger(rpm) && rpm >= 1 && rpm <= 99999
+        ? `NC Preview · ${m} ${address}${rpm}. Đối chiếu cú pháp và đơn vị rpm theo tài liệu máy.`
+        : 'Nhập tốc độ và chọn Speed Word theo cú pháp được xác nhận của máy.';
+    }
   }
 
   function updateLineEntry() {
@@ -974,7 +986,10 @@ export function initTurningPreview() {
   fields.grindSpeedMode.addEventListener('change', () => { updateGrindingSpeed(); reset(); });
   for (const field of [fields.grindOn, fields.grindOff, fields.grindRpm, fields.grindSpeedMode,
     fields.grindSpeedM, fields.grindSpeedAddress, fields.controller]) {
-    field.addEventListener('input', () => { fields.grindConfirmed.checked = false; });
+    field.addEventListener('input', () => {
+      fields.grindConfirmed.checked = false;
+      updateGrindingSpeed();
+    });
   }
   undo.addEventListener('click', () => {
     const previous = edits.pop();
