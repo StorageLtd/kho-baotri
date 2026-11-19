@@ -252,8 +252,128 @@ export function findSketchSnap(point, points, tolerance, verticesOnly = false) {
   if (verticesOnly) return nearest;
   for (const [index, vertex] of points.entries()) {
     const next = points[index + 1];
-    if (next) consider((vertex.x + next.x) / 2, (vertex.z + next.z) / 2, 'Trung điểm');
+    if (next && !next.breakBefore) consider((vertex.x + next.x) / 2, (vertex.z + next.z) / 2, 'Trung điểm');
   }
   consider(0, 0, 'Gốc X0/Z0');
   return nearest;
+}
+
+export function nearestSketchEdge(point, points, tolerance) {
+  let selected;
+  let nearest = tolerance;
+  for (let i = 1; i < points.length; i++) {
+    const a = points[i - 1], b = points[i];
+    if (b.breakBefore) continue;
+    const dr = (b.x - a.x) / 2, dz = b.z - a.z;
+    const square = dr * dr + dz * dz;
+    if (!square) continue;
+    const t = Math.max(0, Math.min(1, ((point.x - a.x) / 2 * dr + (point.z - a.z) * dz) / square));
+    const distance = Math.hypot((point.x - a.x) / 2 - t * dr, point.z - a.z - t * dz);
+    if (distance < nearest) {
+      nearest = distance;
+      selected = i;
+    }
+  }
+  return selected;
+}
+
+export function profileFromDxf(text, { units, center, face }) {
+  const lines = text.replace(/^\uFEFF/, '').trim().split(/\r?\n/);
+  const groups = [];
+  for (let i = 0; i + 1 < lines.length; i += 2) {
+    if (!/^\s*-?\d+\s*$/.test(lines[i])) throw new Error('Chọn tệp DXF dạng ASCII.');
+    groups.push([Number(lines[i]), lines[i + 1].trim()]);
+  }
+  const unitIndex = groups.findIndex(([key, value]) => key === 9 && value === '$INSUNITS');
+  const code = unitIndex >= 0 ? Number(groups[unitIndex + 1]?.[1]) : 0;
+  const scale = units === 'mm' ? 1 : units === 'inch' ? 25.4 : ({ 1: 25.4, 4: 1, 5: 10, 6: 1000 })[code];
+  if (!scale || !Number.isFinite(center)) throw new Error('Chọn đơn vị DXF và nhập Y của đường tâm.');
+  const start = groups.findIndex(([key, value]) => key === 2 && value === 'ENTITIES');
+  const end = groups.findIndex(([key, value], index) => index > start && key === 0 && value === 'ENDSEC');
+  if (start < 0 || end < 0) throw new Error('DXF thiếu mục ENTITIES.');
+  const edges = [];
+  function appendArc(cx, cy, radius, start, sweep, startPoint, endPoint) {
+    if (![cx, cy, radius, start, sweep].every(Number.isFinite) || radius <= 0 || !sweep) throw new Error('DXF có cung không hợp lệ.');
+    const maxAngle = Math.min(Math.PI / 12, 2 * Math.acos(Math.max(-1, 1 - 0.02 / (radius * scale))));
+    const steps = Math.ceil(Math.abs(sweep) / maxAngle);
+    if (steps > 199 || steps + edges.length > 199) throw new Error('Cung DXF vượt giới hạn 200 điểm ở dung sai 0,02 mm.');
+    const at = angle => [cx + radius * Math.cos(angle), cy + radius * Math.sin(angle)];
+    let previous = startPoint || at(start);
+    for (let i = 1; i <= steps; i++) {
+      const point = i === steps && endPoint ? endPoint : at(start + sweep * i / steps);
+      edges.push([previous, point]);
+      previous = point;
+    }
+  }
+  for (let i = start + 1; i < end;) {
+    const [key, type] = groups[i++];
+    if (key !== 0) continue;
+    const entity = [];
+    while (i < end && groups[i][0] !== 0) entity.push(groups[i++]);
+    const field = key => Number(entity.find(([code]) => code === key)?.[1]);
+    if (type === 'LINE') {
+      edges.push([[field(10), field(20)], [field(11), field(21)]]);
+    } else if (type === 'ARC') {
+      const start = field(50) * Math.PI / 180;
+      const end = field(51) * Math.PI / 180;
+      appendArc(field(10), field(20), field(40), start, (end - start + fullCircle) % fullCircle);
+    } else if (type === 'LWPOLYLINE') {
+      if (field(70) & 1) throw new Error('Xuất một polyline hở.');
+      const points = [];
+      for (const [key, value] of entity) {
+        if (key === 10) points.push({ xy: [Number(value), NaN], bulge: 0 });
+        if (key === 20 && points.length) points.at(-1).xy[1] = Number(value);
+        if (key === 42 && points.length) points.at(-1).bulge = Number(value);
+      }
+      for (let i = 1; i < points.length; i++) {
+        const { xy: a, bulge } = points[i - 1];
+        const { xy: b } = points[i];
+        if (!bulge) {
+          edges.push([a, b]);
+          continue;
+        }
+        const dx = b[0] - a[0], dy = b[1] - a[1];
+        const offset = (1 - bulge ** 2) / (4 * bulge);
+        const cx = (a[0] + b[0]) / 2 - dy * offset;
+        const cy = (a[1] + b[1]) / 2 + dx * offset;
+        appendArc(cx, cy, Math.hypot(a[0] - cx, a[1] - cy), Math.atan2(a[1] - cy, a[0] - cx), 4 * Math.atan(bulge), a, b);
+      }
+    } else {
+      throw new Error(`DXF chứa ${type}. Chỉ xuất biên dạng hở bằng LINE, ARC hoặc LWPOLYLINE.`);
+    }
+  }
+  if (!edges.length || edges.length > 199 || edges.some(edge => edge.some(point => !point.every(Number.isFinite)))) {
+    throw new Error('DXF cần một biên dạng có từ 2 đến 200 điểm hợp lệ.');
+  }
+  const nodes = new Map();
+  for (const edge of edges) {
+    const keys = edge.map(([x, y]) => `${round(x * scale)},${round((y - center) * scale)}`);
+    if (keys[0] === keys[1]) throw new Error('DXF có đoạn thẳng trùng đầu mút.');
+    for (const [i, key] of keys.entries()) {
+      if (!nodes.has(key)) nodes.set(key, []);
+      nodes.get(key).push(keys[1 - i]);
+    }
+  }
+  const ends = [...nodes.keys()].filter(key => nodes.get(key).length === 1);
+  if (ends.length !== 2 || [...nodes.values()].some(links => links.length > 2)) {
+    throw new Error('DXF phải chứa một đường hở liên tục, không phân nhánh.');
+  }
+  const xy = key => key.split(',').map(Number);
+  ends.sort((a, b) => xy(a)[0] - xy(b)[0]);
+  let next = ends[face === 'left' ? 0 : 1];
+  const x0 = xy(next)[0];
+  let previous;
+  const points = [];
+  while (next && points.length <= edges.length) {
+    const [x, y] = xy(next);
+    if (y < 0) throw new Error('Biên dạng DXF phải nằm phía trên đường tâm Y đã khai báo.');
+    const z = round(face === 'left' ? x0 - x : x - x0);
+    if (z > (points.at(-1)?.z ?? 0)) throw new Error('Biên dạng DXF quay ngược theo trục dọc.');
+    points.push({ x: round(2 * y), z });
+    const current = next;
+    next = nodes.get(current).find(key => key !== previous);
+    previous = current;
+  }
+  if (points.length !== edges.length + 1 || points.at(-1).z >= 0) throw new Error('DXF có nét rời hoặc không có chiều dài dọc trục.');
+  return points;
 }

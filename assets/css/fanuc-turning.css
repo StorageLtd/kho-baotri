@@ -95,3 +95,24 @@
 }
 body[data-page="fanucTurningPage"] .topbar { position: static; }
 .turning-ribbon { position: sticky; top: 0; z-index: 5; }
+#turningPlot { background: #101720; aspect-ratio: 8 / 5; }
+.turning-view-header, .turning-view-status, .turning-legend {
+  background: #182430; color: #d0e1ef; border-color: #344858;
+}
+.turning-view-header h3, .turning-view-status .turning-coordinate, #turningSketchStatus { color: #d0e1ef; }
+.turning-view-header select { color: #e6eef7; background: #223343; border-color: #506378; }
+.turning-view-header label[hidden], #turningPdfPageLabel[hidden] { display: none; }
+#turningStrokeColor { width: 29px; height: 22px; padding: 1px; border: 1px solid #62788b; border-radius: 4px; background: #223343; cursor: pointer; }
+.turning-key.stock { border-color: #829ab1; background: #334758; }
+.turning-key.profile { color: #50efad; }
+.turning-key.rapid { color: #ffac5b; }
+.turning-key.feed { color: #52aaff; }
+.turning-key.thread { color: #ff82bb; }
+.turning-key.active { color: #df9aff; }
+#turningJoinGap[hidden] { display: none; }
+#turningImagePreview { cursor: crosshair; touch-action: none; }
+.turning-image-crop .btn { margin-top: 5px; min-height: 30px; padding: 4px 9px; font-size: 12px; }
+@media (min-width: 1061px) {
+  .turning-ribbon-group { padding-inline: 4px; gap: 2px; }
+  .turning-command { min-width: 37px; padding-inline: 4px; }
+}

@@ -3,11 +3,11 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self' https://www.gstatic.com https://apis.google.com; style-src 'self' 'unsafe-inline'; img-src 'self' https: data: blob:; font-src 'self' data:; connect-src 'self' https://www.gstatic.com https://identitytoolkit.googleapis.com https://securetoken.googleapis.com https://ltdst-80b3e-default-rtdb.asia-southeast1.firebasedatabase.app https://ltdst-80b3e.firebaseapp.com http://127.0.0.1:8766; frame-src https://ltdst-80b3e.firebaseapp.com https://apis.google.com; object-src 'none'; base-uri 'self'; form-action 'none'">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self' https://www.gstatic.com https://apis.google.com; style-src 'self' 'unsafe-inline'; img-src 'self' https: data: blob:; font-src 'self' data:; connect-src 'self' https://www.gstatic.com https://identitytoolkit.googleapis.com https://securetoken.googleapis.com https://ltdst-80b3e-default-rtdb.asia-southeast1.firebasedatabase.app https://ltdst-80b3e.firebaseapp.com http://127.0.0.1:8766; frame-src https://ltdst-80b3e.firebaseapp.com https://apis.google.com; worker-src 'self'; object-src 'none'; base-uri 'self'; form-action 'none'">
   <meta name="referrer" content="no-referrer">
   <title>LTD VIET NAM - Cloud Maintenance System</title>
   <link rel="stylesheet" href="assets/css/app.css?v=20261105-compact-alarm">
-  <link rel="stylesheet" href="assets/css/fanuc-turning.css?v=3">
+  <link rel="stylesheet" href="assets/css/fanuc-turning.css?v=4">
   <link rel="stylesheet" href="assets/css/cnc-report.css?v=20261107-tool-context">
   <link rel="stylesheet" href="assets/css/cnc-transfer.css?v=20261111-viewer-controls">
   <link rel="stylesheet" href="assets/css/cnc-dashboard.css?v=20261109-productivity">
@@ -260,6 +260,8 @@
               <div class="turning-ribbon-group">
                 <button class="turning-command" type="button" id="turningOpenImage"><i aria-hidden="true">▧</i>Nhập ảnh</button>
                 <button class="turning-command" type="button" id="turningOpenMesh"><i aria-hidden="true">◇</i>Nhập STL</button>
+                <button class="turning-command" type="button" id="turningOpenPdf"><i aria-hidden="true">▤</i>Nhập PDF</button>
+                <button class="turning-command" type="button" id="turningOpenDxf"><i aria-hidden="true">▱</i>Nhập DXF</button>
               </div>
               <div class="turning-ribbon-group" role="group" aria-label="Công cụ CAD">
                 <button class="turning-command" type="button" data-sketch-tool="select" aria-pressed="false"><i aria-hidden="true">↖</i>Chọn</button>
@@ -267,12 +269,12 @@
                 <button class="turning-command" type="button" data-sketch-tool="horizontal" aria-pressed="false"><i aria-hidden="true">─</i>Ngang</button>
                 <button class="turning-command" type="button" data-sketch-tool="vertical" aria-pressed="false"><i aria-hidden="true">│</i>Đứng</button>
                 <button class="turning-command" type="button" data-sketch-tool="arc" aria-pressed="false"><i aria-hidden="true">⌒</i>Cung 3 điểm</button>
+                <button class="turning-command" type="button" data-sketch-tool="dimension" aria-pressed="false"><i aria-hidden="true">↔</i>Kích thước</button>
                 <button class="turning-command" type="button" data-sketch-tool="pan" aria-pressed="false"><i aria-hidden="true">✥</i>Kéo khung</button>
               </div>
               <div class="turning-ribbon-group">
-                <button class="turning-command" type="button" id="turningDelete"><i aria-hidden="true">×</i>Xóa điểm</button>
+                <button class="turning-command" type="button" id="turningDelete"><i aria-hidden="true">×</i>Xóa nét</button>
                 <button class="turning-command" type="button" id="turningUndo"><i aria-hidden="true">↶</i>Hoàn tác</button>
-                <button class="turning-command" type="button" id="turningClear"><i aria-hidden="true">⌫</i>Xóa hết</button>
               </div>
               <div class="turning-ribbon-group">
                 <button class="turning-command" type="button" id="turningZoomIn" aria-label="Phóng to"><i aria-hidden="true">+</i></button>
@@ -284,6 +286,8 @@
               <section class="turning-drawing" aria-label="Bản vẽ và đường dao X–Z">
                 <div class="turning-view-header">
                   <h3>Bản vẽ X–Z</h3>
+                  <label>Màu nét <input id="turningStrokeColor" type="color" value="#50efad"></label>
+                  <label id="turningDimensionOptions" hidden>Kiểu kích thước <select id="turningDimensionType"><option value="aligned">Khoảng cách</option><option value="axial">Dọc Z</option><option value="radial">Theo bán kính</option><option value="diameter">Đường kính Ø</option></select></label>
                   <label><input type="checkbox" id="turningObjectSnap" checked>Bắt điểm</label>
                   <label>Lưới <select id="turningSnap" aria-label="Bước bắt lưới"><option value="0">Tắt</option><option value="0.1">0,1 mm</option><option value="0.5">0,5 mm</option><option value="1">1 mm</option><option value="5">5 mm</option></select></label>
                 </div>
@@ -307,6 +311,7 @@
                   <label>Z (mm) <input class="input" id="turningPointZ" type="number" step="any"></label>
                   <button type="button" class="btn" id="turningApplyPoint">Cập nhật điểm</button>
                   <button type="button" class="btn" id="turningInsertPoint">Chèn trung điểm kế tiếp</button>
+                  <button type="button" class="btn" id="turningJoinGap" hidden>Nối với điểm trước</button>
                 </div>
                 <section class="turning-simulation" aria-label="Phát mô phỏng và mã NC">
               <label class="turning-profile">Bước mô phỏng <output id="turningStepLabel">0 / 0</output><input id="turningStep" type="range" min="0" max="0" value="0" disabled></label>
@@ -321,6 +326,11 @@
               <details class="turning-import" id="turningImportPanel">
                 <summary>Nguồn biên dạng</summary>
                 <div class="turning-fields">
+                  <label>PDF bản vẽ<input id="turningPdf" type="file" accept="application/pdf,.pdf"></label>
+                  <label id="turningPdfPageLabel" hidden>Trang PDF<select class="input" id="turningPdfPage"></select></label>
+                  <label>DXF ASCII<input id="turningDxf" type="file" accept=".dxf"></label>
+                  <label>Đơn vị DXF<select class="input" id="turningDxfUnits"><option value="auto">Theo tệp</option><option value="mm">mm</option><option value="inch">inch</option></select></label>
+                  <label class="turning-wide">Tọa độ Y của đường tâm trong DXF<input class="input" type="number" id="turningDxfCenter" value="0" step="any"></label>
                   <label class="turning-wide">Ảnh hình chiếu PNG / JPEG / WebP<input id="turningImage" type="file" accept="image/png,image/jpeg,image/webp"></label>
                   <label>Chiều rộng ảnh theo Z (mm)<input class="input" id="turningImageWidth" type="number" min="0.1" step="any" value="80"></label>
                   <label>Mép phải ảnh tại Z (mm)<input class="input" id="turningImageZ" type="number" step="any" value="0"></label>
@@ -329,16 +339,22 @@
                   <label>Chuẩn kích thước<select class="input" id="turningImageMeasure"><option value="length">Chiều dài chi tiết theo Z</option><option value="diameter">Đường kính lớn nhất</option></select></label>
                   <label>Kích thước thực (mm)<input class="input" type="number" id="turningImageActual" min="0.1" max="10000" step="any" placeholder="Nhập từ bản vẽ"></label>
                   <label>Tách nền (ngưỡng tương phản)<input id="turningImageThreshold" type="range" min="18" max="150" value="48"></label>
-                  <label>Hướng mặt đầu Z0<select class="input" id="turningImageFace"><option value="right">Mép phải</option><option value="left">Mép trái</option></select></label>
+                  <label>Hướng mặt đầu Z0 (ảnh / DXF)<select class="input" id="turningImageFace"><option value="right">Mép phải</option><option value="left">Mép trái</option></select></label>
                   <label>Mô hình STL (tọa độ mm)<input id="turningMesh" type="file" accept=".stl"></label>
                   <label>Trục tiện trong STL<select class="input" id="turningMeshAxis"><option>Z</option><option>X</option><option>Y</option></select></label>
                 </div>
                 <canvas id="turningImagePreview" width="320" height="160" aria-label="Xem trước ảnh" hidden></canvas>
+                <div class="turning-image-crop" id="turningImageCropControls" hidden>
+                  <p class="meta">Kéo trong ảnh xem trước để khoanh riêng hình chiếu cần lấy biên dạng.</p>
+                  <button class="btn" type="button" id="turningResetCrop">Dùng cả trang ảnh</button>
+                </div>
                 <div class="turning-tools">
+                  <button class="btn" type="button" id="turningImportDxf">Lấy biên dạng DXF và tạo NC</button>
                   <button class="btn" type="button" id="turningRemoveImage">Bỏ ảnh nền</button>
                   <button class="btn primary" type="button" id="turningTraceImage">Lấy biên dạng ảnh và tạo NC</button>
                   <button class="btn" type="button" id="turningImportMesh">Lấy biên dạng STL và tạo NC</button>
                 </div>
+                <p class="meta">SolidWorks: xuất sketch hoặc mặt cắt sang DXF ASCII, hoặc chi tiết tròn xoay sang STL (mm). Với DXF, chỉ xuất một đường biên dạng hở, trục dọc chi tiết theo X của DXF và khai báo Y của đường tâm. PDF dùng làm nền như ảnh, cần hiệu chuẩn trước khi lấy đường bao.</p>
                 <p class="meta">Dùng hình chiếu cạnh đối xứng, trục tiện nằm ngang và nền tương phản. Cắt ảnh sát chi tiết, bỏ chữ và đường ghi kích thước. Nhập một kích thước thực để suy ra các kích thước còn lại. STL dùng đơn vị mm và lấy biên dạng theo trục đã chọn.</p>
                 <p id="turningImportStatus" role="status"></p>
               </details>
@@ -372,7 +388,7 @@
 50 -30
 50 -60</textarea>
               </label>
-              <p class="meta">Mỗi dòng gồm X (đường kính) và Z, cách nhau bằng dấu cách. Mặt đầu ở Z0, phía trong phôi có Z âm. Bắt đầu ở Z0 và đi dần sang trái. Tiện tinh giả định phôi đã được tiện thô.</p>
+              <p class="meta">Mỗi dòng gồm X (đường kính) và Z, cách nhau bằng dấu cách. Mặt đầu ở Z0, phía trong phôi có Z âm. Bắt đầu ở Z0 và đi dần sang trái. Dấu | đầu dòng biểu thị khoảng hở sau khi xóa nét. Tiện tinh giả định phôi đã được tiện thô.</p>
               <div class="turning-actions">
                 <button type="submit" class="btn primary">Tạo mã và mô phỏng</button>
               </div>
@@ -870,6 +886,6 @@
 
   <div class="toast" id="toast" role="status" aria-live="polite"></div>
 
-  <script type="module" src="assets/js/app.js?v=20261119-fanuc-cad"></script>
+  <script type="module" src="assets/js/app.js?v=20261119-fanuc-dimensions"></script>
 </body>
 </html>

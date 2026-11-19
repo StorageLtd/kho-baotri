@@ -7,7 +7,7 @@ const sketchSource = await readFile(new URL('../assets/js/fanuc-sketch.js', impo
 const sketchUrl = asModule(sketchSource);
 const source = await readFile(new URL('../assets/js/fanuc-turning.js', import.meta.url), 'utf8');
 const { generateTurningProgram, readTurningMoves } = await import(asModule(source.replace(/\.\/fanuc-sketch\.js\?v=\d+/, sketchUrl)));
-const { arcPoints, profileFromStl, profileFromImage, findSketchSnap } = await import(sketchUrl);
+const { arcPoints, profileFromStl, profileFromImage, findSketchSnap, nearestSketchEdge, profileFromDxf } = await import(sketchUrl);
 
 const setup = {
   operation: 'profile', units: 'mm', diameter: 60, length: 80,
@@ -163,4 +163,35 @@ test('object snap finds endpoints and midpoints in the physical radius plane', (
   assert.deepEqual(findSketchSnap({ x: 21, z: -0.1 }, points, 0.6, true), { x: 20, z: 0, label: 'Điểm đầu mút', index: 0 });
   assert.equal(findSketchSnap({ x: 20, z: -4.9 }, points, 0.6)?.label, 'Trung điểm');
   assert.equal(findSketchSnap({ x: 20, z: -4.9 }, points, 0.6, true), undefined);
+});
+
+test('a removed edge is ignored by picking and blocks NC until the profile is joined', () => {
+  const points = [{ x: 40, z: 0 }, { x: 40, z: -20, breakBefore: true }, { x: 50, z: -30 }];
+  assert.equal(nearestSketchEdge({ x: 40, z: -10 }, points, 1), undefined);
+  assert.equal(nearestSketchEdge({ x: 45, z: -25 }, points, 1), 2);
+  assert.throws(() => generateTurningProgram({ ...setup, profile: '40 0\n| 40 -20\n50 -30' }), /khoảng hở/);
+});
+
+test('DXF ASCII orders a connected outline and converts model units and center offset', () => {
+  const chain = [
+    '0','SECTION','2','HEADER','9','$INSUNITS','70','1','0','ENDSEC',
+    '0','SECTION','2','ENTITIES',
+    '0','LINE','10','0','20','1.5','11','1','21','1.5',
+    '0','LINE','10','1','20','1.5','11','2','21','1.4',
+    '0','ENDSEC','0','EOF',
+  ].join('\n');
+  const settings = { units: 'auto', center: 1, face: 'right' };
+  assert.deepEqual(profileFromDxf(chain, settings), [{ x: 20.32, z: 0 }, { x: 25.4, z: -25.4 }, { x: 25.4, z: -50.8 }]);
+  assert.throws(() => profileFromDxf(chain.replace('11\n1\n21', '11\n0.5\n21'), settings), /liên tục/);
+  const polyline = '0\nSECTION\n2\nENTITIES\n0\nLWPOLYLINE\n70\n0\n10\n0\n20\n5\n10\n10\n20\n4\n0\nENDSEC\n0\nEOF';
+  assert.deepEqual(profileFromDxf(polyline, { units: 'mm', center: 0, face: 'right' }), [{ x: 8, z: 0 }, { x: 10, z: -10 }]);
+});
+
+test('DXF expands a connected arc without losing its endpoints', () => {
+  const dxf = '0\nSECTION\n2\nENTITIES\n0\nARC\n10\n10\n20\n10\n40\n10\n50\n180\n51\n270\n0\nENDSEC\n0\nEOF';
+  const points = profileFromDxf(dxf, { units: 'mm', center: 0, face: 'right' });
+  assert.deepEqual(points[0], { x: 0, z: 0 });
+  assert.deepEqual(points.at(-1), { x: 20, z: -10 });
+  assert.ok(points.length > 5);
+  assert.ok(points.every(point => Math.abs(Math.hypot(point.z, point.x / 2 - 10) - 10) < 0.0001));
 });
