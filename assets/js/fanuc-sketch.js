@@ -1,5 +1,5 @@
 const fullCircle = Math.PI * 2;
-const round = value => Math.round(value * 10000) / 10000;
+const round = value => Math.round(value * 10000) / 10000 || 0;
 
 export function arcPoints(start, middle, end) {
   const bx = (middle.x - start.x) / 2;
@@ -118,4 +118,142 @@ export function profileFromStl(buffer, axis = 'Z') {
   }
   if (profile.length > 200) throw new Error('Biên dạng STL vượt quá 200 điểm.');
   return profile;
+}
+
+function largestSilhouette({ data, width, height }, threshold) {
+  const corners = [0, width - 1, (height - 1) * width, width * height - 1].map(i => i * 4);
+  const transparent = corners.every(i => data[i + 3] < 32);
+  const background = [0, 1, 2].map(channel => {
+    const values = corners.map(i => data[i + channel]).sort((a, b) => a - b);
+    return (values[1] + values[2]) / 2;
+  });
+  const mask = new Uint8Array(width * height);
+  for (let i = 0; i < mask.length; i++) {
+    const k = i * 4;
+    const contrast = transparent ? data[k + 3] : Math.max(
+      Math.abs(data[k] - background[0]), Math.abs(data[k + 1] - background[1]),
+      Math.abs(data[k + 2] - background[2]),
+    ) * data[k + 3] / 255;
+    mask[i] = Number(contrast >= threshold);
+  }
+  const queue = new Int32Array(mask.length);
+  let largest = new Int32Array();
+  const enqueue = (index, tail) => {
+    if (mask[index] !== 1) return tail;
+    mask[index] = 0;
+    queue[tail] = index;
+    return tail + 1;
+  };
+  for (let i = 0; i < mask.length; i++) {
+    if (!mask[i]) continue;
+    let tail = enqueue(i, 0);
+    for (let head = 0; head < tail; head++) {
+      const index = queue[head];
+      if (index % width) tail = enqueue(index - 1, tail);
+      if (index % width < width - 1) tail = enqueue(index + 1, tail);
+      if (index >= width) tail = enqueue(index - width, tail);
+      if (index < (height - 1) * width) tail = enqueue(index + width, tail);
+    }
+    if (tail > largest.length) largest = queue.slice(0, tail);
+  }
+  return largest;
+}
+
+function simplifySilhouette(points, tolerance) {
+  const keep = new Set([0, points.length - 1]);
+  const spans = [[0, points.length - 1]];
+  while (spans.length) {
+    const [first, last] = spans.pop();
+    const a = points[first];
+    const b = points[last];
+    const dz = b.z - a.z;
+    const dr = (b.x - a.x) / 2;
+    const span = Math.hypot(dz, dr);
+    let farthest = tolerance;
+    let split;
+    for (let i = first + 1; i < last; i++) {
+      const distance = Math.abs(dz * (points[i].x - a.x) / 2 - dr * (points[i].z - a.z)) / span;
+      if (distance > farthest) {
+        farthest = distance;
+        split = i;
+      }
+    }
+    if (split !== undefined) {
+      keep.add(split);
+      spans.push([first, split], [split, last]);
+    }
+  }
+  return points.filter((_, index) => keep.has(index));
+}
+
+export function profileFromImage(image, { known, measure, face, threshold }) {
+  if (!Number.isFinite(known) || known < 0.1 || known > 10000) {
+    throw new Error('Nhập một kích thước thực trong khoảng 0,1–10000 mm.');
+  }
+  const { width, height } = image;
+  const component = largestSilhouette(image, threshold);
+  const top = new Int32Array(width).fill(height);
+  const bottom = new Int32Array(width).fill(-1);
+  let first = width;
+  let last = -1;
+  for (const index of component) {
+    const x = index % width;
+    const y = Math.floor(index / width);
+    first = Math.min(first, x);
+    last = Math.max(last, x);
+    top[x] = Math.min(top[x], y);
+    bottom[x] = Math.max(bottom[x], y);
+  }
+  if (last - first < 16) throw new Error('Không tìm thấy đường bao liền mạch đủ rõ. Hãy thử ảnh nét hơn hoặc đổi ngưỡng.');
+  const columns = Array.from({ length: last - first + 1 }, (_, i) => {
+    const x = first + i;
+    return { x, thickness: bottom[x] - top[x], center: (top[x] + bottom[x]) / 2 };
+  });
+  const centers = columns.map(column => column.center).sort((a, b) => a - b);
+  const center = centers[Math.floor(centers.length / 2)];
+  const maxThickness = Math.max(...columns.map(column => column.thickness));
+  const symmetryTolerance = Math.max(2, maxThickness * 0.03);
+  if (maxThickness < 8 || columns.some(column => column.thickness < 0) ||
+      columns.filter(column => Math.abs(column.center - center) > symmetryTolerance).length > Math.max(2, columns.length * 0.02)) {
+    throw new Error('Đường bao chưa đối xứng quanh trục ngang. Dùng hình chiếu cạnh, cắt bỏ chữ và đường kích thước hoặc đổi ngưỡng.');
+  }
+  const mmPerPixel = known / (measure === 'diameter' ? maxThickness : last - first);
+  if ((last - first) * mmPerPixel > 10000 || maxThickness * mmPerPixel > 10000) {
+    throw new Error('Kích thước suy ra vượt 10000 mm. Kiểm tra thông số chuẩn.');
+  }
+  if (face === 'right') columns.reverse();
+  const z0 = columns[0].x;
+  const geometry = columns.map(column => ({
+    x: column.thickness * mmPerPixel,
+    z: -Math.abs(column.x - z0) * mmPerPixel,
+  }));
+  const tolerance = Math.max(0.002, mmPerPixel * 1.25);
+  const simplified = simplifySilhouette(geometry, tolerance);
+  if (simplified.length > 200) throw new Error('Đường bao quá nhiều chi tiết. Dùng hình chiếu sạch hơn hoặc nhập STL.');
+  return {
+    points: simplified.map(({ x, z }) => ({ x: round(x), z: round(z) })),
+    diameter: round(maxThickness * mmPerPixel),
+    length: round((last - first) * mmPerPixel),
+    mmPerPixel,
+    bounds: { first, last, center },
+  };
+}
+
+export function findSketchSnap(point, points, tolerance, verticesOnly = false) {
+  let nearest;
+  let best = tolerance;
+  const consider = (x, z, label, index) => {
+    const distance = Math.hypot((x - point.x) / 2, z - point.z);
+    if (distance > best || distance === best && nearest) return;
+    best = distance;
+    nearest = { x, z, label, index };
+  };
+  for (const [index, vertex] of points.entries()) consider(vertex.x, vertex.z, 'Điểm đầu mút', index);
+  if (verticesOnly) return nearest;
+  for (const [index, vertex] of points.entries()) {
+    const next = points[index + 1];
+    if (next) consider((vertex.x + next.x) / 2, (vertex.z + next.z) / 2, 'Trung điểm');
+  }
+  consider(0, 0, 'Gốc X0/Z0');
+  return nearest;
 }

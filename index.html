@@ -7,7 +7,7 @@
   <meta name="referrer" content="no-referrer">
   <title>LTD VIET NAM - Cloud Maintenance System</title>
   <link rel="stylesheet" href="assets/css/app.css?v=20261105-compact-alarm">
-  <link rel="stylesheet" href="assets/css/fanuc-turning.css?v=2">
+  <link rel="stylesheet" href="assets/css/fanuc-turning.css?v=3">
   <link rel="stylesheet" href="assets/css/cnc-report.css?v=20261107-tool-context">
   <link rel="stylesheet" href="assets/css/cnc-transfer.css?v=20261111-viewer-controls">
   <link rel="stylesheet" href="assets/css/cnc-dashboard.css?v=20261109-productivity">
@@ -255,7 +255,93 @@
       <section class="content" id="fanucTurningPage" hidden>
         <div class="turning-preview">
           <p class="turning-warning"><strong>Mã NC thử nghiệm, chưa kiểm chứng trên máy.</strong> Chỉ dùng để xem trước và mô phỏng. Đường chạy 2D không kiểm tra va chạm, gá kẹp hay bù bán kính mũi dao.</p>
-          <div class="turning-grid">
+          <div class="turning-workbench">
+            <div class="turning-ribbon" aria-label="Thanh lệnh biên dạng">
+              <div class="turning-ribbon-group">
+                <button class="turning-command" type="button" id="turningOpenImage"><i aria-hidden="true">▧</i>Nhập ảnh</button>
+                <button class="turning-command" type="button" id="turningOpenMesh"><i aria-hidden="true">◇</i>Nhập STL</button>
+              </div>
+              <div class="turning-ribbon-group" role="group" aria-label="Công cụ CAD">
+                <button class="turning-command" type="button" data-sketch-tool="select" aria-pressed="false"><i aria-hidden="true">↖</i>Chọn</button>
+                <button class="turning-command" type="button" data-sketch-tool="line" aria-pressed="true"><i aria-hidden="true">╱</i>Đoạn thẳng</button>
+                <button class="turning-command" type="button" data-sketch-tool="horizontal" aria-pressed="false"><i aria-hidden="true">─</i>Ngang</button>
+                <button class="turning-command" type="button" data-sketch-tool="vertical" aria-pressed="false"><i aria-hidden="true">│</i>Đứng</button>
+                <button class="turning-command" type="button" data-sketch-tool="arc" aria-pressed="false"><i aria-hidden="true">⌒</i>Cung 3 điểm</button>
+                <button class="turning-command" type="button" data-sketch-tool="pan" aria-pressed="false"><i aria-hidden="true">✥</i>Kéo khung</button>
+              </div>
+              <div class="turning-ribbon-group">
+                <button class="turning-command" type="button" id="turningDelete"><i aria-hidden="true">×</i>Xóa điểm</button>
+                <button class="turning-command" type="button" id="turningUndo"><i aria-hidden="true">↶</i>Hoàn tác</button>
+                <button class="turning-command" type="button" id="turningClear"><i aria-hidden="true">⌫</i>Xóa hết</button>
+              </div>
+              <div class="turning-ribbon-group">
+                <button class="turning-command" type="button" id="turningZoomIn" aria-label="Phóng to"><i aria-hidden="true">+</i></button>
+                <button class="turning-command" type="button" id="turningZoomOut" aria-label="Thu nhỏ"><i aria-hidden="true">−</i></button>
+                <button class="turning-command" type="button" id="turningFit"><i aria-hidden="true">□</i>Vừa khung</button>
+              </div>
+            </div>
+            <div class="turning-grid">
+              <section class="turning-drawing" aria-label="Bản vẽ và đường dao X–Z">
+                <div class="turning-view-header">
+                  <h3>Bản vẽ X–Z</h3>
+                  <label><input type="checkbox" id="turningObjectSnap" checked>Bắt điểm</label>
+                  <label>Lưới <select id="turningSnap" aria-label="Bước bắt lưới"><option value="0">Tắt</option><option value="0.1">0,1 mm</option><option value="0.5">0,5 mm</option><option value="1">1 mm</option><option value="5">5 mm</option></select></label>
+                </div>
+              <canvas id="turningPlot" width="640" height="400" tabindex="0" aria-label="Biểu đồ phôi, biên dạng và đường chạy dao X–Z"></canvas>
+              <div class="turning-legend" aria-label="Chú giải và lớp hiển thị">
+                <span><i class="turning-key stock"></i>Phôi</span>
+                <label><input type="checkbox" id="turningShowProfile" checked><i class="turning-key profile"></i>Biên dạng</label>
+                <label><input type="checkbox" id="turningShowRapid" checked><i class="turning-key rapid"></i>G00</label>
+                <span><i class="turning-key feed"></i>G01</span>
+                <span><i class="turning-key thread"></i>G32</span>
+                <span><i class="turning-key active"></i>Đoạn đang xem</span>
+              </div>
+
+                <div class="turning-view-status">
+                  <p class="turning-coordinate" id="turningCoordinate">X — · Z —</p>
+                  <p id="turningSketchStatus" role="status"></p>
+                </div>
+                <div class="turning-point-editor" id="turningPointEditor" hidden>
+                  <strong id="turningPointLabel"></strong>
+                  <label>X (Ø mm) <input class="input" id="turningPointX" type="number" step="any"></label>
+                  <label>Z (mm) <input class="input" id="turningPointZ" type="number" step="any"></label>
+                  <button type="button" class="btn" id="turningApplyPoint">Cập nhật điểm</button>
+                  <button type="button" class="btn" id="turningInsertPoint">Chèn trung điểm kế tiếp</button>
+                </div>
+                <section class="turning-simulation" aria-label="Phát mô phỏng và mã NC">
+              <label class="turning-profile">Bước mô phỏng <output id="turningStepLabel">0 / 0</output><input id="turningStep" type="range" min="0" max="0" value="0" disabled></label>
+              <div class="turning-actions"><button class="btn" type="button" id="turningPlay" disabled>Phát mô phỏng</button></div>
+              <p class="turning-current"><span>Khối NC đang xem</span> <code id="turningCurrentBlock">—</code></p>
+              <label class="turning-profile">Mã NC thử nghiệm<textarea class="input turning-code" id="turningCode" rows="9" readonly spellcheck="false"></textarea></label>
+              <div class="turning-actions"><button class="btn" type="button" id="turningDownload" disabled>Tải tệp .nc</button></div>
+
+                </section>
+              </section>
+              <aside class="turning-sidebar" aria-label="Nguồn và thiết lập">
+              <details class="turning-import" id="turningImportPanel">
+                <summary>Nguồn biên dạng</summary>
+                <div class="turning-fields">
+                  <label class="turning-wide">Ảnh hình chiếu PNG / JPEG / WebP<input id="turningImage" type="file" accept="image/png,image/jpeg,image/webp"></label>
+                  <label>Chiều rộng ảnh theo Z (mm)<input class="input" id="turningImageWidth" type="number" min="0.1" step="any" value="80"></label>
+                  <label>Mép phải ảnh tại Z (mm)<input class="input" id="turningImageZ" type="number" step="any" value="0"></label>
+                  <label>Mép dưới ảnh tại bán kính (mm)<input class="input" id="turningImageR" type="number" step="any" value="0"></label>
+                  <label>Độ mờ ảnh<input id="turningImageOpacity" type="range" min="0" max="100" value="40"></label>
+                  <label>Chuẩn kích thước<select class="input" id="turningImageMeasure"><option value="length">Chiều dài chi tiết theo Z</option><option value="diameter">Đường kính lớn nhất</option></select></label>
+                  <label>Kích thước thực (mm)<input class="input" type="number" id="turningImageActual" min="0.1" max="10000" step="any" placeholder="Nhập từ bản vẽ"></label>
+                  <label>Tách nền (ngưỡng tương phản)<input id="turningImageThreshold" type="range" min="18" max="150" value="48"></label>
+                  <label>Hướng mặt đầu Z0<select class="input" id="turningImageFace"><option value="right">Mép phải</option><option value="left">Mép trái</option></select></label>
+                  <label>Mô hình STL (tọa độ mm)<input id="turningMesh" type="file" accept=".stl"></label>
+                  <label>Trục tiện trong STL<select class="input" id="turningMeshAxis"><option>Z</option><option>X</option><option>Y</option></select></label>
+                </div>
+                <canvas id="turningImagePreview" width="320" height="160" aria-label="Xem trước ảnh" hidden></canvas>
+                <div class="turning-tools">
+                  <button class="btn" type="button" id="turningRemoveImage">Bỏ ảnh nền</button>
+                  <button class="btn primary" type="button" id="turningTraceImage">Lấy biên dạng ảnh và tạo NC</button>
+                  <button class="btn" type="button" id="turningImportMesh">Lấy biên dạng STL và tạo NC</button>
+                </div>
+                <p class="meta">Dùng hình chiếu cạnh đối xứng, trục tiện nằm ngang và nền tương phản. Cắt ảnh sát chi tiết, bỏ chữ và đường ghi kích thước. Nhập một kích thước thực để suy ra các kích thước còn lại. STL dùng đơn vị mm và lấy biên dạng theo trục đã chọn.</p>
+                <p id="turningImportStatus" role="status"></p>
+              </details>
             <form id="turningForm" class="section turning-card">
               <h3>Thiết lập nguyên công</h3>
               <div class="turning-fields">
@@ -288,56 +374,12 @@
               </label>
               <p class="meta">Mỗi dòng gồm X (đường kính) và Z, cách nhau bằng dấu cách. Mặt đầu ở Z0, phía trong phôi có Z âm. Bắt đầu ở Z0 và đi dần sang trái. Tiện tinh giả định phôi đã được tiện thô.</p>
               <div class="turning-actions">
-                <button type="button" class="btn" id="turningClear">Xóa điểm</button>
                 <button type="submit" class="btn primary">Tạo mã và mô phỏng</button>
               </div>
               <p id="turningStatus" role="status"></p>
             </form>
-            <div class="section turning-card">
-              <h3>Đường chạy dao X–Z</h3>
-              <div class="turning-toolbar" aria-label="Công cụ biên dạng và khung nhìn">
-                <label>Công cụ<select class="input" id="turningSketchTool"><option value="line">Đoạn thẳng</option><option value="horizontal">Đường ngang</option><option value="vertical">Đường đứng</option><option value="arc">Cung qua 3 điểm</option><option value="pan">Kéo khung nhìn</option></select></label>
-                <label>Bắt lưới<select class="input" id="turningSnap"><option value="0">Tắt</option><option value="0.1">0,1 mm</option><option value="0.5">0,5 mm</option><option value="1">1 mm</option><option value="5">5 mm</option></select></label>
-                <div class="turning-tools">
-                  <button class="btn" type="button" id="turningUndo">Hoàn tác</button>
-                  <button class="btn" type="button" id="turningZoomIn" aria-label="Phóng to">+</button>
-                  <button class="btn" type="button" id="turningZoomOut" aria-label="Thu nhỏ">−</button>
-                  <button class="btn" type="button" id="turningFit">Vừa khung</button>
-                </div>
-              </div>
-              <details class="turning-import">
-                <summary>Nhập ảnh hoặc mô hình 3D</summary>
-                <div class="turning-fields">
-                  <label>Ảnh nền PNG / JPEG / WebP<input id="turningImage" type="file" accept="image/png,image/jpeg,image/webp"></label>
-                  <label>Chiều rộng ảnh theo Z (mm)<input class="input" id="turningImageWidth" type="number" min="0.1" step="any" value="80"></label>
-                  <label>Mép phải ảnh tại Z (mm)<input class="input" id="turningImageZ" type="number" step="any" value="0"></label>
-                  <label>Mép dưới ảnh tại bán kính (mm)<input class="input" id="turningImageR" type="number" step="any" value="0"></label>
-                  <label>Độ mờ ảnh<input id="turningImageOpacity" type="range" min="0" max="100" value="40"></label>
-                  <label>Mô hình STL (tọa độ mm)<input id="turningMesh" type="file" accept=".stl"></label>
-                  <label>Trục tiện trong STL<select class="input" id="turningMeshAxis"><option>Z</option><option>X</option><option>Y</option></select></label>
-                </div>
-                <div class="turning-tools">
-                  <button class="btn" type="button" id="turningRemoveImage">Bỏ ảnh nền</button>
-                  <button class="btn" type="button" id="turningImportMesh">Lấy biên dạng STL</button>
-                </div>
-                <p class="meta">Đặt kích thước và vị trí ảnh rồi vẽ đè theo nét mẫu. STL hỗ trợ chi tiết tròn xoay có lưới theo vòng, tâm được xác định từ hộp bao và đầu dương của trục được đặt tại Z0. Cung được xấp xỉ bằng các đoạn G01 với dung sai hình học 0,02 mm trước làm tròn mã.</p>
-                <p id="turningImportStatus" role="status"></p>
-              </details>
-              <p class="turning-coordinate" id="turningCoordinate">X — · Z —</p>
-              <canvas id="turningPlot" width="640" height="340" aria-label="Biểu đồ phôi, biên dạng và đường chạy dao X–Z"></canvas>
-              <div class="turning-legend" aria-label="Chú giải và lớp hiển thị">
-                <span><i class="turning-key stock"></i>Phôi</span>
-                <label><input type="checkbox" id="turningShowProfile" checked><i class="turning-key profile"></i>Biên dạng</label>
-                <label><input type="checkbox" id="turningShowRapid" checked><i class="turning-key rapid"></i>G00</label>
-                <span><i class="turning-key feed"></i>G01</span>
-                <span><i class="turning-key thread"></i>G32</span>
-                <span><i class="turning-key active"></i>Đoạn đang xem</span>
-              </div>
-              <label class="turning-profile">Bước mô phỏng <output id="turningStepLabel">0 / 0</output><input id="turningStep" type="range" min="0" max="0" value="0" disabled></label>
-              <div class="turning-actions"><button class="btn" type="button" id="turningPlay" disabled>Phát mô phỏng</button></div>
-              <p class="turning-current"><span>Khối NC đang xem</span> <code id="turningCurrentBlock">—</code></p>
-              <label class="turning-profile">Mã NC thử nghiệm<textarea class="input turning-code" id="turningCode" rows="9" readonly spellcheck="false"></textarea></label>
-              <div class="turning-actions"><button class="btn" type="button" id="turningDownload" disabled>Tải tệp .nc</button></div>
+
+              </aside>
             </div>
           </div>
         </div>
@@ -828,6 +870,6 @@
 
   <div class="toast" id="toast" role="status" aria-live="polite"></div>
 
-  <script type="module" src="assets/js/app.js?v=20261119-fanuc-cam"></script>
+  <script type="module" src="assets/js/app.js?v=20261119-fanuc-cad"></script>
 </body>
 </html>

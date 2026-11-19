@@ -7,7 +7,7 @@ const sketchSource = await readFile(new URL('../assets/js/fanuc-sketch.js', impo
 const sketchUrl = asModule(sketchSource);
 const source = await readFile(new URL('../assets/js/fanuc-turning.js', import.meta.url), 'utf8');
 const { generateTurningProgram, readTurningMoves } = await import(asModule(source.replace(/\.\/fanuc-sketch\.js\?v=\d+/, sketchUrl)));
-const { arcPoints, profileFromStl } = await import(sketchUrl);
+const { arcPoints, profileFromStl, profileFromImage, findSketchSnap } = await import(sketchUrl);
 
 const setup = {
   operation: 'profile', units: 'mm', diameter: 60, length: 80,
@@ -123,4 +123,44 @@ test('straight threading emits and simulates G32 with pitch converted to inches'
   assert.equal(passes.length, 2);
   assert.ok(Math.abs(passes[0].from.z - 5.08) < 0.0002);
   assert.ok(Math.abs(passes[1].to.x - 58) < 0.0002);
+});
+
+function drawing(asymmetric = false) {
+  const width = 160;
+  const height = 90;
+  const data = new Uint8ClampedArray(width * height * 4).fill(255);
+  for (let x = 20; x <= 140; x++) {
+    const radius = x <= 80 ? 20 : 10;
+    const center = asymmetric && x > 80 ? 53 : 45;
+    for (let y = center - radius; y <= center + radius; y++) {
+      if (!asymmetric && x !== 20 && x !== 140 && y !== center - radius && y !== center + radius && x !== 80) continue;
+      const i = (y * width + x) * 4;
+      data.fill(0, i, i + 3);
+    }
+  }
+  return { width, height, data };
+}
+
+test('image tracing needs a real dimension and reverses the designated face', () => {
+  const image = drawing();
+  const settings = { known: 60, measure: 'length', face: 'right', threshold: 40 };
+  const profile = profileFromImage(image, settings);
+  assert.equal(profile.length, 60);
+  assert.equal(profile.diameter, 20);
+  assert.deepEqual(profile.points[0], { x: 10, z: 0 });
+  assert.deepEqual(profile.points.at(-1), { x: 20, z: -60 });
+  const reversed = profileFromImage(image, { ...settings, known: 20, measure: 'diameter', face: 'left' });
+  assert.deepEqual(reversed.points[0], { x: 20, z: 0 });
+  assert.equal(reversed.length, 60);
+  const code = generateTurningProgram({ ...setup, profile: profile.points.map(p => `${p.x} ${p.z}`).join('\n') });
+  assert.match(code, /G01 X20\.000 Z-60\.000/);
+  assert.throws(() => profileFromImage(image, { ...settings, known: NaN }), /kích thước thực/);
+  assert.throws(() => profileFromImage(drawing(true), settings), /đối xứng/);
+});
+
+test('object snap finds endpoints and midpoints in the physical radius plane', () => {
+  const points = [{ x: 20, z: 0 }, { x: 20, z: -10 }];
+  assert.deepEqual(findSketchSnap({ x: 21, z: -0.1 }, points, 0.6, true), { x: 20, z: 0, label: 'Điểm đầu mút', index: 0 });
+  assert.equal(findSketchSnap({ x: 20, z: -4.9 }, points, 0.6)?.label, 'Trung điểm');
+  assert.equal(findSketchSnap({ x: 20, z: -4.9 }, points, 0.6, true), undefined);
 });

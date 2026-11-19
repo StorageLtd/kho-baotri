@@ -1,4 +1,4 @@
-import { arcPoints, profileFromStl } from "./fanuc-sketch.js?v=2";
+import { arcPoints, profileFromStl, profileFromImage, findSketchSnap } from "./fanuc-sketch.js?v=3";
 
 const clearance = 3;
 const profileOperations = ['profile', 'rough'];
@@ -191,7 +191,16 @@ export function initTurningPreview() {
   const fields = form.elements;
   const stockLength = fields.namedItem("length");
   const byId = id => document.getElementById(id);
-  const tool = byId('turningSketchTool');
+  const workbench = canvas.closest('.turning-workbench');
+  const tools = [...workbench.querySelectorAll('[data-sketch-tool]')];
+  const sketchStatus = byId('turningSketchStatus');
+  const removePoint = byId('turningDelete');
+  const insertPoint = byId('turningInsertPoint');
+  const objectSnap = byId('turningObjectSnap');
+  let activeTool = 'line';
+  let selectedPoint;
+  let snapMarker;
+  let imageFlipped = false;
   const coordinateLabel = byId('turningCoordinate');
   const currentBlock = byId('turningCurrentBlock');
   const importStatus = byId('turningImportStatus');
@@ -262,7 +271,15 @@ export function initTurningPreview() {
         const height = width * referenceImage.height / referenceImage.width;
         const [x, y] = at({ x: 2 * (r + height), z: z - width });
         ctx.globalAlpha = Number(byId('turningImageOpacity').value) / 100;
-        ctx.drawImage(referenceImage, x, y, width * scale, height * scale);
+        if (imageFlipped) {
+          ctx.save();
+          ctx.translate(x + width * scale, y);
+          ctx.scale(-1, 1);
+          ctx.drawImage(referenceImage, 0, 0, width * scale, height * scale);
+          ctx.restore();
+        } else {
+          ctx.drawImage(referenceImage, x, y, width * scale, height * scale);
+        }
         ctx.globalAlpha = 1;
       }
     }
@@ -296,7 +313,7 @@ export function initTurningPreview() {
         // Validation on submit reports incomplete or malformed coordinate rows.
       }
       drawLine(points, '#177044');
-      if (points.length && cursor && tool.value !== 'pan') {
+      if (points.length && cursor && !['pan', 'select'].includes(activeTool)) {
         const last = points.at(-1);
         let preview = [last, cursor];
         if (arcMiddle) {
@@ -309,10 +326,11 @@ export function initTurningPreview() {
         drawLine(preview, '#168457', [4, 4]);
       }
       ctx.fillStyle = '#177044';
-      for (const point of points) {
-        ctx.beginPath();
-        ctx.arc(...at(point), 3, 0, Math.PI * 2);
-        ctx.fill();
+      for (const [index, point] of points.entries()) {
+        const [x, y] = at(point);
+        ctx.fillStyle = index === selectedPoint ? '#1665ce' : '#177044';
+        const size = index === selectedPoint ? 10 : activeTool === 'select' ? 6 : 4;
+        ctx.fillRect(x - size / 2, y - size / 2, size, size);
       }
     }
     const step = Number(slider.value);
@@ -348,6 +366,18 @@ export function initTurningPreview() {
       ctx.arc(...at(position), 4, 0, Math.PI * 2);
       ctx.fill();
     }
+    if (cursor && activeTool !== 'pan') {
+      const [x, y] = at(cursor);
+      ctx.strokeStyle = snapMarker ? '#087ec2' : '#75839a';
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      ctx.moveTo(x - 10, y);
+      ctx.lineTo(x + 10, y);
+      ctx.moveTo(x, y - 10);
+      ctx.lineTo(x, y + 10);
+      ctx.stroke();
+      if (snapMarker) ctx.strokeRect(x - 6, y - 6, 12, 12);
+    }
     ctx.restore();
     ctx.fillStyle = '#475569';
     for (const tick of ticks) ctx.fillText(tick.value, tick.x, tick.y);
@@ -374,16 +404,12 @@ export function initTurningPreview() {
     draw();
   }
 
-  function showStatus(message, error = false) {
-    status.textContent = message;
-    status.dataset.error = String(error);
-  }
-
   function replaceProfile(value) {
     edits.push(fields.profile.value);
     if (edits.length > 50) edits.shift();
     undo.disabled = false;
     fields.profile.value = value;
+    setSelection(undefined);
     arcMiddle = undefined;
     reset();
   }
@@ -395,7 +421,9 @@ export function initTurningPreview() {
     fields.profile.closest('label').hidden = !usesProfile;
     fields.profile.closest('label').nextElementSibling.hidden = !usesProfile;
     undo.disabled = !usesProfile || !edits.length;
-    arcMiddle = cursor = undefined;
+    arcMiddle = cursor = snapMarker = undefined;
+    setSelection(undefined);
+    for (const button of tools) button.disabled = !usesProfile && button.dataset.sketchTool !== 'pan';
     const parameters = byId('turningParameters');
     parameters.hidden = !operationNotes[operation];
     const note = byId('turningOperationNote');
@@ -408,26 +436,120 @@ export function initTurningPreview() {
     reset();
   }
 
+  function setSelection(index, point) {
+    selectedPoint = index;
+    removePoint.disabled = point === undefined;
+    byId('turningPointEditor').hidden = !point;
+    if (!point) return;
+    byId('turningPointLabel').textContent = `Điểm ${index + 1}`;
+    byId('turningPointX').value = point.x;
+    byId('turningPointZ').value = point.z;
+    const count = readProfile(fields.profile.value).length;
+    insertPoint.disabled = index >= count - 1 || count >= 200;
+  }
+
+  insertPoint.addEventListener('click', () => {
+    if (selectedPoint === undefined || insertPoint.disabled) return;
+    const points = readProfile(fields.profile.value);
+    const index = selectedPoint + 1;
+    const a = points[index - 1];
+    const b = points[index];
+    const midpoint = { x: Number(((a.x + b.x) / 2).toFixed(5)), z: Number(((a.z + b.z) / 2).toFixed(5)) };
+    if ([a, b].some(point => point.x === midpoint.x && point.z === midpoint.z)) {
+      sketchStatus.textContent = 'Đoạn này quá ngắn để chèn trung điểm.';
+      return;
+    }
+    points.splice(index, 0, midpoint);
+    replaceProfile(points.map(({ x, z }) => `${x} ${z}`).join('\n'));
+    setSelection(index, midpoint);
+    sketchStatus.textContent = 'Đã chèn trung điểm. Có thể chỉnh tọa độ điểm mới.';
+    draw();
+  });
+
+  function editSelected(deletePoint) {
+    if (selectedPoint === undefined) return;
+    const points = readProfile(fields.profile.value);
+    const index = selectedPoint;
+    if (deletePoint) {
+      points.splice(index, 1);
+    } else {
+      const x = Number(byId('turningPointX').valueAsNumber.toFixed(5));
+      const z = Number(byId('turningPointZ').valueAsNumber.toFixed(5));
+      const { diameter, length } = dimensions();
+      const previous = points[index - 1];
+      const next = points[index + 1];
+      if (!Number.isFinite(x) || !Number.isFinite(z) || x < 0 || x > diameter ||
+          z < -length || (!index && z !== 0) || z > (previous?.z ?? 0) || (next && z < next.z) ||
+          [previous, next].some(point => point?.x === x && point.z === z)) {
+        sketchStatus.textContent = 'Điểm sửa phải nằm trong phôi, giữ thứ tự Z và không trùng điểm kề.';
+        return;
+      }
+      points[index] = { x, z };
+    }
+    replaceProfile(points.map(({ x, z }) => `${x} ${z}`).join('\n'));
+    if (!deletePoint) setSelection(index, points[index]);
+    sketchStatus.textContent = deletePoint && points.length && points[0].z !== 0
+      ? 'Đã xóa điểm. Chỉnh điểm đầu về Z0 trước khi tạo mã.'
+      : deletePoint ? 'Đã xóa điểm khỏi biên dạng.' : 'Đã cập nhật tọa độ điểm.';
+    draw();
+  }
+
   form.addEventListener('input', event => {
-    if (event.target === fields.profile) arcMiddle = undefined;
+    if (event.target === fields.profile) {
+      arcMiddle = cursor = snapMarker = undefined;
+      setSelection(undefined);
+    }
     if (event.target !== fields.operation) reset();
   });
   fields.operation.addEventListener('change', updateOperation);
   byId('turningClear').addEventListener('click', () => {
     replaceProfile('');
-    fields.profile.focus();
+    sketchStatus.textContent = 'Biên dạng trống. Đặt điểm đầu tại Z0.';
+    canvas.focus();
   });
   undo.addEventListener('click', () => {
     fields.profile.value = edits.pop();
+    setSelection(undefined);
     undo.disabled = !edits.length;
     arcMiddle = undefined;
     reset();
   });
   for (const control of [showProfile, showRapid]) control.addEventListener('change', draw);
-  tool.addEventListener('change', () => {
-    arcMiddle = cursor = undefined;
-    canvas.toggleAttribute('data-pan', tool.value === 'pan');
+  function selectTool(value) {
+    activeTool = value;
+    for (const button of tools) {
+      button.setAttribute('aria-pressed', String(button.dataset.sketchTool === value));
+    }
+    arcMiddle = cursor = snapMarker = undefined;
+    setSelection(undefined);
+    canvas.toggleAttribute('data-pan', value === 'pan');
+    canvas.toggleAttribute('data-select', value === 'select');
+    sketchStatus.textContent = value === 'select'
+      ? 'Chọn nút biên dạng để chỉnh tọa độ hoặc bấm Delete.'
+      : value === 'arc' ? 'Chọn điểm giữa và điểm cuối cho cung nối từ điểm hiện tại.' : '';
     draw();
+  }
+
+  for (const button of tools) {
+    button.addEventListener('click', () => selectTool(button.dataset.sketchTool));
+  }
+  removePoint.addEventListener('click', () => editSelected(true));
+  byId('turningApplyPoint').addEventListener('click', () => editSelected(false));
+  canvas.addEventListener('keydown', event => {
+    if (event.key === 'Escape') {
+      arcMiddle = cursor = snapMarker = undefined;
+      setSelection(undefined);
+      sketchStatus.textContent = '';
+      draw();
+    }
+    if ((event.key === 'Delete' || event.key === 'Backspace') && selectedPoint !== undefined) {
+      event.preventDefault();
+      editSelected(true);
+    }
+    if (event.key.toLowerCase() === 'z' && (event.ctrlKey || event.metaKey) && !undo.disabled) {
+      event.preventDefault();
+      undo.click();
+    }
   });
   byId('turningFit').addEventListener('click', () => {
     zoom = 1;
@@ -450,25 +572,35 @@ export function initTurningPreview() {
 
   function sketchPoint(event) {
     const display = canvasPoint(event);
-    const rawZ = (display.x - plot.zOrigin) / plot.scale;
-    const rawX = (plot.bottom - display.y) * 2 / plot.scale;
-    const { diameter, length } = dimensions();
-    const snap = Number(byId('turningSnap').value);
-    const rounded = value => Number((snap ? Math.round(value / snap) * snap : value).toFixed(4));
-    const z = Math.abs(rawZ) <= Math.min(length / 8, 4 / plot.scale) ? 0 : rounded(rawZ);
-    const x = rounded(rawX);
-    if (z > 0 || z < -length || x < 0 || x > diameter) return;
-    let last;
+    const raw = {
+      z: (display.x - plot.zOrigin) / plot.scale,
+      x: (plot.bottom - display.y) * 2 / plot.scale,
+    };
+    let points;
     try {
-      last = readProfile(fields.profile.value).at(-1);
+      points = readProfile(fields.profile.value);
     } catch {
       return;
     }
-    return { x: tool.value === 'horizontal' && last ? last.x : x, z: tool.value === 'vertical' && last ? last.z : z };
+    const { diameter, length } = dimensions();
+    const tolerance = Math.min(length / 6, 9 * canvas.width / canvas.getBoundingClientRect().width / plot.scale);
+    const selecting = activeTool === 'select';
+    const candidate = (objectSnap.checked || selecting) && findSketchSnap(raw, points, tolerance, selecting);
+    snapMarker = candidate || undefined;
+    if (selecting) return candidate || undefined;
+    const grid = Number(byId('turningSnap').value);
+    const rounded = value => Number((grid ? Math.round(value / grid) * grid : value).toFixed(4));
+    const z = candidate?.z ?? (Math.abs(raw.z) <= Math.min(length / 8, 4 / plot.scale) ? 0 : rounded(raw.z));
+    const x = candidate?.x ?? rounded(raw.x);
+    const last = points.at(-1);
+    const result = { x: activeTool === 'horizontal' && last ? last.x : x, z: activeTool === 'vertical' && last ? last.z : z };
+    if (candidate && (candidate.x !== result.x || candidate.z !== result.z)) snapMarker = undefined;
+    if (result.z > 0 || result.z < -length || result.x < 0 || result.x > diameter) return;
+    return result;
   }
 
   canvas.addEventListener('pointerdown', event => {
-    if (tool.value !== 'pan') return;
+    if (activeTool !== 'pan') return;
     drag = canvasPoint(event);
     canvas.setPointerCapture(event.pointerId);
     canvas.toggleAttribute('data-dragging', true);
@@ -481,7 +613,7 @@ export function initTurningPreview() {
       drag = next;
     }
     cursor = fields.profile.disabled ? undefined : sketchPoint(event);
-    coordinateLabel.textContent = cursor ? `X ${cursor.x} mm · Z ${cursor.z} mm` : 'X — · Z —';
+    coordinateLabel.textContent = cursor ? `X ${cursor.x} mm · Z ${cursor.z} mm` + (snapMarker ? ` · ${snapMarker.label}` : '') : 'X — · Z —';
     draw();
   });
   const endDrag = () => {
@@ -491,26 +623,33 @@ export function initTurningPreview() {
   canvas.addEventListener('pointerup', endDrag);
   canvas.addEventListener('lostpointercapture', endDrag);
   canvas.addEventListener('pointerleave', () => {
-    cursor = undefined;
+    cursor = snapMarker = undefined;
     coordinateLabel.textContent = 'X — · Z —';
     draw();
   });
   canvas.addEventListener('click', event => {
-    if (fields.profile.disabled || tool.value === 'pan') return;
+    if (fields.profile.disabled || activeTool === 'pan') return;
     const point = sketchPoint(event);
+    if (activeTool === 'select') {
+      setSelection(point?.index, point);
+      if (point) showProfile.checked = true;
+      draw();
+      canvas.focus();
+      return;
+    }
     if (!point) return;
     const points = readProfile(fields.profile.value);
     const last = points.at(-1);
     if (!last && point.z !== 0) {
-      showStatus('Chọn điểm đầu tại trục Z0.', true);
+      sketchStatus.textContent = 'Chọn điểm đầu tại trục Z0.';
       return;
     }
     let additions = [point];
     try {
-      if (tool.value === 'arc' && last) {
+      if (activeTool === 'arc' && last) {
         if (!arcMiddle) {
           arcMiddle = point;
-          showStatus('Đã đặt điểm giữa cung. Chọn điểm cuối.');
+          sketchStatus.textContent = 'Đã đặt điểm giữa cung. Chọn điểm cuối.';
           draw();
           return;
         }
@@ -527,10 +666,11 @@ export function initTurningPreview() {
       }
       if (points.length + additions.length > 200) throw new Error('Biên dạng vượt quá 200 điểm.');
       showProfile.checked = true;
+      sketchStatus.textContent = '';
       replaceProfile([...points, ...additions].map(({ x, z }) => `${x} ${z}`).join('\n'));
     } catch (error) {
       arcMiddle = undefined;
-      showStatus(error.message, true);
+      sketchStatus.textContent = error.message;
       draw();
     }
   });
@@ -538,7 +678,59 @@ export function initTurningPreview() {
   for (const id of ['turningImageWidth', 'turningImageZ', 'turningImageR', 'turningImageOpacity']) {
     byId(id).addEventListener('input', draw);
   }
-  byId('turningImage').addEventListener('change', async event => {
+  const imagePreview = byId('turningImagePreview');
+  const imageInput = byId('turningImage');
+  const meshInput = byId('turningMesh');
+  for (const [button, input] of [['turningOpenImage', imageInput], ['turningOpenMesh', meshInput]]) {
+    byId(button).addEventListener('click', () => {
+      byId('turningImportPanel').open = true;
+      input.click();
+    });
+  }
+
+  function loadImportedProfile(points, diameter, length) {
+    if (diameter > 10000 || length > 10000) throw new Error('Kích thước chi tiết vượt phạm vi phôi 10000 mm.');
+    // Preserve the configured stock when it already covers the new geometry.
+    fields.diameter.value = Math.max(dimensions().diameter, diameter);
+    stockLength.value = Math.max(dimensions().length, length);
+    if (!profileOperations.includes(fields.operation.value)) fields.operation.value = 'profile';
+    showProfile.checked = true;
+    panX = panY = 0;
+    zoom = 1;
+    updateOperation();
+    replaceProfile(points.map(({ x, z }) => `${x} ${z}`).join('\n'));
+    form.requestSubmit();
+  }
+
+  byId('turningTraceImage').addEventListener('click', () => {
+    try {
+      if (!referenceImage) throw new Error('Chọn ảnh hình chiếu cạnh trước.');
+      const raster = document.createElement('canvas');
+      const scale = Math.min(1, 1200 / Math.max(referenceImage.width, referenceImage.height));
+      raster.width = Math.max(1, Math.round(referenceImage.width * scale));
+      raster.height = Math.max(1, Math.round(referenceImage.height * scale));
+      const context = raster.getContext('2d');
+      context.drawImage(referenceImage, 0, 0, raster.width, raster.height);
+      const face = byId('turningImageFace').value;
+      const result = profileFromImage(context.getImageData(0, 0, raster.width, raster.height), {
+        known: byId('turningImageActual').valueAsNumber,
+        measure: byId('turningImageMeasure').value,
+        face,
+        threshold: Number(byId('turningImageThreshold').value),
+      });
+      const { bounds, mmPerPixel, diameter, length } = result;
+      imageFlipped = face === 'left';
+      byId('turningImageWidth').value = raster.width * mmPerPixel;
+      byId('turningImageZ').value = (imageFlipped ? bounds.first : raster.width - bounds.last) * mmPerPixel;
+      byId('turningImageR').value = (bounds.center - raster.height) * mmPerPixel;
+      loadImportedProfile(result.points, diameter, length);
+      importStatus.textContent = `Ước lượng Ø${diameter.toFixed(2)} × ${length.toFixed(2)} mm · ${result.points.length} điểm. Tỷ lệ ảnh ${mmPerPixel.toPrecision(3)} mm/pixel. Hãy đối chiếu kích thước và đường dao trên hình.`;
+    } catch (error) {
+      importStatus.textContent = error.message;
+    }
+  });
+
+  imageInput.addEventListener('change', async event => {
     const revision = ++imageRevision;
     const file = event.target.files[0];
     if (!file) return;
@@ -553,8 +745,19 @@ export function initTurningPreview() {
       }
       referenceImage?.close();
       referenceImage = image;
+      imageFlipped = false;
+      const previewContext = imagePreview.getContext('2d');
+      const fit = Math.min(imagePreview.width / image.width, imagePreview.height / image.height);
+      const width = image.width * fit;
+      const height = image.height * fit;
+      previewContext.clearRect(0, 0, imagePreview.width, imagePreview.height);
+      previewContext.drawImage(image, (imagePreview.width - width) / 2, (imagePreview.height - height) / 2, width, height);
+      imagePreview.hidden = false;
       byId('turningImageWidth').value = dimensions().length;
-      importStatus.textContent = 'Đã đặt ảnh nền. Hiệu chỉnh bề rộng và vị trí trước khi vẽ.';
+      byId('turningImageZ').value = 0;
+      byId('turningImageR').value = 0;
+      byId('turningImageActual').value = '';
+      importStatus.textContent = 'Đã đặt ảnh nền. Nhập kích thước thực để lấy đường bao hoặc vẽ đè theo ảnh.';
       draw();
     } catch (error) {
       if (revision === imageRevision) importStatus.textContent = error.message;
@@ -564,13 +767,14 @@ export function initTurningPreview() {
     imageRevision++;
     referenceImage?.close();
     referenceImage = undefined;
-    byId('turningImage').value = '';
+    imageInput.value = '';
+    imagePreview.hidden = true;
     importStatus.textContent = '';
     draw();
   });
   byId('turningImportMesh').addEventListener('click', async () => {
     const revision = ++meshRevision;
-    const file = byId('turningMesh').files[0];
+    const file = meshInput.files[0];
     const axis = byId('turningMeshAxis').value;
     const original = fields.profile.value;
     try {
@@ -582,14 +786,8 @@ export function initTurningPreview() {
       if (fields.profile.value !== original) throw new Error('Biên dạng vừa thay đổi. Bấm nhập STL lần nữa để thay thế.');
       const diameter = Math.max(0.1, ...points.map(point => point.x));
       const length = Math.max(0.1, -points.at(-1).z);
-      if (diameter > 10000 || length > 10000) throw new Error('Kích thước STL vượt phạm vi phôi 10000 mm.');
-      fields.diameter.value = Math.max(dimensions().diameter, diameter);
-      stockLength.value = Math.max(dimensions().length, length);
-      if (!profileOperations.includes(fields.operation.value)) fields.operation.value = 'profile';
-      showProfile.checked = true;
-      updateOperation();
-      replaceProfile(points.map(({ x, z }) => `${x} ${z}`).join('\n'));
-      importStatus.textContent = `Đã lấy ${points.length} điểm biên dạng theo trục ${axis}. Kiểm tra hình chiếu và kích thước trước khi sinh mã.`;
+      loadImportedProfile(points, diameter, length);
+      importStatus.textContent = `Đã lấy ${points.length} điểm biên dạng theo trục ${axis}. Kích thước Ø${diameter.toFixed(2)} × ${length.toFixed(2)} mm. Hãy đối chiếu trước khi dùng mã thử.`;
     } catch (error) {
       if (revision === meshRevision) importStatus.textContent = error.message;
     }
