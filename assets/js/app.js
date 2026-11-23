@@ -1,7 +1,8 @@
+import { defaultInventoryPeriod, inventoryBalances, inventoryBalanceNote } from "./inventory-period.js?v=1";
 import { initTurningPreview } from "./fanuc-turning.js?v=11";
 import {openCncTransfer,clearCncTransferSessions} from "./cnc-transfer-ui.js?v=20261111-viewer-controls";
 import {buildCncReport,vnDate} from "./cnc-reports.js?v=20261111-viewer-controls";
-﻿import { downloadInventoryWorkbook } from "./inventory-xlsx.js?v=20261123-stock-movements";
+﻿import { downloadInventoryWorkbook } from "./inventory-xlsx.js?v=20261123-stock-period";
 import { maintenancePlan, repairHistoryForm, alarmHistoryForm, movementVoucherForm, downloadMaintenanceWorkbook } from "./maintenance-xlsx.js?v=20261111-viewer-controls";
 import {renderMachineModel} from "./cnc-machine-shop.js?v=20261109-work-offset-tray";
 import {renderCncOperatorScreen} from "./cnc-operator-screen.js?v=20261110-transfer-tool";
@@ -23,6 +24,7 @@ import { cncDisplayState, cncIsFresh, cncMeasurement, cncMode, cncDuration, cncS
     let activities = [];
     let repairHistory = [];
     let stockMovements = [];
+    let inventoryHistoryLoaded = false;
     let machines = [];
     let maintenanceJobs = []; 
     let cncs = []; // Mảng quản lý máy CNC mới
@@ -35,6 +37,17 @@ import { cncDisplayState, cncIsFresh, cncMeasurement, cncMode, cncDuration, cncS
     const expandedMaintenanceMachineIds = new Set();
     let adminAuditOpen = false;
     let manualLoginInProgress = false;
+
+    const inventoryFrom = document.querySelector("#inventoryFrom");
+    const inventoryTo = document.querySelector("#inventoryTo");
+    const inventoryPeriodNote = document.querySelector("#inventoryPeriodNote");
+    const initialInventoryPeriod = defaultInventoryPeriod();
+    inventoryFrom.value = initialInventoryPeriod.start;
+    inventoryTo.value = initialInventoryPeriod.end;
+
+    function selectedInventoryPeriod() {
+      return { start: inventoryFrom.value, end: inventoryTo.value };
+    }
 
     const number = new Intl.NumberFormat("vi-VN");
 
@@ -248,13 +261,14 @@ import { cncDisplayState, cncIsFresh, cncMeasurement, cncMode, cncDuration, cncS
     }
 
     async function loadCloudData() {
+      inventoryHistoryLoaded = false;
       if(els.resultCount) els.resultCount.textContent = "Đang đồng bộ dữ liệu đám mây...";
       try {
         const [cloudItems, cloudActivities, cloudHistory, cloudMovements, cloudMachines, cloudJobs] = await Promise.all([
           fbFetch("items"),
           fbFetch("activities"),
           fbFetch("repairHistory"),
-          fbFetch("stockMovements"),
+          fbFetch("stockMovements", "GET", null, true).then(value => ({ value }), error => ({ error })),
           fbFetch("machines"),
           fbFetch("maintenanceJobs")
         ]);
@@ -262,7 +276,8 @@ import { cncDisplayState, cncIsFresh, cncMeasurement, cncMode, cncDuration, cncS
         items = cloudItems ? Object.values(cloudItems) : [];
         activities = cloudActivities ? Object.values(cloudActivities) : [{ at: new Date().toISOString(), text: "Hệ thống mây đã sẵn sàng." }];
         repairHistory = cloudHistory ? Object.values(cloudHistory) : [];
-        stockMovements = cloudMovements ? Object.values(cloudMovements) : [];
+        inventoryHistoryLoaded = !cloudMovements.error;
+        stockMovements = Object.values(cloudMovements.value ?? {});
         machines = cloudMachines ? Object.values(cloudMachines) : [];
         maintenanceJobs = cloudJobs ? Object.values(cloudJobs) : [];
         render();
@@ -699,13 +714,21 @@ import { cncDisplayState, cncIsFresh, cncMeasurement, cncMode, cncDuration, cncS
       const stat = els.statusFilter.value;
 
       const rows = items.filter(i => {
-        const h = [i.name, i.sku, i.supplier, i.location, i.specs || '', i.note || ''].join(" ").toLowerCase();
+        const h = [i.name, i.sku, i.unit, i.supplier, i.location, i.specs || '', i.note || ''].join(" ").toLowerCase();
         return (!term || h.includes(term)) && (!skuTerm || String(i.sku ?? "").toLowerCase().includes(skuTerm)) && (cat === "all" || i.category === cat) && (stat === "all" || itemStatus(i) === stat);
       }).sort((a, b) => a.name.localeCompare(b.name, "vi"));
 
+      let balances;
+      try {
+        balances = inventoryBalances(items, stockMovements, selectedInventoryPeriod());
+        inventoryPeriodNote.textContent = inventoryHistoryLoaded ? inventoryBalanceNote : "Chưa tải được lịch sử kho. Xuất Excel sẽ thử đồng bộ lại.";
+      } catch (error) {
+        inventoryPeriodNote.textContent = error.message;
+      }
+      const formatBalance = value => value == null ? "—" : number.format(value);
       els.resultCount.textContent = `${rows.length} linh kiện`;
       if (!rows.length) {
-        els.inventoryBody.innerHTML = `<tr><td colspan="11" class="empty">Không có linh kiện nào phù hợp với bộ lọc tìm kiếm.</td></tr>`;
+        els.inventoryBody.innerHTML = `<tr><td colspan="15" class="empty">Không có linh kiện nào phù hợp với bộ lọc tìm kiếm.</td></tr>`;
         return;
       }
 
@@ -715,13 +738,18 @@ import { cncDisplayState, cncIsFresh, cncMeasurement, cncMode, cncDuration, cncS
         const cls = { ok: "ok", low: "warn", out: "danger" }[s];
         
         const displayImage = item.image || "";
+        const balance = inventoryHistoryLoaded ? balances?.get(item) : undefined;
 
         return `<tr>
           <td class="col-text-wide">${textEllipsisCell(item.name, "Tên linh kiện", "strong-text")}<div class="sku">${escapeHtml(item.sku)}</div></td>
           <td class="col-text">${textEllipsisCell(item.category, "Nhóm linh kiện")}</td>
           <td class="col-text-wide">${textEllipsisCell(item.specs, "Thông số kỹ thuật", "muted-text-cell")}</td>
-          <td><strong>${number.format(item.quantity)}</strong></td>
-          <td>${number.format(item.min)}</td>
+          <td>${textEllipsisCell(item.unit, "Đơn vị tính")}</td>
+          <td class="inventory-amount">${formatBalance(balance?.opening)}</td>
+          <td class="inventory-amount">${formatBalance(balance?.received)}</td>
+          <td class="inventory-amount">${formatBalance(balance?.issued)}</td>
+          <td class="inventory-amount"><strong>${formatBalance(balance?.closing)}</strong></td>
+          <td class="inventory-amount">${formatBalance(item.quantity)}</td>
           <td class="col-text">${textEllipsisCell(item.location || "-", "Vị trí kệ", "brand-text-cell")}</td>
           <td class="col-text">${textEllipsisCell(item.supplier, "Thiết bị dùng", "muted-text-cell")}</td>
           <td class="col-img">${imageThumbCell(displayImage, item.id, "item")}</td>
@@ -1666,6 +1694,7 @@ import { cncDisplayState, cncIsFresh, cncMeasurement, cncMode, cncDuration, cncS
     els.searchInput.addEventListener("input", render);
     els.skuSearchInput.addEventListener("input", render);
     els.categoryFilter.addEventListener("change", render);
+    for (const date of [inventoryFrom, inventoryTo]) date.addEventListener("change", render);
     els.statusFilter.addEventListener("change", render);
     els.machineSearchInput.addEventListener("input", render);
     els.jobSearchInput.addEventListener("input", render);
@@ -1720,12 +1749,14 @@ import { cncDisplayState, cncIsFresh, cncMeasurement, cncMode, cncDuration, cncS
     els.exportBtn.addEventListener("click", async () => {
       els.exportBtn.disabled = true;
       try {
+        const period = selectedInventoryPeriod();
+        inventoryBalances([], [], period);
         const [inventory, movements] = await Promise.all([
           fbFetch("items", "GET", null, true),
           fbFetch("stockMovements", "GET", null, true),
         ]);
         await downloadInventoryWorkbook(Object.values(inventory ?? {}), {
-          actor: displayName(), movements: Object.values(movements ?? {}),
+          actor: displayName(), movements: Object.values(movements ?? {}), period,
         });
         showToast("Đã xuất Excel tồn kho có logo LTD.");
       } catch (error) { showToast(error.message || "Không xuất được Excel. Vui lòng thử lại."); }

@@ -499,21 +499,9 @@
 
 
     /* Fixed column widths for compact operational tables */
-    .inventory-table { min-width: 1120px; }
     .jobs-table { min-width: 1080px; }
     .history-table { min-width: 1120px; }
 
-    .inventory-table th:nth-child(1), .inventory-table td:nth-child(1) { width: 15%; }
-    .inventory-table th:nth-child(2), .inventory-table td:nth-child(2) { width: 9%; }
-    .inventory-table th:nth-child(3), .inventory-table td:nth-child(3) { width: 15%; }
-    .inventory-table th:nth-child(4), .inventory-table td:nth-child(4) { width: 8%; }
-    .inventory-table th:nth-child(5), .inventory-table td:nth-child(5) { width: 8%; }
-    .inventory-table th:nth-child(6), .inventory-table td:nth-child(6) { width: 10%; }
-    .inventory-table th:nth-child(7), .inventory-table td:nth-child(7) { width: 12%; }
-    .inventory-table th:nth-child(8), .inventory-table td:nth-child(8) { width: 70px; }
-    .inventory-table th:nth-child(9), .inventory-table td:nth-child(9) { width: 12%; }
-    .inventory-table th:nth-child(10), .inventory-table td:nth-child(10) { width: 112px; }
-    .inventory-table th:nth-child(11), .inventory-table td:nth-child(11) { width: 126px; }
 
     .jobs-table th:nth-child(1), .jobs-table td:nth-child(1) { width: 18%; }
     .jobs-table th:nth-child(2), .jobs-table td:nth-child(2) { width: 20%; }
@@ -676,18 +664,18 @@
       width: 100%;
     }
 
-    .inventory-table { min-width: 1440px; }
-    .inventory-table th:nth-child(1), .inventory-table td:nth-child(1) { width: 180px !important; }
-    .inventory-table th:nth-child(2), .inventory-table td:nth-child(2) { width: 120px !important; }
-    .inventory-table th:nth-child(3), .inventory-table td:nth-child(3) { width: 190px !important; }
-    .inventory-table th:nth-child(4), .inventory-table td:nth-child(4) { width: 100px !important; }
-    .inventory-table th:nth-child(5), .inventory-table td:nth-child(5) { width: 100px !important; }
-    .inventory-table th:nth-child(6), .inventory-table td:nth-child(6) { width: 130px !important; }
-    .inventory-table th:nth-child(7), .inventory-table td:nth-child(7) { width: 170px !important; }
-    .inventory-table th:nth-child(8), .inventory-table td:nth-child(8) { width: 78px !important; }
-    .inventory-table th:nth-child(9), .inventory-table td:nth-child(9) { width: 170px !important; }
-    .inventory-table th:nth-child(10), .inventory-table td:nth-child(10) { width: 130px !important; }
-    .inventory-table th:nth-child(11), .inventory-table td:nth-child(11) { width: 130px !important; }
+    .inventory-table { min-width: 1300px; }
+    .inventory-table th:nth-child(1), .inventory-table th:nth-child(3) { width: 145px; }
+    .inventory-table th:nth-child(2), .inventory-table th:nth-child(10) { width: 100px; }
+    .inventory-table th:nth-child(11) { width: 112px; }
+    .inventory-table th:nth-child(12) { width: 68px; }
+    .inventory-table th:nth-child(13), .inventory-table th:nth-child(14) { width: 105px; }
+    .inventory-table th:nth-child(15) { width: 126px; }
+    .inventory-table th:nth-child(n+4):nth-child(-n+9) { width: 76px; }
+    .inventory-table .inventory-amount { text-align: right; font-variant-numeric: tabular-nums; }
+    .inventory-period { display: flex; flex-wrap: wrap; gap: 8px 14px; padding: 0 16px 12px; align-items: end; }
+    .inventory-period label { display: grid; gap: 4px; font-size: 12px; }
+    .inventory-period p { margin: 0; flex: 1 1 260px; }
 
     .machine-table { min-width: 1060px; }
     .machine-table th:nth-child(1), .machine-table td:nth-child(1) { width: 280px !important; }

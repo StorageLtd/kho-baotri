@@ -43,7 +43,9 @@ async def run():
             await page.route('https://*.firebasedatabase.app/**', lambda route: route.fulfill(status=503, content_type='application/json', body='{}'))
             source = (ROOT/'assets/js/app.js').read_text(encoding='utf-8-sig')
             hook = '''
-window.renderInventoryFixture = records => {items=records;render();switchPage('inventoryPage');document.body.classList.remove('locked')};
+window.renderInventoryFixture = records => {items=records;inventoryHistoryLoaded=true;
+stockMovements=[{itemId:'inventory-fixture',type:'in',amount:10,at:'2026-11-05T02:30:00Z'},{itemId:'inventory-fixture',type:'out',amount:3,at:'2026-11-06T02:30:00Z'}];
+render();switchPage('inventoryPage');document.body.classList.remove('locked')};
 window.renderMaintenanceFixture = pageId => {machines=[{id:'fixture-machine',name:'Neway 1260S',model:'VMC',serial:'000123'}];maintenanceJobs=[{id:'fixture-job',machineId:'fixture-machine',machineName:'Neway 1260S',jobName:'Tra dầu',recurrence:'weekly',nextDate:'2026-11-05',owner:'Fixture',desc:'Kiểm tra dầu'}];repairHistory=[{id:'fixture-history',machine:'Neway 1260S',faultTime:'2026-11-05',staff:'Fixture',fault:'Dầu thấp',fix:'Đã bổ sung dầu'}];render();switchPage(pageId);document.body.classList.remove('locked')};
 window.exportVoucherFixture = type => {stockMovements=[{id:'voucher-fixture',type,at:'2026-11-05T02:30:00Z',sku:'000123',itemName:'Cảm biến',amount:3,beforeQuantity:10,afterQuantity:type==='in'?13:7,actor:'Fixture',note:'Sửa máy'}];return exportMovementVoucher('voucher-fixture')};
 window.renderAlarmFixture = records => {cncAlarmHistory=records;if(cncAlarmHistoryViewId)renderCncMachineAlarmHistory(cncAlarmHistoryViewId)};
@@ -60,12 +62,16 @@ window.seedDayFixture = () => {cncDayOwner=getUser().uid;cncDayStats.set('neway-
             await page.route('**/assets/js/app.js*', lambda route: route.fulfill(status=200, content_type='text/javascript', body=source+hook))
             await page.goto(f'http://127.0.0.1:{server.server_port}/', wait_until='networkidle')
             await page.wait_for_function("typeof window.renderFixture === 'function'")
-            await page.evaluate("""renderInventoryFixture([{id:'inventory-fixture',name:'Cảm biến tiệm cận',sku:'000123',category:'Điện',specs:'M18 24VDC',quantity:1,min:2,price:220000,location:'A-01',supplier:'Máy CNC'}])""")
+            await page.evaluate("""renderInventoryFixture([{id:'inventory-fixture',name:'Cảm biến tiệm cận',sku:'000123',category:'Điện',specs:'M18 24VDC',unit:'cái',quantity:7,min:2,price:220000,location:'A-01',supplier:'Máy CNC'}])""")
             await page.route('**/items.json?*', lambda route: route.fulfill(json={'inventory-fixture':{'id':'inventory-fixture','sku':'000123','name':'Cảm biến','unit':'cái','quantity':7}}))
             await page.route('**/stockMovements.json?*', lambda route: route.fulfill(json={
-                'incoming':{'itemId':'inventory-fixture','type':'in','amount':10},
-                'outgoing':{'itemId':'inventory-fixture','type':'out','amount':3},
+                'incoming':{'itemId':'inventory-fixture','type':'in','amount':10,'at':'2026-11-05T02:30:00Z'},
+                'outgoing':{'itemId':'inventory-fixture','type':'out','amount':3,'at':'2026-11-06T02:30:00Z'},
             }))
+            await page.locator('#inventoryFrom').fill('2026-11-05')
+            await page.locator('#inventoryTo').fill('2026-11-05')
+            assert await page.locator('#inventoryBody tr').first.locator('td').nth(3).inner_text() == 'cái'
+            assert await page.locator('#inventoryBody .inventory-amount').all_inner_texts() == ['0','10','0','10','7']
             async with page.expect_download() as inventory_info:
                 await page.get_by_role('button',name='Xuất Excel linh kiện',exact=True).click()
             inventory_download=await inventory_info.value
@@ -74,7 +80,7 @@ window.seedDayFixture = () => {cncDayOwner=getUser().uid;cncDayStats.set('neway-
             from zipfile import ZipFile
             with ZipFile('/tmp/inventory-browser.xlsx') as inventory_zip:
                 sheet = inventory_zip.read('xl/worksheets/sheet1.xml').decode()
-                assert all(text in sheet for text in ('Đơn vị tính','cái','Tổng nhập kho','Tổng xuất kho','<v>10</v>','<v>3</v>'))
+                assert all(text in sheet for text in ('Đơn vị tính','cái','Tồn đầu kỳ','Nhập kho','Xuất kho','Tồn cuối kỳ','<v>10</v>','05/11/2026'))
             await page.unroute('**/items.json?*')
             await page.unroute('**/stockMovements.json?*')
             for kind in ['in','out']:

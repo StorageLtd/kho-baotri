@@ -6,7 +6,7 @@
   <meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self' https://www.gstatic.com https://apis.google.com; style-src 'self' 'unsafe-inline'; img-src 'self' https: data: blob:; font-src 'self' data:; connect-src 'self' https://www.gstatic.com https://identitytoolkit.googleapis.com https://securetoken.googleapis.com https://ltdst-80b3e-default-rtdb.asia-southeast1.firebasedatabase.app https://ltdst-80b3e.firebaseapp.com http://127.0.0.1:8766; frame-src https://ltdst-80b3e.firebaseapp.com https://apis.google.com; worker-src 'self'; object-src 'none'; base-uri 'self'; form-action 'none'">
   <meta name="referrer" content="no-referrer">
   <title>LTD VIET NAM - Cloud Maintenance System</title>
-  <link rel="stylesheet" href="assets/css/app.css?v=20261105-compact-alarm">
+  <link rel="stylesheet" href="assets/css/app.css?v=20261123-inventory-columns">
   <link rel="stylesheet" href="assets/css/fanuc-turning.css?v=10">
   <link rel="stylesheet" href="assets/css/cnc-report.css?v=20261107-tool-context">
   <link rel="stylesheet" href="assets/css/cnc-transfer.css?v=20261111-viewer-controls">
@@ -215,6 +215,11 @@
                 </select>
               </div>
             </div>
+            <div class="inventory-period">
+              <label>Từ ngày <input class="input" type="date" id="inventoryFrom" required></label>
+              <label>Đến ngày <input class="input" type="date" id="inventoryTo" required></label>
+              <p class="meta" id="inventoryPeriodNote" role="status"></p>
+            </div>
             <div class="table-wrap">
               <table class="data-table inventory-table">
                 <thead>
@@ -222,8 +227,12 @@
                     <th>Linh kiện</th>
                     <th>Nhóm</th>
                     <th class="col-text-wide">Thông số kỹ thuật</th>
-                    <th>Số lượng</th>
-                    <th>Tối thiểu</th>
+                    <th>Đơn vị tính</th>
+                    <th>Tồn đầu kỳ</th>
+                    <th>Nhập kho</th>
+                    <th>Xuất kho</th>
+                    <th>Tồn cuối kỳ</th>
+                    <th>Tồn hiện tại</th>
                     <th>Vị trí Kệ</th>
                     <th class="col-text">Thiết bị dùng</th>
                     <th class="col-img">Hình ảnh</th>
@@ -996,6 +1005,6 @@
 
   <div class="toast" id="toast" role="status" aria-live="polite"></div>
 
-  <script type="module" src="assets/js/app.js?v=20261123-inventory-report"></script>
+  <script type="module" src="assets/js/app.js?v=20261123-inventory-period"></script>
 </body>
 </html>
