@@ -41,11 +41,20 @@ import { cncDisplayState, cncIsFresh, cncMeasurement, cncMode, cncDuration, cncS
     const inventoryFrom = document.querySelector("#inventoryFrom");
     const inventoryTo = document.querySelector("#inventoryTo");
     const inventoryPeriodNote = document.querySelector("#inventoryPeriodNote");
-    const initialInventoryPeriod = defaultInventoryPeriod();
-    inventoryFrom.value = initialInventoryPeriod.start;
-    inventoryTo.value = initialInventoryPeriod.end;
+    let useCurrentInventoryMonth = true;
+
+    function refreshDefaultInventoryPeriod() {
+      if (!useCurrentInventoryMonth) return false;
+      const { start, end } = defaultInventoryPeriod();
+      if (inventoryFrom.value === start && inventoryTo.value === end) return false;
+      inventoryFrom.value = start;
+      inventoryTo.value = end;
+      return true;
+    }
+    refreshDefaultInventoryPeriod();
 
     function selectedInventoryPeriod() {
+      refreshDefaultInventoryPeriod();
       return { start: inventoryFrom.value, end: inventoryTo.value };
     }
 
@@ -573,6 +582,7 @@ import { cncDisplayState, cncIsFresh, cncMeasurement, cncMode, cncDuration, cncS
         els.pageHeading.textContent = "TỔNG QUAN HỆ THỐNG LTD";
         els.pageSubtitle.textContent = "Theo dõi nhanh tồn kho, cảnh báo bảo trì, trạng thái máy CNC và hoạt động gần đây.";
       } else if(pageId === "inventoryPage") {
+        if (refreshDefaultInventoryPeriod()) render();
         els.pageHeading.textContent = "HỆ THỐNG KHO LTD";
         els.pageSubtitle.textContent = "Quản lý linh kiện bảo trì: mã linh kiện, vị trí kệ và số lượng còn trong kho.";
       } else if(pageId === "cncMonitoringPage") {
@@ -728,7 +738,7 @@ import { cncDisplayState, cncIsFresh, cncMeasurement, cncMode, cncDuration, cncS
       const formatBalance = value => value == null ? "—" : number.format(value);
       els.resultCount.textContent = `${rows.length} linh kiện`;
       if (!rows.length) {
-        els.inventoryBody.innerHTML = `<tr><td colspan="15" class="empty">Không có linh kiện nào phù hợp với bộ lọc tìm kiếm.</td></tr>`;
+        els.inventoryBody.innerHTML = `<tr><td colspan="14" class="empty">Không có linh kiện nào phù hợp với bộ lọc tìm kiếm.</td></tr>`;
         return;
       }
 
@@ -749,7 +759,6 @@ import { cncDisplayState, cncIsFresh, cncMeasurement, cncMode, cncDuration, cncS
           <td class="inventory-amount">${formatBalance(balance?.received)}</td>
           <td class="inventory-amount">${formatBalance(balance?.issued)}</td>
           <td class="inventory-amount"><strong>${formatBalance(balance?.closing)}</strong></td>
-          <td class="inventory-amount">${formatBalance(item.quantity)}</td>
           <td class="col-text">${textEllipsisCell(item.location || "-", "Vị trí kệ", "brand-text-cell")}</td>
           <td class="col-text">${textEllipsisCell(item.supplier, "Thiết bị dùng", "muted-text-cell")}</td>
           <td class="col-img">${imageThumbCell(displayImage, item.id, "item")}</td>
@@ -769,13 +778,13 @@ import { cncDisplayState, cncIsFresh, cncMeasurement, cncMode, cncDuration, cncS
     function renderMovementHistory() {
       const rows = [...stockMovements].sort((a, b) => new Date(b.at) - new Date(a.at)).slice(0, 100);
       if (!rows.length) {
-        els.movementHistoryList.innerHTML = `<tr><td colspan="8" class="empty">Chưa phát sinh giao dịch nhập hoặc xuất linh kiện.</td></tr>`;
+        els.movementHistoryList.innerHTML = `<tr><td colspan="9" class="empty">Chưa phát sinh giao dịch nhập hoặc xuất linh kiện.</td></tr>`;
         return;
       }
       els.movementHistoryList.innerHTML = rows.map(m => {
         const typeLabel = m.type === "in" ? "Nhập kho" : "Xuất kho";
         const typeClass = m.type === "in" ? "ok" : "warn";
-        return `<tr><td><strong>${formatDateDisplay(m.at)}</strong><div class="meta">${new Date(m.at).toLocaleTimeString("vi-VN")}</div></td><td><span class="pill ${typeClass}">${typeLabel}</span></td><td><strong>${escapeHtml(m.itemName || "-")}</strong><div class="meta">${escapeHtml(m.sku || "")}</div></td><td><strong>${escapeHtml(m.amount)}</strong></td><td>${escapeHtml(m.beforeQuantity)} / <strong>${escapeHtml(m.afterQuantity)}</strong></td><td class="col-text-wide">${textEllipsisCell(m.note || "-", "Lý do giao dịch")}</td><td>${escapeHtml(m.actor || "-")}</td><td><button class="btn" type="button" data-cmms-action="exportMovementVoucher" data-cmms-id="${escapeHtml(m.id)}">In phiếu</button></td></tr>`;
+        return `<tr><td><strong>${formatDateDisplay(m.at)}</strong><div class="meta">${new Date(m.at).toLocaleTimeString("vi-VN")}</div></td><td><span class="pill ${typeClass}">${typeLabel}</span></td><td><strong>${escapeHtml(m.itemName || "-")}</strong><div class="meta">${escapeHtml(m.sku || "")}</div></td><td><strong>${escapeHtml(m.amount)}</strong></td><td>${escapeHtml(m.beforeQuantity ?? "—")}</td><td><strong>${escapeHtml(m.afterQuantity ?? "—")}</strong></td><td class="col-text-wide">${textEllipsisCell(m.note || "-", "Lý do giao dịch")}</td><td>${escapeHtml(m.actor || "-")}</td><td><button class="btn" type="button" data-cmms-action="exportMovementVoucher" data-cmms-id="${escapeHtml(m.id)}">In phiếu</button></td></tr>`;
       }).join("");
     }
 
@@ -1694,7 +1703,19 @@ import { cncDisplayState, cncIsFresh, cncMeasurement, cncMode, cncDuration, cncS
     els.searchInput.addEventListener("input", render);
     els.skuSearchInput.addEventListener("input", render);
     els.categoryFilter.addEventListener("change", render);
-    for (const date of [inventoryFrom, inventoryTo]) date.addEventListener("change", render);
+    for (const date of [inventoryFrom, inventoryTo]) date.addEventListener("change", () => {
+      useCurrentInventoryMonth = false;
+      render();
+    });
+    document.querySelector("#inventoryThisMonth").addEventListener("click", () => {
+      useCurrentInventoryMonth = true;
+      render();
+    });
+    function refreshVisibleInventoryMonth() {
+      if (!document.hidden && !els.inventoryPage.hidden && refreshDefaultInventoryPeriod()) render();
+    }
+    document.addEventListener("visibilitychange", refreshVisibleInventoryMonth);
+    setInterval(refreshVisibleInventoryMonth, 60000);
     els.statusFilter.addEventListener("change", render);
     els.machineSearchInput.addEventListener("input", render);
     els.jobSearchInput.addEventListener("input", render);

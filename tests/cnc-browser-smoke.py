@@ -44,7 +44,7 @@ async def run():
             source = (ROOT/'assets/js/app.js').read_text(encoding='utf-8-sig')
             hook = '''
 window.renderInventoryFixture = records => {items=records;inventoryHistoryLoaded=true;
-stockMovements=[{itemId:'inventory-fixture',type:'in',amount:10,at:'2026-11-05T02:30:00Z'},{itemId:'inventory-fixture',type:'out',amount:3,at:'2026-11-06T02:30:00Z'}];
+stockMovements=[{itemId:'inventory-fixture',type:'in',amount:10,beforeQuantity:0,afterQuantity:10,at:'2026-11-05T02:30:00Z'},{itemId:'inventory-fixture',type:'out',amount:3,beforeQuantity:10,afterQuantity:7,at:'2026-11-06T02:30:00Z'}];
 render();switchPage('inventoryPage');document.body.classList.remove('locked')};
 window.renderMaintenanceFixture = pageId => {machines=[{id:'fixture-machine',name:'Neway 1260S',model:'VMC',serial:'000123'}];maintenanceJobs=[{id:'fixture-job',machineId:'fixture-machine',machineName:'Neway 1260S',jobName:'Tra dầu',recurrence:'weekly',nextDate:'2026-11-05',owner:'Fixture',desc:'Kiểm tra dầu'}];repairHistory=[{id:'fixture-history',machine:'Neway 1260S',faultTime:'2026-11-05',staff:'Fixture',fault:'Dầu thấp',fix:'Đã bổ sung dầu'}];render();switchPage(pageId);document.body.classList.remove('locked')};
 window.exportVoucherFixture = type => {stockMovements=[{id:'voucher-fixture',type,at:'2026-11-05T02:30:00Z',sku:'000123',itemName:'Cảm biến',amount:3,beforeQuantity:10,afterQuantity:type==='in'?13:7,actor:'Fixture',note:'Sửa máy'}];return exportMovementVoucher('voucher-fixture')};
@@ -71,7 +71,7 @@ window.seedDayFixture = () => {cncDayOwner=getUser().uid;cncDayStats.set('neway-
             await page.locator('#inventoryFrom').fill('2026-11-05')
             await page.locator('#inventoryTo').fill('2026-11-05')
             assert await page.locator('#inventoryBody tr').first.locator('td').nth(3).inner_text() == 'cái'
-            assert await page.locator('#inventoryBody .inventory-amount').all_inner_texts() == ['0','10','0','10','7']
+            assert await page.locator('#inventoryBody .inventory-amount').all_inner_texts() == ['0','10','0','10']
             async with page.expect_download() as inventory_info:
                 await page.get_by_role('button',name='Xuất Excel linh kiện',exact=True).click()
             inventory_download=await inventory_info.value
@@ -81,6 +81,20 @@ window.seedDayFixture = () => {cncDayOwner=getUser().uid;cncDayStats.set('neway-
             with ZipFile('/tmp/inventory-browser.xlsx') as inventory_zip:
                 sheet = inventory_zip.read('xl/worksheets/sheet1.xml').decode()
                 assert all(text in sheet for text in ('Đơn vị tính','cái','Tồn đầu kỳ','Nhập kho','Xuất kho','Tồn cuối kỳ','<v>10</v>','05/11/2026'))
+            movement_row = page.locator('#movementHistoryList tr').first
+            assert (await movement_row.locator('td').all_inner_texts())[4:6] == ['10','7']
+            current_clock = await page.evaluate('Date.now()')
+            await page.clock.set_system_time('2026-12-01T00:00:00+07:00')
+            await page.evaluate("document.dispatchEvent(new Event('visibilitychange'))")
+            assert await page.locator('#inventoryFrom').input_value() == '2026-11-05'
+            await page.clock.set_system_time('2026-11-30T23:59:00+07:00')
+            await page.locator('#inventoryThisMonth').click()
+            assert await page.locator('#inventoryFrom').input_value() == '2026-11-01'
+            await page.clock.set_system_time('2026-12-01T00:00:00+07:00')
+            await page.evaluate("document.dispatchEvent(new Event('visibilitychange'))")
+            assert await page.locator('#inventoryFrom').input_value() == '2026-12-01'
+            assert await page.locator('#inventoryBody .inventory-amount').all_inner_texts() == ['7','0','0','7']
+            await page.clock.set_system_time(current_clock)
             await page.unroute('**/items.json?*')
             await page.unroute('**/stockMovements.json?*')
             for kind in ['in','out']:

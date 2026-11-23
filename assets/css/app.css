@@ -666,12 +666,18 @@
 
     .inventory-table { min-width: 1300px; }
     .inventory-table th:nth-child(1), .inventory-table th:nth-child(3) { width: 145px; }
-    .inventory-table th:nth-child(2), .inventory-table th:nth-child(10) { width: 100px; }
-    .inventory-table th:nth-child(11) { width: 112px; }
-    .inventory-table th:nth-child(12) { width: 68px; }
-    .inventory-table th:nth-child(13), .inventory-table th:nth-child(14) { width: 105px; }
-    .inventory-table th:nth-child(15) { width: 126px; }
-    .inventory-table th:nth-child(n+4):nth-child(-n+9) { width: 76px; }
+    .inventory-table th:nth-child(2), .inventory-table th:nth-child(9) { width: 100px; }
+    .inventory-table th:nth-child(10) { width: 112px; }
+    .inventory-table th:nth-child(11) { width: 68px; }
+    .inventory-table th:nth-child(12) { width: 180px; }
+    .inventory-table th:nth-child(13) { width: 96px; }
+    .inventory-table td:nth-child(13) { padding-inline: 5px; }
+    .inventory-table td:nth-child(13) .pill { padding-inline: 5px; }
+    .inventory-table th:nth-child(14) { width: 126px; }
+    .inventory-table th:nth-child(n+4):nth-child(-n+8) { width: 76px; }
+    #movementHistorySection table { min-width: 870px; }
+    #movementHistorySection th:nth-child(n+4):nth-child(-n+6),
+    #movementHistorySection td:nth-child(n+4):nth-child(-n+6) { width: 82px; text-align: right; }
     .inventory-table .inventory-amount { text-align: right; font-variant-numeric: tabular-nums; }
     .inventory-period { display: flex; flex-wrap: wrap; gap: 8px 14px; padding: 0 16px 12px; align-items: end; }
     .inventory-period label { display: grid; gap: 4px; font-size: 12px; }
