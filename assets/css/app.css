@@ -679,9 +679,8 @@
     #movementHistorySection th:nth-child(n+4):nth-child(-n+6),
     #movementHistorySection td:nth-child(n+4):nth-child(-n+6) { width: 82px; text-align: right; }
     .inventory-table .inventory-amount { text-align: right; font-variant-numeric: tabular-nums; }
-    .inventory-period { display: flex; flex-wrap: wrap; gap: 8px 14px; padding: 0 16px 12px; align-items: end; }
-    .inventory-period label { display: grid; gap: 4px; font-size: 12px; }
-    .inventory-period p { margin: 0; flex: 1 1 260px; }
+    .movement-filters { display: flex; flex-wrap: wrap; gap: 8px 14px; padding: 0 16px 12px; align-items: end; }
+    .movement-filters label { display: grid; gap: 4px; font-size: 12px; }
 
     .machine-table { min-width: 1060px; }
     .machine-table th:nth-child(1), .machine-table td:nth-child(1) { width: 280px !important; }

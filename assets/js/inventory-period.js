@@ -1,6 +1,5 @@
 const vietnamDate = new Intl.DateTimeFormat('sv-SE', { timeZone: 'Asia/Ho_Chi_Minh' });
 const dayMs = 86_400_000;
-export const inventoryBalanceNote = 'Tồn đầu/cuối kỳ được tính ngược từ tồn hiện tại và lịch sử nhập/xuất. Điều chỉnh tồn trực tiếp không có trong lịch sử có thể làm lệch số liệu.';
 
 export function defaultInventoryPeriod(now = new Date()) {
   const end = vietnamDate.format(now);

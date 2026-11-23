@@ -1,8 +1,8 @@
-import { defaultInventoryPeriod, inventoryBalances, inventoryBalanceNote } from "./inventory-period.js?v=1";
+import { defaultInventoryPeriod, inventoryBalances } from "./inventory-period.js?v=2";
 import { initTurningPreview } from "./fanuc-turning.js?v=11";
 import {openCncTransfer,clearCncTransferSessions} from "./cnc-transfer-ui.js?v=20261111-viewer-controls";
 import {buildCncReport,vnDate} from "./cnc-reports.js?v=20261111-viewer-controls";
-﻿import { downloadInventoryWorkbook } from "./inventory-xlsx.js?v=20261123-stock-period";
+﻿import { downloadInventoryWorkbook } from "./inventory-xlsx.js?v=20261123-stock-month";
 import { maintenancePlan, repairHistoryForm, alarmHistoryForm, movementVoucherForm, downloadMaintenanceWorkbook } from "./maintenance-xlsx.js?v=20261111-viewer-controls";
 import {renderMachineModel} from "./cnc-machine-shop.js?v=20261109-work-offset-tray";
 import {renderCncOperatorScreen} from "./cnc-operator-screen.js?v=20261110-transfer-tool";
@@ -38,25 +38,11 @@ import { cncDisplayState, cncIsFresh, cncMeasurement, cncMode, cncDuration, cncS
     let adminAuditOpen = false;
     let manualLoginInProgress = false;
 
-    const inventoryFrom = document.querySelector("#inventoryFrom");
-    const inventoryTo = document.querySelector("#inventoryTo");
-    const inventoryPeriodNote = document.querySelector("#inventoryPeriodNote");
-    let useCurrentInventoryMonth = true;
-
-    function refreshDefaultInventoryPeriod() {
-      if (!useCurrentInventoryMonth) return false;
-      const { start, end } = defaultInventoryPeriod();
-      if (inventoryFrom.value === start && inventoryTo.value === end) return false;
-      inventoryFrom.value = start;
-      inventoryTo.value = end;
-      return true;
-    }
-    refreshDefaultInventoryPeriod();
-
-    function selectedInventoryPeriod() {
-      refreshDefaultInventoryPeriod();
-      return { start: inventoryFrom.value, end: inventoryTo.value };
-    }
+    const movementFrom = document.querySelector("#movementFrom");
+    const movementTo = document.querySelector("#movementTo");
+    const movementDate = new Intl.DateTimeFormat("vi-VN", { timeZone: "Asia/Ho_Chi_Minh", dateStyle: "short" });
+    const movementTime = new Intl.DateTimeFormat("vi-VN", { timeZone: "Asia/Ho_Chi_Minh", timeStyle: "medium" });
+    let renderedInventoryDay;
 
     const number = new Intl.NumberFormat("vi-VN");
 
@@ -582,7 +568,7 @@ import { cncDisplayState, cncIsFresh, cncMeasurement, cncMode, cncDuration, cncS
         els.pageHeading.textContent = "TỔNG QUAN HỆ THỐNG LTD";
         els.pageSubtitle.textContent = "Theo dõi nhanh tồn kho, cảnh báo bảo trì, trạng thái máy CNC và hoạt động gần đây.";
       } else if(pageId === "inventoryPage") {
-        if (refreshDefaultInventoryPeriod()) render();
+        refreshVisibleInventoryMonth();
         els.pageHeading.textContent = "HỆ THỐNG KHO LTD";
         els.pageSubtitle.textContent = "Quản lý linh kiện bảo trì: mã linh kiện, vị trí kệ và số lượng còn trong kho.";
       } else if(pageId === "cncMonitoringPage") {
@@ -728,13 +714,10 @@ import { cncDisplayState, cncIsFresh, cncMeasurement, cncMode, cncDuration, cncS
         return (!term || h.includes(term)) && (!skuTerm || String(i.sku ?? "").toLowerCase().includes(skuTerm)) && (cat === "all" || i.category === cat) && (stat === "all" || itemStatus(i) === stat);
       }).sort((a, b) => a.name.localeCompare(b.name, "vi"));
 
-      let balances;
-      try {
-        balances = inventoryBalances(items, stockMovements, selectedInventoryPeriod());
-        inventoryPeriodNote.textContent = inventoryHistoryLoaded ? inventoryBalanceNote : "Chưa tải được lịch sử kho. Xuất Excel sẽ thử đồng bộ lại.";
-      } catch (error) {
-        inventoryPeriodNote.textContent = error.message;
-      }
+      const now = new Date();
+      const period = defaultInventoryPeriod(now);
+      renderedInventoryDay = period.end;
+      const balances = inventoryHistoryLoaded ? inventoryBalances(items, stockMovements, period, now) : undefined;
       const formatBalance = value => value == null ? "—" : number.format(value);
       els.resultCount.textContent = `${rows.length} linh kiện`;
       if (!rows.length) {
@@ -776,15 +759,29 @@ import { cncDisplayState, cncIsFresh, cncMeasurement, cncMode, cncDuration, cncS
     }
 
     function renderMovementHistory() {
-      const rows = [...stockMovements].sort((a, b) => new Date(b.at) - new Date(a.at)).slice(0, 100);
+      const from = movementFrom.value;
+      const to = movementTo.value;
+      const filtered = Boolean(from || to);
+      const validRange = !from || !to || from <= to;
+      const entries = stockMovements.map(entry => ({ entry, at: Date.parse(entry.at) }));
+      const matching = validRange ? entries.filter(({ at }) => {
+        if (!filtered) return true;
+        if (!Number.isFinite(at)) return false;
+        const day = vnDate(at);
+        return (!from || day >= from) && (!to || day <= to);
+      }).sort((a, b) => (b.at || 0) - (a.at || 0)) : [];
+      const rows = filtered ? matching : matching.slice(0, 100);
       if (!rows.length) {
-        els.movementHistoryList.innerHTML = `<tr><td colspan="9" class="empty">Chưa phát sinh giao dịch nhập hoặc xuất linh kiện.</td></tr>`;
+        const message = !validRange ? "Từ ngày phải trước hoặc bằng Đến ngày."
+          : filtered ? "Không có giao dịch trong khoảng ngày này."
+          : "Chưa phát sinh giao dịch nhập hoặc xuất linh kiện.";
+        els.movementHistoryList.innerHTML = `<tr><td colspan="9" class="empty">${message}</td></tr>`;
         return;
       }
-      els.movementHistoryList.innerHTML = rows.map(m => {
+      els.movementHistoryList.innerHTML = rows.map(({ entry: m, at }) => {
         const typeLabel = m.type === "in" ? "Nhập kho" : "Xuất kho";
         const typeClass = m.type === "in" ? "ok" : "warn";
-        return `<tr><td><strong>${formatDateDisplay(m.at)}</strong><div class="meta">${new Date(m.at).toLocaleTimeString("vi-VN")}</div></td><td><span class="pill ${typeClass}">${typeLabel}</span></td><td><strong>${escapeHtml(m.itemName || "-")}</strong><div class="meta">${escapeHtml(m.sku || "")}</div></td><td><strong>${escapeHtml(m.amount)}</strong></td><td>${escapeHtml(m.beforeQuantity ?? "—")}</td><td><strong>${escapeHtml(m.afterQuantity ?? "—")}</strong></td><td class="col-text-wide">${textEllipsisCell(m.note || "-", "Lý do giao dịch")}</td><td>${escapeHtml(m.actor || "-")}</td><td><button class="btn" type="button" data-cmms-action="exportMovementVoucher" data-cmms-id="${escapeHtml(m.id)}">In phiếu</button></td></tr>`;
+        return `<tr><td><strong>${Number.isFinite(at) ? movementDate.format(at) : "—"}</strong><div class="meta">${Number.isFinite(at) ? movementTime.format(at) : ""}</div></td><td><span class="pill ${typeClass}">${typeLabel}</span></td><td><strong>${escapeHtml(m.itemName || "-")}</strong><div class="meta">${escapeHtml(m.sku || "")}</div></td><td><strong>${escapeHtml(m.amount)}</strong></td><td>${escapeHtml(m.beforeQuantity ?? "—")}</td><td><strong>${escapeHtml(m.afterQuantity ?? "—")}</strong></td><td class="col-text-wide">${textEllipsisCell(m.note || "-", "Lý do giao dịch")}</td><td>${escapeHtml(m.actor || "-")}</td><td><button class="btn" type="button" data-cmms-action="exportMovementVoucher" data-cmms-id="${escapeHtml(m.id)}">In phiếu</button></td></tr>`;
       }).join("");
     }
 
@@ -1703,16 +1700,13 @@ import { cncDisplayState, cncIsFresh, cncMeasurement, cncMode, cncDuration, cncS
     els.searchInput.addEventListener("input", render);
     els.skuSearchInput.addEventListener("input", render);
     els.categoryFilter.addEventListener("change", render);
-    for (const date of [inventoryFrom, inventoryTo]) date.addEventListener("change", () => {
-      useCurrentInventoryMonth = false;
-      render();
-    });
-    document.querySelector("#inventoryThisMonth").addEventListener("click", () => {
-      useCurrentInventoryMonth = true;
-      render();
+    for (const date of [movementFrom, movementTo]) date.addEventListener("change", renderMovementHistory);
+    document.querySelector("#movementClearDates").addEventListener("click", () => {
+      movementFrom.value = movementTo.value = "";
+      renderMovementHistory();
     });
     function refreshVisibleInventoryMonth() {
-      if (!document.hidden && !els.inventoryPage.hidden && refreshDefaultInventoryPeriod()) render();
+      if (!document.hidden && !els.inventoryPage.hidden && renderedInventoryDay !== defaultInventoryPeriod().end) render();
     }
     document.addEventListener("visibilitychange", refreshVisibleInventoryMonth);
     setInterval(refreshVisibleInventoryMonth, 60000);
@@ -1770,8 +1764,7 @@ import { cncDisplayState, cncIsFresh, cncMeasurement, cncMode, cncDuration, cncS
     els.exportBtn.addEventListener("click", async () => {
       els.exportBtn.disabled = true;
       try {
-        const period = selectedInventoryPeriod();
-        inventoryBalances([], [], period);
+        const period = defaultInventoryPeriod();
         const [inventory, movements] = await Promise.all([
           fbFetch("items", "GET", null, true),
           fbFetch("stockMovements", "GET", null, true),

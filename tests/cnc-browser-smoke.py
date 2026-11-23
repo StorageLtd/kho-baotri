@@ -68,10 +68,18 @@ window.seedDayFixture = () => {cncDayOwner=getUser().uid;cncDayStats.set('neway-
                 'incoming':{'itemId':'inventory-fixture','type':'in','amount':10,'at':'2026-11-05T02:30:00Z'},
                 'outgoing':{'itemId':'inventory-fixture','type':'out','amount':3,'at':'2026-11-06T02:30:00Z'},
             }))
-            await page.locator('#inventoryFrom').fill('2026-11-05')
-            await page.locator('#inventoryTo').fill('2026-11-05')
+            current_clock = await page.evaluate('new Date().toISOString()')
+            await page.clock.set_system_time('2026-11-23T10:00:00+07:00')
+            await page.evaluate("document.dispatchEvent(new Event('visibilitychange'))")
+            assert await page.locator('#inventorySection input[type=date]').count() == 0
+            movement_row = page.locator('#movementHistoryList tr').first
+            assert (await movement_row.locator('td').all_inner_texts())[4:6] == ['10','7']
+            await page.locator('#movementFrom').fill('2026-11-05')
+            await page.locator('#movementTo').fill('2026-11-05')
+            assert await page.locator('#movementHistoryList tr').count() == 1
+            assert (await movement_row.locator('td').all_inner_texts())[4:6] == ['0','10']
             assert await page.locator('#inventoryBody tr').first.locator('td').nth(3).inner_text() == 'cái'
-            assert await page.locator('#inventoryBody .inventory-amount').all_inner_texts() == ['0','10','0','10']
+            assert await page.locator('#inventoryBody .inventory-amount').all_inner_texts() == ['0','10','3','7']
             async with page.expect_download() as inventory_info:
                 await page.get_by_role('button',name='Xuất Excel linh kiện',exact=True).click()
             inventory_download=await inventory_info.value
@@ -80,19 +88,15 @@ window.seedDayFixture = () => {cncDayOwner=getUser().uid;cncDayStats.set('neway-
             from zipfile import ZipFile
             with ZipFile('/tmp/inventory-browser.xlsx') as inventory_zip:
                 sheet = inventory_zip.read('xl/worksheets/sheet1.xml').decode()
-                assert all(text in sheet for text in ('Đơn vị tính','cái','Tồn đầu kỳ','Nhập kho','Xuất kho','Tồn cuối kỳ','<v>10</v>','05/11/2026'))
-            movement_row = page.locator('#movementHistoryList tr').first
-            assert (await movement_row.locator('td').all_inner_texts())[4:6] == ['10','7']
-            current_clock = await page.evaluate('Date.now()')
+                assert all(text in sheet for text in ('Đơn vị tính','cái','Tồn đầu kỳ','Nhập kho','Xuất kho','Tồn cuối kỳ','<v>10</v>','01/11/2026','23/11/2026'))
+                assert 'Tồn đầu/cuối kỳ được tính' not in sheet
+                assert 'Nhập/xuất cộng theo toàn bộ lịch sử' not in sheet
+            await page.locator('#movementTo').fill('2026-11-04')
+            assert 'Từ ngày phải trước' in await movement_row.inner_text()
+            await page.locator('#movementClearDates').click()
+            assert await page.locator('#movementHistoryList tr').count() == 2
             await page.clock.set_system_time('2026-12-01T00:00:00+07:00')
             await page.evaluate("document.dispatchEvent(new Event('visibilitychange'))")
-            assert await page.locator('#inventoryFrom').input_value() == '2026-11-05'
-            await page.clock.set_system_time('2026-11-30T23:59:00+07:00')
-            await page.locator('#inventoryThisMonth').click()
-            assert await page.locator('#inventoryFrom').input_value() == '2026-11-01'
-            await page.clock.set_system_time('2026-12-01T00:00:00+07:00')
-            await page.evaluate("document.dispatchEvent(new Event('visibilitychange'))")
-            assert await page.locator('#inventoryFrom').input_value() == '2026-12-01'
             assert await page.locator('#inventoryBody .inventory-amount').all_inner_texts() == ['7','0','0','7']
             await page.clock.set_system_time(current_clock)
             await page.unroute('**/items.json?*')

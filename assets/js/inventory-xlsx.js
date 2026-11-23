@@ -1,4 +1,4 @@
-import {defaultInventoryPeriod,inventoryBalances,inventoryBalanceNote} from './inventory-period.js?v=1';
+import {defaultInventoryPeriod,inventoryBalances} from './inventory-period.js?v=2';
 import {zipWorkbook} from './cnc-xlsx.js?v=20261105-inventory';
 const esc=value=>String(value??'').replace(/[\x00-\x08\x0b\x0c\x0e-\x1f]/g,'').replaceAll('&','&amp;').replaceAll('<','&lt;').replaceAll('>','&gt;').replaceAll('"','&quot;');
 const col=index=>String.fromCharCode(65+index);
@@ -15,7 +15,6 @@ export function createInventoryWorkbook(items,{logoBytes,generatedAt=new Date(),
  const widths=[6,23,32,22,36,14,14,14,14,14,16,24,32];
  const rows=[row(1,[[2,'CÔNG TY LTD VIỆT NAM',1]],25),row(2,[[2,'BÁO CÁO TỒN KHO LINH KIỆN',2]],32),row(3,[[2,`Ngày xuất: ${timestamp}${actor?'   •   Người xuất: '+actor:''}`,3]],24),row(4,[],10),
  row(5,[[0,`Kỳ báo cáo: ${period.start.split('-').reverse().join('/')} – ${period.end.split('-').reverse().join('/')} (giờ Việt Nam)`,3]],22),
- row(6,[[0,inventoryBalanceNote,3]],24),
  row(8,headings.map((h,i)=>[i,h,8]),32)];
  items.forEach((item,index)=>{
   const y=index+9,textStyle=index%2?10:9,numStyle=index%2?12:11;
@@ -39,7 +38,7 @@ export function createInventoryWorkbook(items,{logoBytes,generatedAt=new Date(),
  });
  const footer=total+summary.length+2;
  rows.push(row(footer,[[0,'LTD VIỆT NAM  •  KHO LINH KIỆN & BẢO TRÌ',3]],24));
- const merges=['A1:B3','C1:M1','C2:M2','C3:M3','A5:M5','A6:M6',...(summary.length?[`A${total}:M${total}`]:[]),`A${footer}:M${footer}`];
+ const merges=['A1:B3','C1:M1','C2:M2','C3:M3','A5:M5',...(summary.length?[`A${total}:M${total}`]:[]),`A${footer}:M${footer}`];
  const files={};
  files['[Content_Types].xml']=`<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/><Default Extension="jpg" ContentType="image/jpeg"/><Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/><Override PartName="/xl/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.styles+xml"/><Override PartName="/xl/worksheets/sheet1.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/>${items.length?'<Override PartName="/xl/tables/table1.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.table+xml"/>':''}<Override PartName="/xl/drawings/drawing1.xml" ContentType="application/vnd.openxmlformats-officedocument.drawing+xml"/></Types>`;
  files['_rels/.rels']=`<Relationships xmlns="${relNs}"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="xl/workbook.xml"/></Relationships>`;
