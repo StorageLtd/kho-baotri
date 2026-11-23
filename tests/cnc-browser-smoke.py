@@ -61,11 +61,22 @@ window.seedDayFixture = () => {cncDayOwner=getUser().uid;cncDayStats.set('neway-
             await page.goto(f'http://127.0.0.1:{server.server_port}/', wait_until='networkidle')
             await page.wait_for_function("typeof window.renderFixture === 'function'")
             await page.evaluate("""renderInventoryFixture([{id:'inventory-fixture',name:'Cảm biến tiệm cận',sku:'000123',category:'Điện',specs:'M18 24VDC',quantity:1,min:2,price:220000,location:'A-01',supplier:'Máy CNC'}])""")
+            await page.route('**/items.json?*', lambda route: route.fulfill(json={'inventory-fixture':{'id':'inventory-fixture','sku':'000123','name':'Cảm biến','unit':'cái','quantity':7}}))
+            await page.route('**/stockMovements.json?*', lambda route: route.fulfill(json={
+                'incoming':{'itemId':'inventory-fixture','type':'in','amount':10},
+                'outgoing':{'itemId':'inventory-fixture','type':'out','amount':3},
+            }))
             async with page.expect_download() as inventory_info:
                 await page.get_by_role('button',name='Xuất Excel linh kiện',exact=True).click()
             inventory_download=await inventory_info.value
             assert inventory_download.suggested_filename.endswith('.xlsx')
             await inventory_download.save_as('/tmp/inventory-browser.xlsx')
+            from zipfile import ZipFile
+            with ZipFile('/tmp/inventory-browser.xlsx') as inventory_zip:
+                sheet = inventory_zip.read('xl/worksheets/sheet1.xml').decode()
+                assert all(text in sheet for text in ('Đơn vị tính','cái','Tổng nhập kho','Tổng xuất kho','<v>10</v>','<v>3</v>'))
+            await page.unroute('**/items.json?*')
+            await page.unroute('**/stockMovements.json?*')
             for kind in ['in','out']:
                 async with page.expect_download() as voucher_info:
                     await page.evaluate('(kind)=>exportVoucherFixture(kind)',kind)

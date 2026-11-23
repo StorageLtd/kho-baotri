@@ -2,54 +2,79 @@ import {zipWorkbook} from './cnc-xlsx.js?v=20261105-inventory';
 const esc=value=>String(value??'').replace(/[\x00-\x08\x0b\x0c\x0e-\x1f]/g,'').replaceAll('&','&amp;').replaceAll('<','&lt;').replaceAll('>','&gt;').replaceAll('"','&quot;');
 const col=index=>String.fromCharCode(65+index);
 const numeric=value=>value!==null&&value!==undefined&&String(value).trim()!==''&&Number.isFinite(Number(value))?Number(value):null;
-const status=item=>{const q=numeric(item.quantity),min=numeric(item.min);return q===null?'Chưa có số liệu':q<=0?'Hết hàng':min!==null&&q<=min?'Cần bổ sung':'Đủ tồn'};
+function tallyMovements(items,movements){
+ const byId=new Map(items.filter(item=>item.id).map(item=>[item.id,item]));
+ const bySku=new Map();
+ for(const item of items){
+  const sku=String(item.sku??'').trim().toUpperCase();
+  if(sku)bySku.set(sku,bySku.has(sku)?null:item);
+ }
+ const totals=new Map(items.map(item=>[item,{in:0,out:0}]));
+ for(const movement of movements){
+  if(!movement||!['in','out'].includes(movement.type))continue;
+  const item=movement.itemId?byId.get(movement.itemId):bySku.get(String(movement.sku??'').trim().toUpperCase());
+  const amount=numeric(movement.amount);
+  if(item&&amount>0)totals.get(item)[movement.type]+=amount;
+ }
+ return totals;
+}
 const xmlNs='http://schemas.openxmlformats.org/spreadsheetml/2006/main';
 const relNs='http://schemas.openxmlformats.org/package/2006/relationships';
 function cell(ref,value,style){return value===null||value===undefined?`<c r="${ref}" s="${style}"/>`:typeof value==='number'?`<c r="${ref}" s="${style}"><v>${value}</v></c>`:`<c r="${ref}" s="${style}" t="inlineStr"><is><t xml:space="preserve">${esc(value)}</t></is></c>`}
 function row(number,values,height=30){return `<row r="${number}" ht="${height}" customHeight="1">${values.map(([column,value,style])=>cell(col(column)+number,value,style)).join('')}</row>`}
-export function createInventoryWorkbook(items,{logoBytes,generatedAt=new Date(),actor=''}={}){
+export function createInventoryWorkbook(items,{logoBytes,generatedAt=new Date(),actor='',movements=[]}={}){
  if(!(logoBytes instanceof Uint8Array)||!logoBytes.length)throw new Error('Chưa tải được logo LTD. Vui lòng thử lại.');
  const timestamp=new Intl.DateTimeFormat('vi-VN',{timeZone:'Asia/Ho_Chi_Minh',year:'numeric',month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit',hourCycle:'h23'}).format(generatedAt);
- const quantity=items.reduce((sum,item)=>sum+(numeric(item.quantity)??0),0);
- const need=items.filter(item=>['Hết hàng','Cần bổ sung'].includes(status(item))).length;
- const headings=['STT','Mã SKU','Tên linh kiện','Nhóm linh kiện','Thông số kỹ thuật','Tồn thực tế','Tồn tối thiểu','Trạng thái','Vị trí kệ','Thiết bị áp dụng','Ghi chú'];
+ const totals=tallyMovements(items,movements);
+ const unitTotals=new Map();
+ const headings=['STT','Mã SKU','Tên linh kiện','Nhóm linh kiện','Thông số kỹ thuật','Đơn vị tính','Tổng nhập kho','Tổng xuất kho','Tồn thực tế','Vị trí kệ','Thiết bị áp dụng','Ghi chú'];
+ const widths=[6,23,32,22,36,16,16,16,14,16,24,32];
  const rows=[row(1,[[2,'CÔNG TY LTD VIỆT NAM',1]],25),row(2,[[2,'BÁO CÁO TỒN KHO LINH KIỆN',2]],32),row(3,[[2,`Ngày xuất: ${timestamp}${actor?'   •   Người xuất: '+actor:''}`,3]],24),row(4,[],10),
- row(5,[[0,'DANH MỤC',4],[3,'TỔNG SỐ LƯỢNG',4],[6,'CẦN BỔ SUNG',4]],22),
- row(6,[[0,items.length,5],[3,quantity,Number.isInteger(quantity)?5:23],[6,need,6]],34),row(7,[],12),row(8,headings.map((h,i)=>[i,h,8]),32)];
+ row(5,[[0,'Nhập/xuất cộng theo toàn bộ lịch sử đã ghi của các linh kiện trong báo cáo.',3]],22),
+ row(8,headings.map((h,i)=>[i,h,8]),32)];
  items.forEach((item,index)=>{
-  const y=index+9,state=status(item),textStyle=index%2?10:9,numStyle=index%2?12:11;
-  const values=[index+1,item.sku??'',item.name??'',item.category??'',item.specs??'',numeric(item.quantity),numeric(item.min),state,item.location??'',item.supplier??'',item.note??''];
-  // Estimate wrapped lines from column widths rather than clipping long names/specifications.
-  const widths=[6,23,32,22,36,13,13,19,16,24,32];
+  const y=index+9,textStyle=index%2?10:9,numStyle=index%2?12:11;
+  const unit=String(item.unit??'').trim(), key=unit.toLocaleLowerCase('vi');
+  const amount=totals.get(item);
+  if(!unitTotals.has(key))unitTotals.set(key,{unit:unit||'Chưa khai báo',in:0,out:0});
+  const unitTotal=unitTotals.get(key);
+  unitTotal.in+=amount.in;
+  unitTotal.out+=amount.out;
+  const values=[index+1,item.sku??'',item.name??'',item.category??'',item.specs??'',unit,amount.in,amount.out,numeric(item.quantity),item.location??'',item.supplier??'',item.note??''];
   const lines=Math.max(...values.map((v,i)=>String(v??'').split('\n').reduce((sum,line)=>sum+Math.max(1,Math.ceil(line.length/Math.max(1,widths[i]-3))),0)));
-  rows.push(row(y,values.map((v,i)=>[i,v,i===7?(state==='Hết hàng'?15:state==='Cần bổ sung'?16:state==='Đủ tồn'?17:textStyle):[0,5,6].includes(i)?(typeof v==='number'&&!Number.isInteger(v)?(index%2?22:21):numStyle):textStyle]),Math.min(240,Math.max(34,lines*15+12))));
+  rows.push(row(y,values.map((v,i)=>[i,v,[0,6,7,8].includes(i)?(typeof v==='number'&&!Number.isInteger(v)?(index%2?22:21):numStyle):textStyle]),Math.min(240,Math.max(34,lines*15+12))));
  });
  const last=items.length+8,total=last+2;
- rows.push(row(total,[[0,'TỔNG CỘNG',18],[5,quantity,Number.isInteger(quantity)?19:24]],30));
- rows.push(row(total+2,[[0,'LTD VIỆT NAM  •  KHO LINH KIỆN & BẢO TRÌ',3]],24));
- const merges=['A1:B3','C1:K1','C2:K2','C3:K3','A5:C5','D5:F5','G5:K5','A6:C6','D6:F6','G6:K6',`A${total}:E${total}`,`A${total+2}:K${total+2}`];
+ const summary=items.length?[...unitTotals.values()]:[];
+ if(summary.length)rows.push(row(total,[[0,'TỔNG KẾT NHẬP / XUẤT THEO ĐƠN VỊ TÍNH',18]],30));
+ summary.forEach(({unit,in:received,out:issued},index)=>{
+  rows.push(row(total+index+1,[[5,unit,18],[6,received,Number.isInteger(received)?19:24],[7,issued,Number.isInteger(issued)?19:24]]));
+ });
+ const footer=total+summary.length+2;
+ rows.push(row(footer,[[0,'LTD VIỆT NAM  •  KHO LINH KIỆN & BẢO TRÌ',3]],24));
+ const merges=['A1:B3','C1:L1','C2:L2','C3:L3','A5:L5',...(summary.length?[`A${total}:L${total}`]:[]),`A${footer}:L${footer}`];
  const files={};
  files['[Content_Types].xml']=`<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/><Default Extension="jpg" ContentType="image/jpeg"/><Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/><Override PartName="/xl/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.styles+xml"/><Override PartName="/xl/worksheets/sheet1.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/>${items.length?'<Override PartName="/xl/tables/table1.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.table+xml"/>':''}<Override PartName="/xl/drawings/drawing1.xml" ContentType="application/vnd.openxmlformats-officedocument.drawing+xml"/></Types>`;
  files['_rels/.rels']=`<Relationships xmlns="${relNs}"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="xl/workbook.xml"/></Relationships>`;
- files['xl/workbook.xml']=`<workbook xmlns="${xmlNs}" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"><bookViews><workbookView/></bookViews><sheets><sheet name="Tồn kho linh kiện" sheetId="1" r:id="rId1"/></sheets><definedNames><definedName name="_xlnm.Print_Titles" localSheetId="0">'Tồn kho linh kiện'!$8:$8</definedName><definedName name="_xlnm.Print_Area" localSheetId="0">'Tồn kho linh kiện'!$A$1:$L$${total+2}</definedName></definedNames></workbook>`;
+ files['xl/workbook.xml']=`<workbook xmlns="${xmlNs}" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"><bookViews><workbookView/></bookViews><sheets><sheet name="Tồn kho linh kiện" sheetId="1" r:id="rId1"/></sheets><definedNames><definedName name="_xlnm.Print_Titles" localSheetId="0">'Tồn kho linh kiện'!$8:$8</definedName><definedName name="_xlnm.Print_Area" localSheetId="0">'Tồn kho linh kiện'!$A$1:$L$${footer}</definedName></definedNames></workbook>`;
  files['xl/_rels/workbook.xml.rels']=`<Relationships xmlns="${relNs}"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet1.xml"/><Relationship Id="rIdStyles" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles" Target="styles.xml"/></Relationships>`;
  const fonts=[['11','173D35',''],['13','0F5945','<b/>'],['22','123D31','<b/>'],['10','6A7E75',''],['10','5D756B','<b/>'],['21','123D31','<b/>'],['21','B36C11','<b/>'],['11','FFFFFF','<b/>'],['10','BC3F3F','<b/>'],['10','A66A13','<b/>'],['10','167454','<b/>'],['11','123D31','<b/>']];
  const fills=['none','gray125','FFFFFF','F2F7F4','EAF3EE','0F5945','FFF0EF','FFF6E5','E9F5EF'];
  // style: font, fill, border, number-format, horizontal alignment
  const specs=[[0,0,0,0,'left'],[1,0,0,0,'left'],[2,0,0,0,'left'],[3,0,0,0,'left'],[4,4,0,0,'left'],[5,4,0,164,'left'],[6,4,0,164,'left'],[5,4,0,165,'left'],[7,5,1,0,'center'],[0,2,1,0,'left'],[0,3,1,0,'left'],[0,2,1,164,'right'],[0,3,1,164,'right'],[0,2,1,165,'right'],[0,3,1,165,'right'],[8,6,1,0,'center'],[9,7,1,0,'center'],[10,8,1,0,'center'],[11,4,1,0,'left'],[11,4,1,164,'right'],[11,4,1,165,'right'],[0,2,1,166,'right'],[0,3,1,166,'right'],[5,4,0,166,'left'],[11,4,1,166,'right']];
  files['xl/styles.xml']=`<styleSheet xmlns="${xmlNs}"><numFmts count="3"><numFmt numFmtId="164" formatCode="#,##0"/><numFmt numFmtId="166" formatCode="#,##0.00"/><numFmt numFmtId="165" formatCode="#,##0&quot; ₫&quot;"/></numFmts><fonts count="${fonts.length}">${fonts.map(([size,color,bold])=>`<font>${bold}<sz val="${size}"/><color rgb="FF${color}"/><name val="Calibri"/></font>`).join('')}</fonts><fills count="${fills.length}">${fills.map((color,i)=>i<2?`<fill><patternFill patternType="${color}"/></fill>`:`<fill><patternFill patternType="solid"><fgColor rgb="FF${color}"/><bgColor indexed="64"/></patternFill></fill>`).join('')}</fills><borders count="2"><border/><border><left style="thin"><color rgb="FFB7CFC3"/></left><right style="thin"><color rgb="FFB7CFC3"/></right><top style="thin"><color rgb="FFB7CFC3"/></top><bottom style="thin"><color rgb="FFB7CFC3"/></bottom></border></borders><cellStyleXfs count="1"><xf numFmtId="0" fontId="0" fillId="0" borderId="0"/></cellStyleXfs><cellXfs count="${specs.length}">${specs.map(([font,fill,border,format,align])=>`<xf numFmtId="${format}" fontId="${font}" fillId="${fill}" borderId="${border}" xfId="0" applyAlignment="1" applyNumberFormat="1"><alignment horizontal="${align}" vertical="center" wrapText="1" indent="1"/></xf>`).join('')}</cellXfs><cellStyles count="1"><cellStyle name="Normal" xfId="0" builtinId="0"/></cellStyles></styleSheet>`;
- files['xl/worksheets/sheet1.xml']=`<worksheet xmlns="${xmlNs}" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"><sheetPr><pageSetUpPr fitToPage="1"/></sheetPr><dimension ref="A1:K${total+2}"/><sheetViews><sheetView showGridLines="0" zoomScale="85" workbookViewId="0"><pane ySplit="8" topLeftCell="A9" activePane="bottomLeft" state="frozen"/></sheetView></sheetViews><sheetFormatPr defaultRowHeight="24"/><cols>${[6,23,32,22,36,13,13,19,16,24,32].map((width,i)=>`<col min="${i+1}" max="${i+1}" width="${width}" customWidth="1"/>`).join('')}</cols><sheetData>${rows.join('')}</sheetData>${items.length?'':'<autoFilter ref="A8:K8"/>'}<mergeCells count="${merges.length}">${merges.map(ref=>`<mergeCell ref="${ref}"/>`).join('')}</mergeCells><printOptions horizontalCentered="1"/><pageMargins left="0.25" right="0.25" top="0.4" bottom="0.4" header="0.15" footer="0.2"/><pageSetup paperSize="8" orientation="landscape" fitToWidth="1" fitToHeight="0"/><headerFooter><oddFooter>&amp;LLTD VIỆT NAM&amp;C${esc(timestamp)}&amp;RTrang &amp;P / &amp;N</oddFooter></headerFooter><drawing r:id="rIdLogo"/>${items.length?'<tableParts count="1"><tablePart r:id="rIdTable"/></tableParts>':''}</worksheet>`;
+ files['xl/worksheets/sheet1.xml']=`<worksheet xmlns="${xmlNs}" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"><sheetPr><pageSetUpPr fitToPage="1"/></sheetPr><dimension ref="A1:L${footer}"/><sheetViews><sheetView showGridLines="0" zoomScale="85" workbookViewId="0"><pane ySplit="8" topLeftCell="A9" activePane="bottomLeft" state="frozen"/></sheetView></sheetViews><sheetFormatPr defaultRowHeight="24"/><cols>${widths.map((width,i)=>`<col min="${i+1}" max="${i+1}" width="${width}" customWidth="1"/>`).join('')}</cols><sheetData>${rows.join('')}</sheetData>${items.length?'':'<autoFilter ref="A8:L8"/>'}<mergeCells count="${merges.length}">${merges.map(ref=>`<mergeCell ref="${ref}"/>`).join('')}</mergeCells><printOptions horizontalCentered="1"/><pageMargins left="0.25" right="0.25" top="0.4" bottom="0.4" header="0.15" footer="0.2"/><pageSetup paperSize="8" orientation="landscape" fitToWidth="1" fitToHeight="0"/><headerFooter><oddFooter>&amp;LLTD VIỆT NAM&amp;C${esc(timestamp)}&amp;RTrang &amp;P / &amp;N</oddFooter></headerFooter><drawing r:id="rIdLogo"/>${items.length?'<tableParts count="1"><tablePart r:id="rIdTable"/></tableParts>':''}</worksheet>`;
  files['xl/worksheets/_rels/sheet1.xml.rels']=`<Relationships xmlns="${relNs}"><Relationship Id="rIdLogo" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/drawing" Target="../drawings/drawing1.xml"/>${items.length?'<Relationship Id="rIdTable" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/table" Target="../tables/table1.xml"/>':''}</Relationships>`;
  files['xl/drawings/drawing1.xml']='<xdr:wsDr xmlns:xdr="http://schemas.openxmlformats.org/drawingml/2006/spreadsheetDrawing" xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main"><xdr:oneCellAnchor><xdr:from><xdr:col>0</xdr:col><xdr:colOff>76200</xdr:colOff><xdr:row>0</xdr:row><xdr:rowOff>76200</xdr:rowOff></xdr:from><xdr:ext cx="1752600" cy="763016"/><xdr:pic><xdr:nvPicPr><xdr:cNvPr id="1" name="Logo LTD"/><xdr:cNvPicPr><a:picLocks noChangeAspect="1"/></xdr:cNvPicPr></xdr:nvPicPr><xdr:blipFill><a:blip xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships" r:embed="rId1"/><a:stretch><a:fillRect/></a:stretch></xdr:blipFill><xdr:spPr><a:prstGeom prst="rect"><a:avLst/></a:prstGeom></xdr:spPr></xdr:pic><xdr:clientData/></xdr:oneCellAnchor></xdr:wsDr>';
  files['xl/drawings/_rels/drawing1.xml.rels']=`<Relationships xmlns="${relNs}"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/image" Target="../media/logo.jpg"/></Relationships>`;
- if(items.length)files['xl/tables/table1.xml']=`<table xmlns="${xmlNs}" id="1" name="LTDInventory" displayName="LTDInventory" ref="A8:K${last}" totalsRowShown="0"><autoFilter ref="A8:K${last}"/><tableColumns count="11">${headings.map((name,i)=>`<tableColumn id="${i+1}" name="${esc(name)}"/>`).join('')}</tableColumns><tableStyleInfo name="TableStyleMedium4" showFirstColumn="0" showLastColumn="0" showRowStripes="1" showColumnStripes="0"/></table>`;
+ if(items.length)files['xl/tables/table1.xml']=`<table xmlns="${xmlNs}" id="1" name="LTDInventory" displayName="LTDInventory" ref="A8:L${last}" totalsRowShown="0"><autoFilter ref="A8:L${last}"/><tableColumns count="${headings.length}">${headings.map((name,i)=>`<tableColumn id="${i+1}" name="${esc(name)}"/>`).join('')}</tableColumns><tableStyleInfo name="TableStyleMedium4" showFirstColumn="0" showLastColumn="0" showRowStripes="1" showColumnStripes="0"/></table>`;
  files['xl/media/logo.jpg']=logoBytes;
  return zipWorkbook(files);
 }
-export async function downloadInventoryWorkbook(items,{actor='',logoUrl=new URL('../../logo.jpg',import.meta.url)}={}){
+export async function downloadInventoryWorkbook(items,{actor='',movements=[],logoUrl=new URL('../../logo.jpg',import.meta.url)}={}){
  const response=await fetch(logoUrl,{signal:AbortSignal.timeout(15000)});
  if(!response.ok)throw new Error('Không tải được logo LTD. Vui lòng thử lại.');
- const blob=createInventoryWorkbook(items,{logoBytes:new Uint8Array(await response.arrayBuffer()),actor});
+ const blob=createInventoryWorkbook(items,{logoBytes:new Uint8Array(await response.arrayBuffer()),actor,movements});
  const url=URL.createObjectURL(blob),link=document.createElement('a');
  link.href=url;link.download=`LTD-Ton-kho-linh-kien-${new Intl.DateTimeFormat('sv-SE',{timeZone:'Asia/Ho_Chi_Minh'}).format(new Date())}.xlsx`;link.click();setTimeout(()=>URL.revokeObjectURL(url),10000);
 }

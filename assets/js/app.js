@@ -1,7 +1,7 @@
 import { initTurningPreview } from "./fanuc-turning.js?v=11";
 import {openCncTransfer,clearCncTransferSessions} from "./cnc-transfer-ui.js?v=20261111-viewer-controls";
 import {buildCncReport,vnDate} from "./cnc-reports.js?v=20261111-viewer-controls";
-﻿import { downloadInventoryWorkbook } from "./inventory-xlsx.js?v=20261105-no-prices";
+﻿import { downloadInventoryWorkbook } from "./inventory-xlsx.js?v=20261123-stock-movements";
 import { maintenancePlan, repairHistoryForm, alarmHistoryForm, movementVoucherForm, downloadMaintenanceWorkbook } from "./maintenance-xlsx.js?v=20261111-viewer-controls";
 import {renderMachineModel} from "./cnc-machine-shop.js?v=20261109-work-offset-tray";
 import {renderCncOperatorScreen} from "./cnc-operator-screen.js?v=20261110-transfer-tool";
@@ -109,6 +109,7 @@ import { cncDisplayState, cncIsFresh, cncMeasurement, cncMode, cncDuration, cncS
       quantityInput: document.querySelector("#quantityInput"),
       minInput: document.querySelector("#minInput"),
       locationInput: document.querySelector("#locationInput"),
+      unitInput: document.querySelector("#unitInput"),
       specsInput: document.querySelector("#specsInput"),
       noteInput: document.querySelector("#noteInput"),
       itemImageInput: document.querySelector("#itemImageInput"),
@@ -1296,6 +1297,7 @@ import { cncDisplayState, cncIsFresh, cncMeasurement, cncMode, cncDuration, cncS
       els.quantityInput.value = item?.quantity ?? 0;
       els.minInput.value = item?.min ?? 0;
       els.locationInput.value = item?.location || "";
+      els.unitInput.value = item?.unit || "";
       els.specsInput.value = item?.specs || "";
       els.noteInput.value = item?.note || "";
       els.itemImageInput.value = "";
@@ -1324,7 +1326,7 @@ import { cncDisplayState, cncIsFresh, cncMeasurement, cncMode, cncDuration, cncS
         category: els.categoryInput.value.trim(), supplier: els.supplierInput.value.trim(),
         quantity: Number(els.quantityInput.value), min: Number(els.minInput.value),
         location: els.locationInput.value.trim(),
-        specs: els.specsInput.value.trim(), note: els.noteInput.value.trim(),
+        unit: els.unitInput.value.trim(), specs: els.specsInput.value.trim(), note: els.noteInput.value.trim(),
         image: els.itemImageDataHidden.value || ""
       };
       const idx = items.findIndex(i => i.id === id);
@@ -1718,7 +1720,13 @@ import { cncDisplayState, cncIsFresh, cncMeasurement, cncMode, cncDuration, cncS
     els.exportBtn.addEventListener("click", async () => {
       els.exportBtn.disabled = true;
       try {
-        await downloadInventoryWorkbook(items, {actor: displayName()});
+        const [inventory, movements] = await Promise.all([
+          fbFetch("items", "GET", null, true),
+          fbFetch("stockMovements", "GET", null, true),
+        ]);
+        await downloadInventoryWorkbook(Object.values(inventory ?? {}), {
+          actor: displayName(), movements: Object.values(movements ?? {}),
+        });
         showToast("Đã xuất Excel tồn kho có logo LTD.");
       } catch (error) { showToast(error.message || "Không xuất được Excel. Vui lòng thử lại."); }
       finally { els.exportBtn.disabled = false; }
